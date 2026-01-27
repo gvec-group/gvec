@@ -312,14 +312,7 @@ def get_coils_from_json_file(filename: Path | str):
 
     coils_so = load(filename)[1]
 
-    gvec_coils = []
-    for coil in coils_so:
-        coil_points = coil.curve.gamma().T
-        coil_end = np.atleast_2d(coil_points[:, 0]).T
-        coil_points = np.concatenate([coil_points, coil_end], axis=-1)
-        gvec_coils.append(Coil(coil_points, coil.current.get_value()))
-
-    return CoilSet(gvec_coils)
+    return CoilSet.from_simsopt(coils_so)
 
 
 def quasr_fieldlines(

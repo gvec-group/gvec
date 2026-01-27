@@ -141,6 +141,25 @@ class Coil:
                 "First and last point of Coil is not the same! Please close the Coil."
             )
 
+    @classmethod
+    def from_simsopt(cls, coil):
+        """Initialize a gvec Coil from a simsopt Coil object.
+
+        Parameters
+        ----------
+        coil : simsopt.field.coil.Coil
+            simsopt coil object.
+
+        Returns
+        -------
+        Coil
+            GVEC coil object.
+        """
+        points = coil.curve.gamma().T
+        end = np.atleast_2d(points[:, 0]).T
+        points = np.concatenate([points, end], axis=-1)
+        return cls(points, coil.current.get_value())
+
     def __call__(self, pos: ArrayLike):
         return self.eval_B(pos)
 
@@ -368,6 +387,22 @@ class CoilSet(Coil):
             coils_dict[coil_name] = coil
             counter += 1
         self.coils = coils_dict
+
+    @classmethod
+    def from_simsopt(cls, coilset):
+        """Initialize a gvec CoilSet from a simsopt CoilSet object.
+
+        Parameters
+        ----------
+        coil : simsopt.field.coilset.CoilSet
+            simsopt coilset object.
+
+        Returns
+        -------
+        CoilSet
+            GVEC coilset object.
+        """
+        return cls([Coil.from_simsopt(coil) for coil in coilset])
 
     def __repr__(self):
         return_str = ""
