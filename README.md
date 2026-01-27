@@ -59,12 +59,11 @@ There you can also find the [issue tracker](https://gitlab.mpcdf.mpg.de/gvec-gro
 
 A public mirror of GVEC is hosted on [GitHub](https://github.com/gvec-group/gvec).
 There everyone can open [issues](https://github.com/gvec-group/gvec/issues) and [pull requests](https://github.com/gvec-group/gvec/pulls).
+
 **Contributions are always welcome!**
+More information on how to contribute can be found in the [developer documentation](https://gvec.readthedocs.io/latest/dev/index.html).
 
-For questions, discussions and announcements you can join the [matrix-chat channel](https://matrix.to/#/#gvec:mpg.de).
-
-More information on the structure of GVEC and some development guidlines can be found in the [developer documentation](https://gvec.readthedocs.io/latest/dev/index.html).
-If you don't know where to start, don't hesitate to contact [the maintainers](https://www.ipp.mpg.de/person/139885/5497858) directly.
+If you don't know where to start, don't hesitate to contact [the maintainers](https://www.ipp.mpg.de/person/139885/5497858) directly or join the [matrix-chat channel](https://matrix.to/#/#gvec:mpg.de) for questions and discussions.
 
 ## License
 
