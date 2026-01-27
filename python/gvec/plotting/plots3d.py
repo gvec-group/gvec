@@ -39,7 +39,7 @@ def plot_3d_surface(
         Plot the ``"full"`` surface, a ``"single"`` field period or ``"half"`` a field period.
         Default ``"single"``
     surface_kwargs : dict, optional
-        Keyword arguments for the surface plot. i.e. `dict(opacity=0.5)`
+        Keyword arguments for the surface plot. i.e. ``dict(opacity=0.5)``
     to_file : str
         If a string, will automatically save the plot to a file with the given input in the current working directory. Recommended to use this if the plots don't display.
         Default is ``None``
