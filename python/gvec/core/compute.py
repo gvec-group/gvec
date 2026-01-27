@@ -178,9 +178,8 @@ def compute(
     ev : xr.Dataset
         The evaluation dataset with the target grid ``(rad, pol, tor)``, coordinates ``(rho, theta, zeta)`` and possibly some precomputed quantities.
     *quantities : str
-        One or more names of the quantities to compute. See `table_of_quantities` for a list of available quantities.
-
-        See the `default table of available quantities </tutorials/notebooks/050_pygvec.html#available-quantities-for-evaluation>`_
+        One or more names of the quantities to compute.
+        See the :ref:`default table of available quantities <table-of-quantities>`
         or call ``table_of_quantities`` to see all options.
     state : gvec.State | None, optional
         A gvec.State object that can be used by quantities which require it. Not necessary if the desired quantities only depend on already computed quantities.
@@ -884,13 +883,12 @@ def evaluate(
     *quantities : str
         The names of (registered) quantities to evaluate, e.g. ``"pos"``, ``"B"``, ``"mod_B"``.
 
-        See the `default table of available quantities </tutorials/notebooks/050_pygvec.html#available-quantities-for-evaluation>`_
+        See the :ref:`default table of available quantities <table-of-quantities>`
         or call ``table_of_quantities`` to see all options.
     rho : "int" | int | float | 1D array | None, default: "int"
         The specification of the radial, radius-like coordinate ($\rho$), defined in the interval $[0, 1]$.
         It can be specified as:
 
-        - The literal string ``"int"`` to use the integration points from the state object.
         - The literal string ``"int"`` to use the integration points from the state object.
         - An integer number of points (e.g. ``rho=10``) to create a uniform grid (offset at the magnetic axis).
         - A float value (e.g. ``rho=0.5``) to evaluate at a single point.
@@ -961,7 +959,7 @@ def evaluate_sfl(
     *quantities : str
         The names of (registered) quantities to evaluate, e.g. ``"pos"``, ``"B"``, ``"mod_B"``.
 
-        See the `default table of available quantities </tutorials/notebooks/050_pygvec.html#available-quantities-for-evaluation>`_
+        See the :ref:`default table of available quantities <table-of-quantities>`
         or call ``table_of_quantities`` to see all options.
     rho : "int" | int | float | 1D array
         The specification of the radial, radius-like coordinate ($\rho$), defined in the interval $[0, 1]$.
