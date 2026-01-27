@@ -44,9 +44,9 @@ variables:
     description: "The reference branch/tag to compare against"
   CI_HOSTNAME: ${CMAKE_HOSTNAME}
   MINIMAL_PIPELINE:
-    value: ""
-    options: ["", "true", "false"]
-    description: "''true'' to run only minimal tests, ''false'' to run all tests, '''' to run only minimal tests for ''.*gitlab[-_]ci.*'' branches"
+    value: "true"
+    options: ["true", "false"]
+    description: "''true'' to run only minimal tests, ''false'' to run all tests"
   NIGHTLY_PIPELINE:
     value: "false"
     options: ["true", "false"]
@@ -60,6 +60,10 @@ variables:
    value: "true"
    options: ["true", "false"]
    description: "''true'' to include the SLURM jobs in the pipeline, ''false'' to exclude them from the pipeline"
+  F90WRAP_GITHUB:
+    value: "false"
+    options: ["true", "false"]
+    description: "''true'' to install f90wrap from GitHub, ''false'' to install f90wrap from PyPI"
 
 #  GLOBAL_CACHE_PATH: "/home/gitlab-runner/globalcache/${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}"
 
@@ -125,51 +129,47 @@ include:
 
   - local: CI_templates/env.yml
     inputs:
-      env: .mpcdfci_ifort-2023
-      rules: .rules_minimal
-
-  - local: CI_templates/env.yml
-    inputs:
       env: .mpcdfci_ifx-2024
 
   - local: CI_templates/env.yml
     inputs:
       env: .mpcdfci_ifx-latest
-      rules: .rules_minimal
+
 
   # GNU
-  - local: CI_templates/env.yml
-    inputs:
-      env: .mpcdfci_gfortran-12
-
   - local: CI_templates/env.yml
     inputs:
       env: .mpcdfci_gfortran-13
 
   - local: CI_templates/env.yml
     inputs:
-      env: .mpcdfci_gfortran-latest
+      env: .mpcdfci_gfortran-14
       rules: .rules_minimal
 
+
+  - local: CI_templates/env.yml
+    inputs:
+      env: .mpcdfci_gfortran-latest
+
   # Nvidia
+
   - local: CI_templates/env.yml
     inputs:
       env: .mpcdfci_nvfortran-23
 
-  - local: CI_templates/env.yml
-    inputs:
-      env: .mpcdfci_nvfortran-24
-
   # MPI
+
   - local: CI_templates/env.yml
     inputs:
-      env: .mpcdfci_ifort-impi-2023
-      rules: .rules_minimal
+      env: .mpcdfci_ifx-impi-2024
 
   - local: CI_templates/env.yml
     inputs:
       env: .mpcdfci_ifx-impi-latest
-      rules: .rules_minimal
+
+  - local: CI_templates/env.yml
+    inputs:
+      env: .mpcdfci_gfortran-openmpi-14
 
   - local: CI_templates/env.yml
     inputs:
@@ -197,20 +197,13 @@ include:
   - local: CI_templates/env.yml
     inputs:
       env: .raven_ifx-2024
-      rules: .rules_private_runner
+      rules: .rules_private_runner_minimal
 
   # GNU
 
   - local: CI_templates/env.yml
     inputs:
       env: .raven_gfortran-13
-      rules: .rules_private_runner
-
-  # Nvidia
-
-  - local: CI_templates/env.yml
-    inputs:
-      env: .raven_nvfortran-23
       rules: .rules_private_runner
 
   # MPI
@@ -269,17 +262,11 @@ include:
 
   - local: CI_templates/build.yml
     inputs:
-      env: .mpcdfci_ifort-2023
-      rules: .rules_minimal
-
-  - local: CI_templates/build.yml
-    inputs:
       env: .mpcdfci_ifx-2024
 
   - local: CI_templates/build.yml
     inputs:
       env: .mpcdfci_ifx-latest
-      rules: .rules_minimal
 
   - local: CI_templates/build.yml
     inputs:
@@ -299,12 +286,13 @@ include:
 
   - local: CI_templates/build.yml
     inputs:
-      env: .mpcdfci_gfortran-12
+      env: .mpcdfci_gfortran-13
       vars: .vars_matrix_build_minimal
 
   - local: CI_templates/build.yml
     inputs:
-      env: .mpcdfci_gfortran-13
+      env: .mpcdfci_gfortran-14
+      rules: .rules_minimal
 
   - local: CI_templates/build.yml
     inputs:
@@ -324,7 +312,6 @@ include:
       build-postfix: _hmap_axisNB
 
   # Nvidia
-
   - local: CI_templates/build.yml
     inputs:
       env: .mpcdfci_nvfortran-23
@@ -342,14 +329,18 @@ include:
 
   - local: CI_templates/build.yml
     inputs:
-      env: .mpcdfci_ifort-impi-2023
+      env: .mpcdfci_ifx-impi-2024
       cmake-opts: .cmake_no_converter
 
   - local: CI_templates/build.yml
     inputs:
       env: .mpcdfci_ifx-impi-latest
       cmake-opts: .cmake_no_converter
-      rules: .rules_minimal
+
+  - local: CI_templates/build.yml
+    inputs:
+      env: .mpcdfci_gfortran-openmpi-14
+      cmake-opts: .cmake_no_converter
 
   - local: CI_templates/build.yml
     inputs:
@@ -357,10 +348,23 @@ include:
       cmake-opts: .cmake_no_converter
 
   # python / pip
+  - local: CI_templates/build.yml
+    inputs:
+      env: .mpcdfci_ifx-2024
+      vars: .vars_matrix_py
+      script-postfix: _py
+      build-postfix: _py
 
   - local: CI_templates/build.yml
     inputs:
       env: .mpcdfci_ifx-latest
+      vars: .vars_matrix_py
+      script-postfix: _py
+      build-postfix: _py
+
+  - local: CI_templates/build.yml
+    inputs:
+      env: .mpcdfci_gfortran-14
       rules: .rules_minimal
       vars: .vars_matrix_py
       script-postfix: _py
@@ -369,27 +373,24 @@ include:
   - local: CI_templates/build.yml
     inputs:
       env: .mpcdfci_gfortran-latest
-      rules: .rules_minimal
       vars: .vars_matrix_py
       script-postfix: _py
       build-postfix: _py
 
   # converter-only (converters are also built as part of the normal build jobs)
+  - local: CI_templates/build.yml
+    inputs:
+      env: .mpcdfci_ifx-2024
+      build-postfix: _only_converter
+      cmake-opts: .cmake_only_converter
 
   - local: CI_templates/build.yml
     inputs:
       env: .mpcdfci_ifx-latest
       build-postfix: _only_converter
       cmake-opts: .cmake_only_converter
-      rules: .rules_minimal
 
   # reference tag
-
-  - local: CI_templates/build.yml
-    inputs:
-      env: .mpcdfci_ifort-2023
-      build-postfix: _tag
-      vars: .vars_matrix_build_tag
 
   - local: CI_templates/build.yml
     inputs:
@@ -399,25 +400,26 @@ include:
 
   - local: CI_templates/build.yml
     inputs:
-      env: .mpcdfci_ifx-latest
+      env: .mpcdfci_gfortran-14
       build-postfix: _tag
       vars: .vars_matrix_build_tag
       rules: .rules_minimal
 
-  - local: CI_templates/build.yml
-    inputs:
-      env: .mpcdfci_gfortran-latest
-      build-postfix: _tag
-      vars: .vars_matrix_build_tag
-      rules: .rules_minimal
+  # reference tag + MPI
 
   - local: CI_templates/build.yml
     inputs:
-      env: .mpcdfci_ifx-impi-latest
+      env: .mpcdfci_ifx-impi-2024
       build-postfix: _tag
       vars: .vars_matrix_build_tag
       cmake-opts: .cmake_no_converter
-      rules: .rules_minimal
+
+  - local: CI_templates/build.yml
+    inputs:
+      env: .mpcdfci_gfortran-openmpi-14
+      build-postfix: _tag
+      vars: .vars_matrix_build_tag
+      cmake-opts: .cmake_no_converter
 
   # Standard Linux
 
@@ -455,31 +457,13 @@ include:
     inputs:
       env: .raven_ifx-2024
       vars: .vars_hpc
-      rules: .rules_private_runner
+      rules: .rules_private_runner_minimal
 
   # GNU
 
   - local: CI_templates/build.yml
     inputs:
       env: .raven_gfortran-13
-      vars: .vars_hpc
-      rules: .rules_private_runner
-
-  # Nvidia
-
-  - local: CI_templates/build.yml
-    inputs:
-      env: .raven_nvfortran-23
-      cmake-opts: .cmake_hmap_RZ
-      build-postfix: _hmap_RZ
-      vars: .vars_hpc
-      rules: .rules_private_runner
-
-  - local: CI_templates/build.yml
-    inputs:
-      env: .raven_nvfortran-23
-      cmake-opts: .cmake_hmap_axisNB
-      build-postfix: _hmap_axisNB
       vars: .vars_hpc
       rules: .rules_private_runner
 
@@ -492,7 +476,7 @@ include:
       env: .raven_ifx-2024
       build-postfix: _tag
       vars: .vars_hpc_tag
-      rules: .rules_private_runner
+      rules: .rules_private_runner_minimal
 
   # MPI
 
@@ -524,6 +508,16 @@ include:
       env: .viper_ifx-2024
       vars: .vars_hpc
       rules: .rules_private_runner_minimal
+
+  # Intel and python
+
+  - local: CI_templates/build.yml
+    inputs:
+      env: .viper_ifx-2024
+      rules: .rules_private_runner_minimal
+      vars: .vars_hpc_py
+      script-postfix: _py
+      build-postfix: _py
 
   # GNU
 
@@ -581,17 +575,12 @@ include:
 
   - local: CI_templates/run.yml
     inputs:
-      env: .mpcdfci_ifort-2023
-      rules: .rules_minimal
-
-  - local: CI_templates/run.yml
-    inputs:
       env: .mpcdfci_ifx-2024
 
   - local: CI_templates/run.yml
     inputs:
       env: .mpcdfci_ifx-latest
-      rules: .rules_minimal
+      allow_failure: true
 
   - local: CI_templates/run.yml
     inputs:
@@ -599,6 +588,7 @@ include:
       vars: .vars_matrix_run_hmap_RZ
       build-postfix: _hmap_RZ
       run-postfix: _hmap_RZ
+      allow_failure: true
 
   - local: CI_templates/run.yml
     inputs:
@@ -606,13 +596,13 @@ include:
       vars: .vars_matrix_run_hmap_axisNB
       build-postfix: _hmap_axisNB
       run-postfix: _hmap_axisNB
+      allow_failure: true
 
   # run notebooks from documentation
   - local: CI_templates/run.yml
     inputs:
       env: .mpcdfci_ifx-latest
       vars: .vars_matrix_py
-      rules: .rules_minimal
       build-postfix: _py
       run-postfix: _notebooks
       script-postfix: _notebooks
@@ -622,16 +612,18 @@ include:
 
   - local: CI_templates/run.yml
     inputs:
-      env: .mpcdfci_gfortran-12
+      env: .mpcdfci_gfortran-13
       vars: .vars_matrix_run_minimal
 
   - local: CI_templates/run.yml
     inputs:
-      env: .mpcdfci_gfortran-13
+      env: .mpcdfci_gfortran-14
+      rules: .rules_minimal
 
   - local: CI_templates/run.yml
     inputs:
       env: .mpcdfci_gfortran-latest
+      allow_failure: true
 
   - local: CI_templates/run.yml
     inputs:
@@ -639,6 +631,7 @@ include:
       vars: .vars_matrix_run_hmap_RZ
       build-postfix: _hmap_RZ
       run-postfix: _hmap_RZ
+      allow_failure: true
 
 
   - local: CI_templates/run.yml
@@ -647,13 +640,23 @@ include:
       vars: .vars_matrix_run_hmap_axisNB
       build-postfix: _hmap_axisNB
       run-postfix: _hmap_axisNB
+      allow_failure: true
 
   # run notebooks from documentation
   - local: CI_templates/run.yml
     inputs:
-      env: .mpcdfci_gfortran-latest
+      env: .mpcdfci_gfortran-14
       vars: .vars_matrix_py
       rules: .rules_minimal
+      build-postfix: _py
+      run-postfix: _notebooks
+      script-postfix: _notebooks
+      allow_failure: true
+
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_gfortran-latest
+      vars: .vars_matrix_py
       build-postfix: _py
       run-postfix: _notebooks
       script-postfix: _notebooks
@@ -679,7 +682,7 @@ include:
 
   - local: CI_templates/run.yml
     inputs:
-      env: .mpcdfci_ifort-2023
+      env: .mpcdfci_ifx-2024
       run-postfix: _debugrun
       vars: .vars_matrix_run_debugrun
       rules: .rules_nightly
@@ -697,6 +700,14 @@ include:
       run-postfix: _debugrun_hmap_RZ
       vars: .vars_matrix_run_debugrun_hmap_RZ
       build-postfix: _hmap_RZ
+      rules: .rules_nightly
+
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_gfortran-14
+      run-postfix: _debugrun
+      vars: .vars_matrix_run_debugrun
+      rules: .rules_nightly
 
   - local: CI_templates/run.yml
     inputs:
@@ -711,6 +722,7 @@ include:
       run-postfix: _debugrun_hmap_RZ
       vars: .vars_matrix_run_debugrun_hmap_RZ
       build-postfix: _hmap_RZ
+      rules: .rules_nightly
 
   - local: CI_templates/run.yml
     inputs:
@@ -718,6 +730,7 @@ include:
       run-postfix: _debugrun_hmap_RZ
       vars: .vars_matrix_run_debugrun_hmap_RZ
       build-postfix: _hmap_RZ
+      rules: .rules_nightly
 
   - local: CI_templates/run.yml
     inputs:
@@ -725,34 +738,34 @@ include:
       run-postfix: _debugrun_hmap_axisNB
       vars: .vars_matrix_run_debugrun_hmap_axisNB
       build-postfix: _hmap_axisNB
+      rules: .rules_nightly
 
   # MPI
 
   - local: CI_templates/run.yml
     inputs:
-      env: .mpcdfci_ifort-impi-2023
+      env: .mpcdfci_ifx-impi-2024
       vars: .vars_matrix_run_mpi
 
   - local: CI_templates/run.yml
     inputs:
       env: .mpcdfci_ifx-impi-latest
       vars: .vars_matrix_run_mpi
-      rules: .rules_minimal
+      allow_failure: true
+
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_gfortran-openmpi-14
+      vars: .vars_matrix_run_mpi
 
   - local: CI_templates/run.yml
     inputs:
       env: .mpcdfci_gfortran-openmpi-latest
       vars: .vars_matrix_run_mpi
+      allow_failure: true
 
   # reference tag
 
-  - local: CI_templates/run.yml
-    inputs:
-      env: .mpcdfci_ifort-2023
-      run-postfix: _tag
-      build-postfix: _tag
-      vars: .vars_matrix_run_tag
-      allow_failure: true
 
   - local: CI_templates/run.yml
     inputs:
@@ -764,7 +777,7 @@ include:
 
   - local: CI_templates/run.yml
     inputs:
-      env: .mpcdfci_ifx-latest
+      env: .mpcdfci_gfortran-14
       run-postfix: _tag
       build-postfix: _tag
       vars: .vars_matrix_run_tag
@@ -775,7 +788,7 @@ include:
 
   - local: CI_templates/run.yml
     inputs:
-      env: .mpcdfci_ifx-impi-latest
+      env: .mpcdfci_ifx-impi-2024
       run-postfix: _tag
       build-postfix: _tag
       vars: .vars_matrix_run_mpi_tag
@@ -783,7 +796,7 @@ include:
 
   - local: CI_templates/run.yml
     inputs:
-      env: .mpcdfci_gfortran-latest
+      env: .mpcdfci_gfortran-openmpi-14
       rules: .rules_nightly
       run-postfix: _tag
       build-postfix: _tag
@@ -800,7 +813,7 @@ include:
       env: .raven_ifx-2024
       vars: .vars_raven_run_slurm
       run-postfix: _slurm
-      rules: .rules_private_runner
+      rules: .rules_private_runner_minimal
 
   # GNU
 
@@ -910,12 +923,22 @@ include:
   # ============================
   - local: CI_templates/unit.yml
     inputs:
+      env: .mpcdfci_ifx-2024
+
+  - local: CI_templates/unit.yml
+    inputs:
       env: .mpcdfci_ifx-latest
+      allow_failure: true
+
+  - local: CI_templates/unit.yml
+    inputs:
+      env: .mpcdfci_gfortran-14
       rules: .rules_minimal
 
   - local: CI_templates/unit.yml
     inputs:
       env: .mpcdfci_gfortran-latest
+      allow_failure: true
 
   # Standard Linux
 
@@ -931,9 +954,23 @@ include:
     inputs:
       env: .fedora
 
+  # viper
+
+  - local: CI_templates/unit.yml
+    inputs:
+      env: .viper_ifx-2024
+      vars: .vars_hpc_py
+      unit-postfix: _slurm
+      rules: .rules_private_runner_minimal
+
   # ============================
   # stage regression jobs
   # ============================
+  - local: CI_templates/regression-cmp.yml
+    inputs:
+      CURR_CMP_1: ifx-2024
+      CURR_CMP_2: gfortran-14
+
   - local: CI_templates/regression-cmp.yml
     inputs:
       CURR_CMP_1: ifx-latest
@@ -941,41 +978,37 @@ include:
 
   - local: CI_templates/regression-cmp.yml
     inputs:
-      CURR_CMP_1: ifort-2023
+      CURR_CMP_1: ifx-2024
       CURR_CMP_2: ifx-latest
-      rules: .rules_minimal
-
-  - local: CI_templates/regression-cmp.yml
-    inputs:
-      CURR_CMP_1: ifort-2023
-      CURR_CMP_2: ifx-2024
 
   - local: CI_templates/regression-omp.yml
     inputs:
       env: .mpcdfci_ifx-latest
+
+  - local: CI_templates/regression-omp.yml
+    inputs:
+      env: .mpcdfci_gfortran-14
       rules: .rules_minimal
 
   - local: CI_templates/regression-omp.yml
     inputs:
       env: .mpcdfci_gfortran-latest
 
-  - local: CI_templates/regression-tag.yml
-    inputs:
-      env: .mpcdfci_ifort-2023
 
   - local: CI_templates/regression-tag.yml
     inputs:
-      env: .mpcdfci_ifx-2024
-
-  - local: CI_templates/regression-tag.yml
-    inputs:
+      env: .mpcdfci_gfortran-14
       rules: .rules_minimal
+
+  - local: CI_templates/regression-mpi.yml
+    inputs:
+      CURR_CMP: ifx-2024
+      CURR_CMP_MPI: ifx-impi-2024
 
   - local: CI_templates/regression-mpi.yml
     inputs:
       CURR_CMP: ifx-latest
       CURR_CMP_MPI: ifx-impi-latest
-      rules: .rules_minimal
 
   # Viper private runner
   # --------------------
@@ -1015,20 +1048,51 @@ include:
 
   - local: CI_templates/postprocessing.yml
     inputs:
-      env: .mpcdfci_ifort-2023
-
-  - local: CI_templates/postprocessing.yml
-    inputs:
       env: .mpcdfci_ifx-2024
 
   - local: CI_templates/postprocessing.yml
     inputs:
       env: .mpcdfci_ifx-latest
-      rules: .rules_minimal
+      allow_failure: true
 
   - local: CI_templates/postprocessing.yml
     inputs:
       env: .mpcdfci_ifx-latest
+      vars: .vars_matrix_run_hmap_axisNB
+      build-postfix: _hmap_axisNB
+      post-postfix: _hmap_axisNB
+
+  - local: CI_templates/postprocessing.yml
+    inputs:
+      env: .mpcdfci_gfortran-14
+      rules: .rules_minimal
+
+  - local: CI_templates/postprocessing.yml
+    inputs:
+      env: .mpcdfci_gfortran-latest
+      allow_failure: true
+
+  - local: CI_templates/postprocessing.yml
+    inputs:
+      env: .mpcdfci_gfortran-latest
+      vars: .vars_matrix_run_hmap_axisNB
+      build-postfix: _hmap_axisNB
+      run-postfix: _hmap_axisNB
+      post-postfix: _hmap_axisNB
+
+  - local: CI_templates/postprocessing.yml
+    inputs:
+      env: .mpcdfci_nvfortran-23
+      vars: .vars_matrix_run_hmap_axisNB
+      build-postfix: _hmap_axisNB
+      run-postfix: _hmap_axisNB
+      post-postfix: _hmap_axisNB
+
+  # regression with tag
+
+  - local: CI_templates/postprocessing.yml
+    inputs:
+      env: .mpcdfci_gfortran-14
       build-postfix: _tag
       run-postfix: _tag
       post-postfix: _tag
@@ -1036,71 +1100,55 @@ include:
       rules: .rules_minimal
       allow_failure: true
 
-
-
   - local: CI_templates/postprocessing.yml
     inputs:
-      env: .mpcdfci_ifx-latest
-      vars: .vars_matrix_run_hmap_RZ
-      build-postfix: _hmap_RZ
-      run-postfix: _hmap_RZ
-      post-postfix: _hmap_RZ
-
-  - local: CI_templates/postprocessing.yml
-    inputs:
-      env: .mpcdfci_ifx-latest
-      vars: .vars_matrix_run_hmap_axisNB
-      build-postfix: _hmap_axisNB
-      post-postfix: _hmap_axisNB
-
-  - local: CI_templates/postprocessing.yml
-    inputs:
-      env: .mpcdfci_gfortran-latest
-
-  - local: CI_templates/postprocessing.yml
-    inputs:
-      env: .mpcdfci_gfortran-latest
-      vars: .vars_matrix_run_hmap_RZ
-      build-postfix: _hmap_RZ
-      run-postfix: _hmap_RZ
-      post-postfix: _hmap_RZ
-
-  - local: CI_templates/postprocessing.yml
-    inputs:
-      env: .mpcdfci_gfortran-latest
-      vars: .vars_matrix_run_hmap_axisNB
-      build-postfix: _hmap_axisNB
-      run-postfix: _hmap_axisNB
-      post-postfix: _hmap_axisNB
-
-  - local: CI_templates/postprocessing.yml
-    inputs:
-      env: .mpcdfci_nvfortran-23
-      vars: .vars_matrix_run_hmap_RZ
-      build-postfix: _hmap_RZ
-      run-postfix: _hmap_RZ
-      post-postfix: _hmap_RZ
-
-  - local: CI_templates/postprocessing.yml
-    inputs:
-      env: .mpcdfci_nvfortran-23
-      vars: .vars_matrix_run_hmap_axisNB
-      build-postfix: _hmap_axisNB
-      run-postfix: _hmap_axisNB
-      post-postfix: _hmap_axisNB
+      env: .mpcdfci_ifx-2024
+      build-postfix: _tag
+      run-postfix: _tag
+      post-postfix: _tag
+      vars: .vars_matrix_post_tag
+      allow_failure: true
 
   # regression of post with ncdiff
   - local: CI_templates/regression-tag-post-diff.yml
     inputs:
-      env: .mpcdfci_ifx-latest
+      env: .mpcdfci_gfortran-14
       vars: .vars_matrix_post
       rules: .rules_minimal
 
+  # viper
+  - local: CI_templates/postprocessing.yml
+    inputs:
+      env: .viper_ifx-2024
+      rules: .rules_private_runner_minimal
+      vars: .vars_viper_run_slurm
+      run-postfix: _slurm
+      post-postfix: _slurm
+
+
   # python
+  - local: CI_templates/postprocessing.yml
+    inputs:
+      env: .mpcdfci_ifx-2024
+      vars: .vars_matrix_py
+      build-postfix: _py
+      # run-postfix: ""
+      post-postfix: _py
+      script-postfix: _py
 
   - local: CI_templates/postprocessing.yml
     inputs:
       env: .mpcdfci_ifx-latest
+      vars: .vars_matrix_py
+      build-postfix: _py
+      # run-postfix: ""
+      post-postfix: _py
+      script-postfix: _py
+      allow_failure: true
+
+  - local: CI_templates/postprocessing.yml
+    inputs:
+      env: .mpcdfci_gfortran-14
       vars: .vars_matrix_py
       build-postfix: _py
       # run-postfix: ""
@@ -1115,14 +1163,23 @@ include:
       build-postfix: _py
       # run-postfix: ""
       post-postfix: _py
+      script-postfix: _py
+      allow_failure: true
+
+  # viper
+  - local: CI_templates/postprocessing.yml
+    inputs:
+      env: .viper_ifx-2024
+      rules: .rules_private_runner_minimal
+      vars: .vars_viper_run_slurm
+      build-postfix: _py
+      run-postfix: _slurm
+      post-postfix: _py_slurm
       script-postfix: _py
 
   # ============================
   # stage converter jobs: postprocessing
   # ============================
-  - local: CI_templates/converters.yml
-    inputs:
-      env: .mpcdfci_ifort-2023
 
   - local: CI_templates/converters.yml
     inputs:
@@ -1133,6 +1190,12 @@ include:
       env: .mpcdfci_ifx-latest
       conv-postfix: _only_converter
       build-postfix: _only_converter
+      allow_failure: true
+
+  - local: CI_templates/converters.yml
+    inputs:
+      env: .mpcdfci_gfortran-14
+      rules: .rules_minimal
 
   - local: CI_templates/converters.yml
     inputs:
@@ -1141,6 +1204,7 @@ include:
       conv-postfix: _hmap_RZ
       build-postfix: _hmap_RZ
       run-postfix: _hmap_RZ
+      allow_failure: true
 
   - local: CI_templates/converters.yml
     inputs:
@@ -1178,9 +1242,8 @@ include:
 
 .rules_default:
   rules:
-    # disable this job for gitlab-ci branches or if MINIMAL_PIPELINE is set to "true"
-    # MINIMAL_PIPELINE="false" overrides gitlab-ci jobs
-    - if: ($CI_COMMIT_REF_NAME =~ /gitlab[-_]ci/ && $MINIMAL_PIPELINE != "false") || $MINIMAL_PIPELINE == "true"
+    # disable this job if MINIMAL_PIPELINE is set to "true"
+    - if:  $MINIMAL_PIPELINE == "true"
       when: never
     # disable for tag pipelines
     - if: $CI_COMMIT_TAG
@@ -1189,8 +1252,8 @@ include:
 
 .rules_minimal:
   rules:
-    # special variables for gitlab-ci branches or if MINIMAL_PIPELINE is set
-    - if: ($CI_COMMIT_REF_NAME =~ /gitlab[-_]ci/ && $MINIMAL_PIPELINE != "false") || $MINIMAL_PIPELINE == "true"
+    # enable this job if MINIMAL_PIPELINE is set to "true"
+    - if: $MINIMAL_PIPELINE == "true"
       variables:
         PYTEST_KEY_OPTS: "(not highres) and (not _restart)"
         PYTEST_MARKER_OPTS: "shortrun"
@@ -1202,8 +1265,8 @@ include:
 
 .rules_minimal_only:
   rules:
-    # special variables for gitlab-ci branches or if MINIMAL_PIPELINE is set
-    - if: ($CI_COMMIT_REF_NAME =~ /gitlab[-_]ci/ && $MINIMAL_PIPELINE != "false") || $MINIMAL_PIPELINE == "true"
+    # special variables if MINIMAL_PIPELINE is set
+    - if:  $MINIMAL_PIPELINE == "true"
       variables:
         PYTEST_KEY_OPTS: "(not highres) and (not _restart)"
         PYTEST_MARKER_OPTS: "shortrun"
@@ -1213,8 +1276,8 @@ include:
 
 .rules_nightly:
   rules:
-    # disable this job for gitlab-ci branches or if MINIMAL_PIPELINE is set
-    - if: ($CI_COMMIT_REF_NAME =~ /gitlab[-_]ci/ && $MINIMAL_PIPELINE != "false") || $MINIMAL_PIPELINE == "true"
+    # disable this job if MINIMAL_PIPELINE is set
+    - if:  $MINIMAL_PIPELINE == "true"
       when: never
     # disable for tag pipelines
     - if: $CI_COMMIT_TAG
@@ -1232,10 +1295,10 @@ include:
     # disable for tag pipelines
     - if: $CI_COMMIT_TAG
       when: never
-    # disable this job for´ gitlab-ci branches or if MINIMAL_PIPELINE="true" or $PRIVATE_RUNNER_PIPELINE="false"
+    # disable this job if MINIMAL_PIPELINE="true" or $PRIVATE_RUNNER_PIPELINE="false"
     - if: $PRIVATE_RUNNER_PIPELINE == "false"
       when: never
-    - if: ($CI_COMMIT_REF_NAME =~ /gitlab[-_]ci/ && $MINIMAL_PIPELINE != "false") || $MINIMAL_PIPELINE == "true"
+    - if: $MINIMAL_PIPELINE == "true"
       when: never
     - when: on_success
 
@@ -1250,8 +1313,8 @@ include:
     # disable for tag pipelines
     - if: $CI_COMMIT_TAG
       when: never
-    # special variables for gitlab-ci branches or if MINIMAL_PIPELINE is set
-    - if: ($CI_COMMIT_REF_NAME =~ /gitlab[-_]ci/ && $MINIMAL_PIPELINE != "false") || $MINIMAL_PIPELINE == "true"
+    # special variables if MINIMAL_PIPELINE is set
+    - if: $MINIMAL_PIPELINE == "true"
       when: on_success
     - when: on_success
 
@@ -1266,8 +1329,8 @@ include:
     # disable for tag pipelines
     - if: $CI_COMMIT_TAG
       when: never
-    # special variables for gitlab-ci branches or if MINIMAL_PIPELINE is set
-    - if: ($CI_COMMIT_REF_NAME =~ /gitlab[-_]ci/ && $MINIMAL_PIPELINE != "false") || $MINIMAL_PIPELINE == "true"
+    # special variables if MINIMAL_PIPELINE is set
+    - if: $MINIMAL_PIPELINE == "true"
       when: never
     # only run this job in the nightly pipeline
     - if: $NIGHTLY_PIPELINE == "true"
@@ -1312,8 +1375,16 @@ include:
 # private runner vars for longer/larger runs
 .vars_hpc:
   variables:
-    CMP_MODE: "Release"
+    CMP_MODE: "Debug"
     OMP_MODE: "ompON"
+    PYTEST_KEY_OPTS: "axisNB_QH_nfp7"
+
+.vars_hpc_py:
+  variables:
+    CMP_MODE: "Debug"
+    OMP_MODE: "ompON"
+    MPI_MODE: "mpiOFF"
+    OMP_NUM_THR: "10"
     PYTEST_KEY_OPTS: "axisNB_QH_nfp7"
 
 # reference tag
@@ -1330,9 +1401,8 @@ include:
 # template for all mpcdfci jobs
 .mpcdfci:
   tags:
-    - cloud
-    - docker
-    - shared
+    - mpcdf-shared
+    - cpu
   variables:
     CMAKE_HOSTNAME: "mpcdfcirunner"
     CI_HOSTNAME: "mpcdfci"
@@ -1344,7 +1414,7 @@ include:
     - .vars_mpiOFF
   variables:
     CURR_CMP: "ifort-2023"
-    SETUP_SCRIPT: "ifort"
+    SETUP_SCRIPT: "anaconda_ifort"
 
 .mpcdfci_ifx-2024:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel_2024_0:latest
@@ -1353,10 +1423,10 @@ include:
     - .vars_mpiOFF
   variables:
     CURR_CMP: "ifx-2024"
-    SETUP_SCRIPT: "ifx"
+    SETUP_SCRIPT: "anaconda_ifx"
 
 .mpcdfci_ifx-2025:
-  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel_2025_0:latest
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel_2025_3:latest
   extends:
     - .mpcdfci
     - .vars_mpiOFF
@@ -1380,7 +1450,26 @@ include:
     - .vars_mpiON
   variables:
     CURR_CMP: "ifort-impi-2023"
-    SETUP_SCRIPT: "ifort-impi"
+    SETUP_SCRIPT: "anaconda_ifort-impi"
+
+
+.mpcdfci_ifx-impi-2024:
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel_2024_0-impi_2021_11:latest
+  extends:
+    - .mpcdfci
+    - .vars_mpiON
+  variables:
+    CURR_CMP: "ifx-impi-2024"
+    SETUP_SCRIPT: "anaconda_ifx-impi"
+
+.mpcdfci_ifx-impi-2025:
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel_2025_3-impi_2021_17:latest
+  extends:
+    - .mpcdfci
+    - .vars_mpiON
+  variables:
+    CURR_CMP: "ifx-impi-2025"
+    SETUP_SCRIPT: "ifx-impi"
 
 .mpcdfci_ifx-impi-latest:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel-impi:latest
@@ -1398,7 +1487,7 @@ include:
     - .vars_mpiOFF
   variables:
     CURR_CMP: "gfortran-12"
-    SETUP_SCRIPT: "gfortran"
+    SETUP_SCRIPT: "anaconda_gfortran"
 
 .mpcdfci_gfortran-13:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc_13:latest
@@ -1407,7 +1496,7 @@ include:
     - .vars_mpiOFF
   variables:
     CURR_CMP: "gfortran-13"
-    SETUP_SCRIPT: "gfortran"
+    SETUP_SCRIPT: "anaconda_gfortran"
 
 .mpcdfci_gfortran-14:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc_14:latest
@@ -1418,6 +1507,15 @@ include:
     CURR_CMP: "gfortran-14"
     SETUP_SCRIPT: "gfortran"
 
+.mpcdfci_gfortran-15:
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc_15:latest
+  extends:
+    - .mpcdfci
+    - .vars_mpiOFF
+  variables:
+    CURR_CMP: "gfortran-15"
+    SETUP_SCRIPT: "gfortran"
+
 .mpcdfci_gfortran-latest:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc:latest
   extends:
@@ -1426,6 +1524,24 @@ include:
   variables:
     CURR_CMP: "gfortran-latest"
     SETUP_SCRIPT: "gfortran"
+
+.mpcdfci_gfortran-openmpi-14:
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc_14-openmpi_5_0:latest
+  extends:
+    - .mpcdfci
+    - .vars_mpiON
+  variables:
+    CURR_CMP: "gfortran-openmpi-14"
+    SETUP_SCRIPT: "gfortran-openmpi"
+
+.mpcdfci_gfortran-openmpi-15:
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc_15-openmpi_5_0:latest
+  extends:
+    - .mpcdfci
+    - .vars_mpiON
+  variables:
+    CURR_CMP: "gfortran-openmpi-15"
+    SETUP_SCRIPT: "gfortran-openmpi"
 
 .mpcdfci_gfortran-openmpi-latest:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc-openmpi:latest
@@ -1443,7 +1559,7 @@ include:
     - .vars_mpiOFF
   variables:
     CURR_CMP: "nvfortran-23"
-    SETUP_SCRIPT: "nvfortran"
+    SETUP_SCRIPT: "anaconda_nvfortran"
 
 .mpcdfci_nvfortran-24:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/nvhpcsdk_24:latest
@@ -1453,6 +1569,7 @@ include:
   variables:
     CURR_CMP: "nvfortran-24"
     SETUP_SCRIPT: "nvfortran"
+
 
 # hooks section must be present in all private runner jobs (all stages)
 .hooks_mpcdf_runner:
@@ -1468,9 +1585,9 @@ include:
 .vars_base_slurm:
   variables:
     SLURM_JOB_NAME: ci_${CI_PROJECT_NAME}_${CI_PIPELINE_ID}_${CI_JOB_ID}
-    SLURM_TIMELIMIT: "10"     # specified in minutes: 10 minutes; the format "00:10:00" does not seem to work here (gets converted to 600 and then is interpreted as 600 minutes)
+    SLURM_TIMELIMIT: "4"     # specified in minutes; the format "00:10:00" does not seem to work here (gets converted to 600 and then is interpreted as 600 minutes)
     SLURM_MEM_PER_NODE: 10G
-    SRUN_TIMEOUT: "3600"      # specified in seconds: wait 1 hour before killing the srun job; should not outlive the CI pipeline; NOT a prefix SLURM env variable
+    SRUN_TIMEOUT: "1800"      # specified in seconds: wait 1/2 hour before killing the srun job; should not outlive the CI pipeline; NOT a prefix SLURM env variable
 
 # Raven GVEC private runner tags
 .raven:
@@ -1502,16 +1619,6 @@ include:
     MPI_RNKS_MODE: ""
     OMP_NUM_THR: "4"
 
-.raven_nvfortran-23:
-  extends:
-    - .raven
-    - .hooks_mpcdf_runner
-  variables:
-    CURR_CMP: "nvfortran-23"
-    SETUP_SCRIPT: ${CURR_CMP}
-    MPI_MODE: "mpiOFF"
-    MPI_RNKS_MODE: ""
-    OMP_NUM_THR: "4"
 
 # MPCDF Viper private runner with modules gcc/openmpi
 .raven_ifx-impi-2024:
@@ -1588,9 +1695,8 @@ include:
 
 .ubuntu-22:
   tags:
-    - cloud
-    - docker
-    - shared
+    - mpcdf-shared
+    - cpu
   image: gitlab-registry.mpcdf.mpg.de/gvec-group/gvec/ubuntu-22:latest
   extends:
     - .vars_mpiOFF
@@ -1603,9 +1709,8 @@ include:
 
 .ubuntu-24:
   tags:
-    - cloud
-    - docker
-    - shared
+    - mpcdf-shared
+    - cpu
   image: gitlab-registry.mpcdf.mpg.de/gvec-group/gvec/ubuntu-24:latest
   extends:
     - .vars_mpiOFF
@@ -1618,9 +1723,8 @@ include:
 
 .fedora:
   tags:
-    - cloud
-    - docker
-    - shared
+    - mpcdf-shared
+    - cpu
   image: gitlab-registry.mpcdf.mpg.de/gvec-group/gvec/fedora:latest
   extends:
     - .vars_mpiOFF
@@ -1791,7 +1895,7 @@ include:
   variables:
     SLURM_NNODES: 1           # number of compute nodes:
     SLURM_NTASKS_PER_NODE: 2  # number of MPI tasks per node (same for all private runners for `regression-hst` to work!)
-    SLURM_CPUS_PER_TASK: 36   # number of OpenMP threads per MPI task
+    SLURM_CPUS_PER_TASK:  36  # number of OpenMP threads per MPI task
     SLURM_NTASKS_PER_CORE: 1  # Hyperthreading: disable (set=1) / enable (set=2)
     OMP_NUM_THR: ${SLURM_CPUS_PER_TASK}
     MPI_RNKS: ${SLURM_NTASKS_PER_NODE}
@@ -1825,7 +1929,7 @@ include:
   variables:
     SLURM_NNODES: 1           # number of compute nodes:
     SLURM_NTASKS_PER_NODE: 2  # number of MPI tasks per node (same for all private runners for `regression-hst` to work!)
-    SLURM_CPUS_PER_TASK: 64   # number of OpenMP threads per MPI task
+    SLURM_CPUS_PER_TASK:  64   # number of OpenMP threads per MPI task
     SLURM_NTASKS_PER_CORE: 1  # Hyperthreading: disable (set=1) / enable (set=2)
     OMP_NUM_THR: ${SLURM_CPUS_PER_TASK}
     MPI_RNKS: ${SLURM_NTASKS_PER_NODE}

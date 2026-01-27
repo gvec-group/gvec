@@ -20,25 +20,25 @@ This module checks the input arguments and handles the initialization and finali
 
 # === Imports === #
 
-from pathlib import Path
-from typing import Literal, Union, TypeAlias
-from collections.abc import Iterable, Sequence, Mapping
-import re
-import inspect
 import functools
-import tempfile
+import inspect
 import logging
+import re
+import tempfile
 import warnings
+from collections.abc import Iterable, Mapping, Sequence
+from pathlib import Path
+from typing import Literal, TypeAlias, Union
 
 import numpy as np
 import xarray as xr
 
+import gvec.lib
 import gvec.util
 from gvec.errors import catch_gvec_errors
-import gvec.lib
-from gvec.lib import modgvec_py_state as _state
 from gvec.lib import modgvec_py_binding as _binding
 from gvec.lib import modgvec_py_run as _run
+from gvec.lib import modgvec_py_state as _state
 
 # === Globals === #
 
@@ -236,9 +236,8 @@ class State:
         with catch_gvec_errors():
             for child in self._children:
                 if isinstance(child, gvec.lib.Modgvec_Sfl_Boozer.t_sfl_boozer):
-                    if child.initialized:
-                        logger.debug(f"Finalizing Boozer potential {child!r}")
-                        child.free()
+                    logger.debug(f"Unbinding child {child!r} from the fortran library.")
+                    del child
                 else:
                     logger.error(f"Unknown child: {child!r}")
             self._children = []

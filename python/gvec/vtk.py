@@ -1,13 +1,13 @@
 # Copyright (c) 2025 GVEC Contributors, Max Planck Institute for Plasma Physics
 # License: MIT
-from pathlib import Path
 import logging
+from pathlib import Path
 
-from pyevtk.hl import gridToVTK
-import xarray as xr
 import numpy as np
-from gvec import fourier
-from gvec import gframe
+import xarray as xr
+from pyevtk.hl import gridToVTK
+
+from gvec import fourier, gframe
 
 
 def ev2vtk(
@@ -171,7 +171,11 @@ def ev2vtk(
         )
 
     if not quiet:
-        return Path(fn)
+        print(f"File output to {Path(fn)}")
+        if len(scalar_vars) != 0:
+            print(f"Scalar output variables: {scalar_vars}")
+        if len(vector_vars) != 0:
+            print(f"Vector output variables: {vector_vars}")
 
 
 def gframe_to_vtk(
