@@ -780,7 +780,9 @@ class State:
         ev : xr.Dataset
             The evaluation dataset with the target grid ``(rad, pol, tor)``, coordinates ``(rho, theta, zeta)`` and possibly some precomputed quantities.
         *quantities : str
-            One or more names of the quantities to compute. See ``table_of_quantities`` or :ref:`tutorials/notebooks/050_pygvec.html#available-quantities-for-evaluation` for a list of available quantities.
+            One or more names of the quantities to compute.
+            See the :ref:`default table of available quantities <table-of-quantities>`
+            or call ``table_of_quantities`` to see all options.
 
         See Also
         --------

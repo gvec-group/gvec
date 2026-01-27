@@ -8,6 +8,7 @@ stages
 gvec-parameter-list
 theory
 coordinate-conventions
+quantities
 ```
 
 ```{toctree}
