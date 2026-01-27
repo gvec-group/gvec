@@ -93,6 +93,10 @@ gvec.fourier </api/fourier>
 gvec.surface </api/surface>
 gvec.util </api/util>
 gvec.vtk </api/vtk>
+gvec.gframe </api/gframe>
+gvec.plotting.plots1d </api/plotting-plots1d>
+gvec.plotting.plots2d </api/plotting-plots2d>
+gvec.plotting.plots3d </api/plotting-plots3d>
 gvec.scripts.main </api/scripts-main>
 gvec.scripts.run </api/scripts-run>
 gvec.scripts.cas3d </api/scripts-cas3d>

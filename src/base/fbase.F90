@@ -107,21 +107,17 @@ CONTAINS
 !!
 !===================================================================================================================================
 FUNCTION fBase_new(mn_max_in,mn_nyq_in,nfp_in,sin_cos_in,exclude_mn_zero_in) RESULT(sf)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT VARIABLES -------------------------!
   INTEGER        , INTENT(IN   ) :: mn_max_in(2)  !! maximum mode in m and n
   INTEGER        , INTENT(IN   ) :: mn_nyq_in(2)  !! number of integration points
   INTEGER        , INTENT(IN   ) :: nfp_in        !! number of field periods
   CHARACTER(LEN=8),INTENT(IN   ) :: sin_cos_in    !! can be either only sine: " _sin_" only cosine: " _cos_" or full: "_sin_cos_"
   LOGICAL         ,INTENT(IN   ) :: exclude_mn_zero_in !! =true: exclude m=n=0 mode in the basis (only important if cos is in basis)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
+  ! OUTPUT VARIABLES -------------------------!
   TYPE(t_fBase) :: sf !! self
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-!===================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
   __PERFON("fbase_new")
   CALL sf%init(mn_max_in,mn_nyq_in,nfp_in,sin_cos_in,exclude_mn_zero_in)
 
@@ -133,25 +129,22 @@ END FUNCTION fBase_new
 !!
 !===================================================================================================================================
 SUBROUTINE fBase_init( sf, mn_max_in,mn_nyq_in,nfp_in,sin_cos_in,exclude_mn_zero_in)
-! MODULES
-USE MODgvec_Globals, ONLY: myRank, nRanks
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
+  ! MODULES
+  USE MODgvec_Globals, ONLY: myRank, nRanks
+  IMPLICIT NONE
+  ! INPUT VARIABLES -------------------------!
   INTEGER        , INTENT(IN   ) :: mn_max_in(2)  !! maximum mode in m and n
   INTEGER        , INTENT(IN   ) :: mn_nyq_in(2)  !! number of integration points
   INTEGER        , INTENT(IN   ) :: nfp_in        !! number of field periods
   CHARACTER(LEN=8),INTENT(IN   ) :: sin_cos_in    !! can be either only sine: " _sin_" only cosine: " _cos_" or full: "_sin_cos_"
   LOGICAL         ,INTENT(IN   ) :: exclude_mn_zero_in !! =true: exclude m=n=0 mode in the basis (only important if cos is in basis)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
+  ! OUTPUT VARIABLES -------------------------!
   CLASS(t_fBase), INTENT(INOUT)        :: sf !! self
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
+  ! LOCAL VARIABLES -------------------------!
   INTEGER :: i,iMode,m,n,mIP,nIP,mn_excl,iRank
   INTEGER :: modes_sin,modes_cos
   REAL(wp):: mm,nn
-!===================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
   IF(.NOT.test_called)THEN
     SWRITE(UNIT_stdOut,'(4X,A,2(A,I6," , ",I6),A,I4,A,L2,A)')'INIT fBase type:', &
          ' mn_max= (',mn_max_in, &
@@ -406,16 +399,11 @@ END SUBROUTINE fBase_init
 !!
 !===================================================================================================================================
 SUBROUTINE fBase_alloc( sf)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT/OUTPUT VARIABLES -------------------------!
   CLASS(t_fBase), INTENT(INOUT) :: sf !! self
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-!===================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
   ASSOCIATE(&
               mn_IP     => sf%mn_IP     &
             , modes     => sf%modes     &
@@ -442,16 +430,11 @@ END SUBROUTINE fBase_alloc
 !!
 !===================================================================================================================================
 SUBROUTINE fBase_free( sf )
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT/OUTPUT VARIABLES -------------------------!
   TYPE(t_fBase), INTENT(INOUT) :: sf !! self
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-!===================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
   IF(.NOT.sf%initialized) RETURN
   !allocatables
   SDEALLOCATE(sf%Xmn)
@@ -488,18 +471,15 @@ END SUBROUTINE fBase_free
 !!
 !===================================================================================================================================
 SUBROUTINE fBase_copy( sf , tocopy)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT VARIABLES -------------------------!
   CLASS(t_fBase), INTENT(IN   ) :: tocopy
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
+  ! OUTPUT VARIABLES -------------------------!
   CLASS(t_fBase), INTENT(INOUT) :: sf !! self
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-CHARACTER(LEN=8) :: sin_cos
-!===================================================================================================================================
+  ! LOCAL VARIABLES -------------------------!
+  CHARACTER(LEN=8) :: sin_cos
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
   IF(.NOT.tocopy%initialized) THEN
     CALL abort(__STAMP__, &
         "fBase_copy: not initialized fBase from which to copy!")
@@ -530,20 +510,17 @@ END SUBROUTINE fBase_copy
 !!
 !===================================================================================================================================
 SUBROUTINE fBase_compare( sf , tocompare,is_same, cond_out)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT VARIABLES -------------------------!
   CLASS(t_fBase),  INTENT(IN   ) :: sf !! self
   TYPE(t_fBase),  INTENT(IN   ) :: tocompare
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
+  ! OUTPUT VARIABLES -------------------------!
   LOGICAL,OPTIONAL,INTENT(  OUT) :: is_same
   LOGICAL,OPTIONAL,INTENT(  OUT) :: cond_out(:)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
+  ! LOCAL VARIABLES -------------------------!
   LOGICAL  :: cond(5)
-!===================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
   IF(.NOT.tocompare%initialized) THEN
     CALL abort(__STAMP__, &
         "fBase_compare: tried to compare with non-initialized fBase!")
@@ -569,23 +546,20 @@ END SUBROUTINE fBase_compare
 !!
 !===================================================================================================================================
 SUBROUTINE fBase_change_base( sf,old_fBase,iterDim,old_data,sf_data)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT VARIABLES -------------------------!
   CLASS(t_fBase),  INTENT(IN   ) :: sf !! self
   CLASS(t_fBase),  INTENT(IN   ) :: old_fBase       !! base of old_data
   INTEGER         ,INTENT(IN   ) :: iterDim        !! iterate on first or second dimension or old_data/sf_data
   REAL(wp)        ,INTENT(IN   ) :: old_data(:,:)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
+  ! OUTPUT VARIABLES -------------------------!
   REAL(wp)        ,INTENT(  OUT) :: sf_data(:,:)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
+  ! LOCAL VARIABLES -------------------------!
   LOGICAL             :: cond(5)
   INTEGER             :: iMode
   INTEGER,ALLOCATABLE :: modeMapSin(:,:),modeMapCos(:,:)
-!===================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
   IF(.NOT.old_fBase%initialized) THEN
     CALL abort(__STAMP__, &
         "fBase_change_base: tried to change base with non-initialized fBase!")
@@ -681,19 +655,15 @@ END SUBROUTINE fBase_change_base
 !!
 !===================================================================================================================================
 FUNCTION fBase_eval(sf,deriv,x) RESULT(base_x)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT VARIABLES -------------------------!
   CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
   INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
   REAL(wp)      , INTENT(IN   ) :: x(2)   !! theta,zeta point position
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
+  ! OUTPUT VARIABLES -------------------------!
   REAL(wp)                      :: base_x(sf%modes)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-!===================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
 base_x =  RESHAPE(sf%eval_xn(deriv,1,x),(/sf%modes/))
 END FUNCTION fbase_eval
 
@@ -702,21 +672,18 @@ END FUNCTION fbase_eval
 !!
 !===================================================================================================================================
 FUNCTION fBase_eval_xn(sf,deriv,np,xn) RESULT(base_xn)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT VARIABLES -------------------------!
   CLASS(t_fBase), INTENT(IN   ) :: sf         !! self
   INTEGER       , INTENT(IN   ) :: deriv      !! =0: base, =2: dthet , =3: dzeta
   INTEGER       , INTENT(IN   ) :: np         !! number of points in xn
   REAL(wp)      , INTENT(IN   ) :: xn(2,1:np) !! theta,zeta point positions
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
+  ! OUTPUT VARIABLES -------------------------!
   REAL(wp)                      :: base_xn(1:np,sf%modes)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
+  ! LOCAL VARIABLES -------------------------!
   INTEGER :: iMode
-!===================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
   ASSOCIATE(sin_range=>sf%sin_range,cos_range=>sf%cos_range,Xmn=>sf%Xmn)
   SELECT CASE(deriv)
   CASE(0)
@@ -778,22 +745,19 @@ END FUNCTION fbase_eval_xn
 !! so for the 1D base, mTotal1d depends on using sin/cos/sin+cos base.
 !===================================================================================================================================
 FUNCTION fBase_eval1d_thet(sf,deriv,nthet,thet) RESULT(base1d_thet)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT VARIABLES -------------------------!
   CLASS(t_fBase), INTENT(IN   ) :: sf         !! self
   INTEGER       , INTENT(IN   ) :: deriv !! =0: base, =1: dthet , =2: dthet^2
   INTEGER       , INTENT(IN   ) :: nthet       !! number of points in theta
   REAL(wp)      , INTENT(IN   ) :: thet(1:nthet)   !! theta 1D point positions
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
+  ! OUTPUT VARIABLES -------------------------!
   REAL(wp)                      :: base1d_thet(1:nthet,1:2,1:sf%mTotal1D)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
+  ! LOCAL VARIABLES -------------------------!
   INTEGER :: m,m_max,i
   REAL(wp):: mm
-!===================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
 m_max=sf%mn_max(1)
 
 SELECT CASE(deriv)
@@ -865,20 +829,17 @@ END FUNCTION fBase_eval1d_thet
 FUNCTION fBase_eval1d_zeta(sf,deriv,nzeta,zeta) RESULT(base1d_zeta)
   ! MODULES
   IMPLICIT NONE
-  !-----------------------------------------------------------------------------------------------------------------------------------
-  ! INPUT VARIABLES
+  ! INPUT VARIABLES -------------------------!
     CLASS(t_fBase), INTENT(IN   ) :: sf         !! self
     INTEGER       , INTENT(IN   ) :: deriv !! =0: base, =1: dzeta , =2: dzeta^2
     INTEGER       , INTENT(IN   ) :: nzeta       !! number of points in zeta
     REAL(wp)      , INTENT(IN   ) :: zeta(1:nzeta)   !! zeta 1D point positions
-  !-----------------------------------------------------------------------------------------------------------------------------------
-  ! OUTPUT VARIABLES
+  ! OUTPUT VARIABLES -------------------------!
     REAL(wp)                      :: base1d_zeta(1:2,-sf%mn_max(2):sf%mn_max(2),1:nzeta)
-  !-----------------------------------------------------------------------------------------------------------------------------------
-  ! LOCAL VARIABLES
+  ! LOCAL VARIABLES -------------------------!
     INTEGER :: n,n_max,nfp
     REAL(wp):: nn
-  !===================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
   n_max=sf%mn_max(2)
   nfp=sf%nfp
 
@@ -912,21 +873,18 @@ FUNCTION fBase_eval1d_zeta(sf,deriv,nzeta,zeta) RESULT(base1d_zeta)
 !!
 !===================================================================================================================================
 FUNCTION fBase_evalDOF_x(sf,x,deriv,DOFs) RESULT(y)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT VARIABLES -------------------------!
   CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
   REAL(wp)      , INTENT(IN   ) :: x(2)   !! input coordinate theta,zeta in [0,2pi]^2
   INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
   REAL(wp)      , INTENT(IN   ) :: DOFs(:)  !! array of all modes
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
+  ! OUTPUT VARIABLES -------------------------!
   REAL(wp)                      :: y
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
+  ! LOCAL VARIABLES -------------------------!
   REAL(wp)                      :: base_x(1:sf%modes)
-!===================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
 IF(SIZE(DOFs,1).NE.sf%modes) CALL abort(__STAMP__, &
        'nDOF not correct when calling fBase_evalDOF_x' )
   base_x=sf%eval(deriv,x)
@@ -939,22 +897,19 @@ END FUNCTION fBase_evalDOF_x
 !!
 !===================================================================================================================================
 FUNCTION fBase_evalDOF_xn(sf,np,xn,deriv,DOFs) RESULT(y)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT VARIABLES -------------------------!
   CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
   INTEGER       , INTENT(IN   ) :: np     !! number of points to be evaluated
   REAL(wp)      , INTENT(IN   ) :: xn(2,1:np)   !! input coordinate theta,zeta in [0,2pi]^2
   INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
   REAL(wp)      , INTENT(IN   ) :: DOFs(:)  !! array of all modes
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
+  ! OUTPUT VARIABLES -------------------------!
   REAL(wp)                      :: y(1:np)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
+  ! LOCAL VARIABLES -------------------------!
   REAL(wp)                      :: base_xn(1:np,1:sf%modes)
-!===================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
 IF(SIZE(DOFs,1).NE.sf%modes) CALL abort(__STAMP__, &
        'nDOF not correct when calling fBase_evalDOF_x' )
   base_xn=sf%eval_xn(deriv,np,xn)
@@ -976,10 +931,9 @@ END FUNCTION fBase_evalDOF_xn
 !!
 !===================================================================================================================================
 FUNCTION fBase_evalDOF_xn_tens(sf,nthet,nzeta,thet,zeta,deriv,DOFs) RESULT(y)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT VARIABLES -------------------------!
   CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
   INTEGER       , INTENT(IN   ) :: nthet  !! number of points in theta
   INTEGER       , INTENT(IN   ) :: nzeta  !! number of points in zeta
@@ -987,17 +941,15 @@ IMPLICIT NONE
   REAL(wp)      , INTENT(IN   ) :: zeta(1:nzeta) !! zeta positions
   INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
   REAL(wp)      , INTENT(IN   ) :: DOFs(:)  !! array of all modes
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
+  ! OUTPUT VARIABLES -------------------------!
   REAL(wp)                      :: y(1:nthet*nzeta)   !! DOFS evaluated on tensor-product grid,
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
+  ! LOCAL VARIABLES -------------------------!
   INTEGER                       :: iMode,offset,mTotal,nTotal
   REAL(wp)                      :: Amn(1:sf%mTotal1D,-sf%mn_max(2):sf%mn_max(2))
   REAL(wp)                      :: Ctmp(1:nthet,1:2,-sf%mn_max(2):sf%mn_max(2))
   REAL(wp)                      :: base1D_thet(1:nthet,1:2,1:sf%mTotal1D)
   REAL(wp)                      :: base1D_zeta(1:2,-sf%mn_max(2):sf%mn_max(2),1:nzeta)
-!===================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
   IF(SIZE(DOFs,1).NE.sf%modes) CALL abort(__STAMP__, &
          'nDOF not correct when calling fBase_evalDOF_IP_tens' )
 
@@ -1049,19 +1001,15 @@ END FUNCTION fBase_evalDOF_xn_tens
 !!
 !===================================================================================================================================
 FUNCTION fBase_evalDOF_IP(sf,deriv,DOFs) RESULT(y_IP)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT VARIABLES -------------------------!
   CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
   INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
   REAL(wp)      , INTENT(IN   ) :: DOFs(:)  !! array of all modes
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
+  ! OUTPUT VARIABLES -------------------------!
   REAL(wp)                      :: y_IP(sf%mn_IP)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-!===================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
   IF(SIZE(DOFs,1).NE.sf%modes) CALL abort(__STAMP__, &
        'nDOF not correct when calling fBase_evalDOF_IP' )
   SELECT CASE(deriv)
@@ -1084,22 +1032,19 @@ END FUNCTION fBase_evalDOF_IP
 !!  DOFs = add*DOFs+ fac *MATMUL(base_IP_DOF,y_IP)
 !===================================================================================================================================
 SUBROUTINE fBase_projectIPtoDOF(sf,add,factor,deriv,y_IP,DOFs)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT VARIABLES -------------------------!
   CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
   LOGICAL       , INTENT(IN   ) :: add    !! =F initialize DOFs , =T add to DOFs
   REAL(wp)      , INTENT(IN   ) :: factor !! scale result by factor, before adding to DOFs (should be =1.0_wp if not needed)
   INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
   REAL(wp)      , INTENT(IN   ) :: y_IP(:)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
+  ! OUTPUT VARIABLES -------------------------!
   REAL(wp)      , INTENT(INOUT) :: DOFs(1:sf%modes)  !! array of all modes
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
+  ! LOCAL VARIABLES -------------------------!
   REAL(wp)                      :: radd
-!===================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
   IF(SIZE(y_IP,1).NE.sf%mn_IP) CALL abort(__STAMP__, &
        'y_IP not correct when calling fBase_projectIPtoDOF' )
   radd=MERGE(1.0_wp,0.0_wp,add)
@@ -1123,27 +1068,24 @@ END SUBROUTINE fBase_projectIPtoDOF
 SUBROUTINE fBase_projectxntoDOF(sf,add,factor,deriv,np,xn,yn,DOFs)
   ! MODULES
   IMPLICIT NONE
-  !-----------------------------------------------------------------------------------------------------------------------------------
-  ! INPUT VARIABLES
-    CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
-    LOGICAL       , INTENT(IN   ) :: add    !! =F initialize DOFs , =T add to DOFs
-    REAL(wp)      , INTENT(IN   ) :: factor !! scale result by factor, before adding to DOFs (should be =1.0_wp if not needed)
-    INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
-    INTEGER       , INTENT(IN   ) :: np     !! total number of 2D interpolation points
-    REAL(wp)      , INTENT(IN   ) :: xn(2,1:np)  !!  (theta=1,zeta=2) position of tensor-product interpolation points, [0,2pi]x[0,2pi/nfp],size(2,mn_IP)
-    REAL(wp)      , INTENT(IN   ) :: yn(1:np)  !! value at interpolation points
-  !-----------------------------------------------------------------------------------------------------------------------------------
-  ! OUTPUT VARIABLES
-    REAL(wp)      , INTENT(INOUT) :: DOFs(1:sf%modes)  !! array of all modes
-  !-----------------------------------------------------------------------------------------------------------------------------------
-  ! LOCAL VARIABLES
-    REAL(wp)                      :: radd
-    REAL(wp)                      :: base_xn(1:np,1:sf%modes)
-  !===================================================================================================================================
-    base_xn=sf%eval_xn(deriv,np,xn)
-    radd=MERGE(1.0_wp,0.0_wp,add)
-    __PAMATVEC_T(radd,DOFs,factor,base_xn,yn)
-  END SUBROUTINE fBase_projectxntoDOF
+  ! INPUT VARIABLES -------------------------!
+  CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
+  LOGICAL       , INTENT(IN   ) :: add    !! =F initialize DOFs , =T add to DOFs
+  REAL(wp)      , INTENT(IN   ) :: factor !! scale result by factor, before adding to DOFs (should be =1.0_wp if not needed)
+  INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
+  INTEGER       , INTENT(IN   ) :: np     !! total number of 2D interpolation points
+  REAL(wp)      , INTENT(IN   ) :: xn(2,1:np)  !!  (theta=1,zeta=2) position of tensor-product interpolation points, [0,2pi]x[0,2pi/nfp],size(2,mn_IP)
+  REAL(wp)      , INTENT(IN   ) :: yn(1:np)  !! value at interpolation points
+! OUTPUT VARIABLES -------------------------!
+  REAL(wp)      , INTENT(INOUT) :: DOFs(1:sf%modes)  !! array of all modes
+! LOCAL VARIABLES -------------------------!
+  REAL(wp)                      :: radd
+  REAL(wp)                      :: base_xn(1:np,1:sf%modes)
+! CODE --------------------------------------------------------------------------------------------------------------------------!
+  base_xn=sf%eval_xn(deriv,np,xn)
+  radd=MERGE(1.0_wp,0.0_wp,add)
+  __PAMATVEC_T(radd,DOFs,factor,base_xn,yn)
+END SUBROUTINE fBase_projectxntoDOF
 
 !===================================================================================================================================
 !> evaluate  all modes at all interpolation points, making use of the tensor product:
@@ -1159,22 +1101,19 @@ SUBROUTINE fBase_projectxntoDOF(sf,add,factor,deriv,np,xn,yn,DOFs)
 !!
 !===================================================================================================================================
 FUNCTION fBase_evalDOF_IP_tens(sf,deriv,DOFs) RESULT(y_IP)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT VARIABLES -------------------------!
   CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
   INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
   REAL(wp)      , INTENT(IN   ) :: DOFs(:)!! array of all modes (sf%modes)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
+  ! OUTPUT VARIABLES -------------------------!
   REAL(wp)                      :: y_IP(sf%mn_IP)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
+  ! LOCAL VARIABLES -------------------------!
   INTEGER                       :: iMode,offset,mTotal,nTotal
   REAL(wp)                      :: Amn(1:sf%mTotal1D,-sf%mn_max(2):sf%mn_max(2))
   REAL(wp)                      :: Ctmp(1:sf%mn_nyq(1),1:2,-sf%mn_max(2):sf%mn_max(2))
-!===================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
   IF(SIZE(DOFs,1).NE.sf%modes) CALL abort(__STAMP__, &
          'nDOF not correct when calling fBase_evalDOF_IP_tens' )
 
@@ -1228,24 +1167,21 @@ END FUNCTION fBase_evalDOF_IP_tens
 !!
 !===================================================================================================================================
 SUBROUTINE fBase_projectIPtoDOF_tens(sf,add,factor,deriv,y_IP,DOFs)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT VARIABLES -------------------------!
   CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
   LOGICAL       , INTENT(IN   ) :: add    !! =F initialize DOFs , =T add to DOFs
   REAL(wp)      , INTENT(IN   ) :: factor !! scale result by factor, before adding to DOFs (should be =1.0_wp if not needed)
   INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
   REAL(wp)      , INTENT(IN   ) :: y_IP(:) !! point values (at sf%x_IP if x_IP_in not given)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
+  ! OUTPUT VARIABLES -------------------------!
   REAL(wp)      , INTENT(INOUT) :: DOFs(1:sf%modes)  !! array of all modes
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
+  ! LOCAL VARIABLES -------------------------!
   INTEGER                       :: iMode,offset,mTotal,nTotal
   REAL(wp)                      :: Amn(1:sf%mTotal1D,-sf%mn_max(2):sf%mn_max(2))
   REAL(wp)                      :: Ctmp(1:sf%mn_nyq(1),1:2,-sf%mn_max(2):sf%mn_max(2))
-!===================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
   IF(SIZE(y_IP,1).NE.sf%mn_IP) CALL abort(__STAMP__, &
          'y_IP not correct when calling fBase_projectIPtoDOF_tens' )
   mTotal=  sf%mTotal1D
@@ -1305,20 +1241,17 @@ END SUBROUTINE fBase_projectIPtoDOF_tens
 !!
 !===================================================================================================================================
 FUNCTION fBase_initDOF( sf , g_IP,thet_zeta_start) RESULT(DOFs)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT VARIABLES -------------------------!
   CLASS(t_fBase), INTENT(IN   ) :: sf    !! self
   REAL(wp)      , INTENT(IN   ) :: g_IP(:)  !!  interpolation values at theta_IP zeta_IP positions
   REAL(wp),INTENT(IN),OPTIONAL :: thet_zeta_start(2) !theta,zeta value of first point (points must remain equidistant and of size mn_nyq(1),mn_nyq(2))
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
+  ! OUTPUT VARIABLES -------------------------!
   REAL(wp)                      :: DOFs(1:sf%modes)  !! projection to fourier base
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
+  ! LOCAL VARIABLES -------------------------!
   REAL(wp)                      :: x_IP_shift(2,sf%mn_IP)
-!===================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
   IF(SIZE(g_IP,1).NE.sf%mn_IP) CALL abort(__STAMP__, &
        'nDOF not correct when calling fBase_initDOF' )
   IF(.NOT.(PRESENT(thet_zeta_start)))THEN
@@ -1336,16 +1269,12 @@ END FUNCTION fBase_initDOF
 !!
 !===================================================================================================================================
 SUBROUTINE fBase_test( sf)
-! MODULES
-USE MODgvec_GLobals, ONLY: testdbg,testlevel,nfailedMsg,nTestCalled,testUnit
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
+  ! MODULES
+  USE MODgvec_GLobals, ONLY: testdbg,testlevel,nfailedMsg,nTestCalled,testUnit
+  IMPLICIT NONE
+  ! INPUT VARIABLES -------------------------!
   CLASS(t_fBase), INTENT(INOUT) :: sf !! self
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
+  ! LOCAL VARIABLES -------------------------!
   INTEGER            :: iTest,iMode,jMode,ncoszero,nsinzero,i_mn
   REAL(wp)           :: checkreal,refreal
   REAL(wp),PARAMETER :: realtol=1.0E-11_wp
@@ -1355,7 +1284,7 @@ IMPLICIT NONE
   TYPE(t_fbase)      :: testfBase
   LOGICAL            :: check(5)
   REAL(wp),ALLOCATABLE :: oldDOF(:,:),newDOF(:,:)
-!===================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
   test_called=.TRUE. !avoid infinite loop if init is called here
   IF(testlevel.LE.0) RETURN
   IF(.NOT.MPIroot) RETURN
