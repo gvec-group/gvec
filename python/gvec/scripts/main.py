@@ -4,14 +4,14 @@
 
 # === Imports === #
 
-import platform
-from pathlib import Path
-import logging
 import argparse
+import logging
+import platform
 from collections.abc import Sequence
+from pathlib import Path
 
 import gvec
-from gvec.scripts import cas3d, convert, gist, quasr, run
+from gvec.scripts import cas3d, convert, gist, quasr, run, toparaview, visu
 
 # === Arguments === #
 
@@ -77,6 +77,22 @@ gist_parser = subparsers.add_parser(
     add_help=False,
 )
 
+plot_parser = subparsers.add_parser(
+    "visu",
+    help="Generate and save default plots",
+    description=visu.parser.description,
+    parents=[visu.parser],
+    add_help=False,
+)
+
+paraview_parser = subparsers.add_parser(
+    "to-paraview",
+    help="Generate output file for paraview",
+    description=toparaview.parser.description,
+    parents=[toparaview.parser],
+    add_help=False,
+)
+
 
 # === Script === #
 
@@ -104,6 +120,12 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
 
     elif args.mode == "load-quasr":
         return quasr.main(args)
+
+    elif args.mode == "visu":
+        return visu.main(args)
+
+    elif args.mode == "to-paraview":
+        return toparaview.main(args)
 
 
 if __name__ == "__main__":

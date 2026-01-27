@@ -368,8 +368,8 @@ def Evaluations(
             coords["rho"] = ("rad", rho)
         case int() as num:
             coords["rho"] = ("rad", np.linspace(0, 1, num))
-            coords["rho"][1][0] = (
-                0.1 * coords["rho"][1][1]
+            coords["rho"][1][0] = min(
+                1.0e-4, 0.1 * coords["rho"][1][1]
             )  # avoid numerical issues at the magnetic axis
         case float():
             coords["rho"] = ("rad", np.array([rho]))

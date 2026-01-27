@@ -1,0 +1,7 @@
+jupyter
+nbconvert
+ipykernel
+ipympl
+ipywidgets
+matplotlib
+plotly<6.0
