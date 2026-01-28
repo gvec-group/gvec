@@ -1,6 +1,6 @@
 # Copyright (c) 2025 GVEC Contributors, Max Planck Institute for Plasma Physics
 # License: MIT
-from collections.abc import Iterable
+from collections.abc import Mapping
 from logging import getLogger
 from pathlib import Path
 from typing import Literal
@@ -366,7 +366,7 @@ class Coil:
         return ax
 
 
-class CoilSet(Coil):
+class CoilSet(Coil, Mapping):
     def __init__(self, coils: list[Coil], coil_names: list[str] = None):
         """Initialize a coil set from a list of coils.
 
@@ -412,6 +412,12 @@ class CoilSet(Coil):
 
     def __getitem__(self, key: str):
         return self.coils[key]
+
+    def __iter__(self):
+        return iter(self.coils)
+
+    def __len__(self):
+        return len(self.coils)
 
     def get_as_dataobject(self):
         dt = xr.DataTree()
