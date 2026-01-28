@@ -5,3 +5,4 @@ ipympl
 ipywidgets
 matplotlib
 plotly<6.0
+simsopt
