@@ -403,7 +403,7 @@ def test_quasr_fieldlines_full(QUASR_ID, tmp_path, util):
         generate_quasr_case(
             QUASR_ID,
             save_path=tmp_path,
-            t=100,
+            time=100,
             totalIter=2,
             n_fieldlines=3,
             tol=1e-4,

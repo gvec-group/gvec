@@ -81,8 +81,7 @@ FUNCTION sfl_boozer_new(mn_max,mn_nyq,nfp,sin_cos,hmap_in,nrho,rho_pos,iota,phiP
   USE MODgvec_fbase, ONLY: t_fBase
   USE MODgvec_hmap, ONLY: hmap_new_auxvar
   IMPLICIT NONE
-  !---------------------------------------------------------------------------------------------------------------------------------
-  ! INPUT VARIABLES
+  ! INPUT VARIABLES -------------------------!
   INTEGER,INTENT(IN) :: mn_max(2)  !! maximum Fourier modes in theta and zeta
   INTEGER,INTENT(IN) :: mn_nyq(2)  !! number of equidistant integration points (trapezoidal rule) in m and n
   INTEGER,INTENT(IN) :: nfp        !! number of field periods
@@ -97,9 +96,9 @@ FUNCTION sfl_boozer_new(mn_max,mn_nyq,nfp,sin_cos,hmap_in,nrho,rho_pos,iota,phiP
   LOGICAL, INTENT(IN),OPTIONAL :: relambda_in  !! DEFAULT=TRUE: lambda is recomputed on the given fourier resolution, RECOMMENDED
                                    !!   for exact integrability condition of boozer transform, but slower.
                                    !! FALSE: lambda from equilibrium solution is taken.
-  ! OUTPUT VARIABLES
+  ! OUTPUT VARIABLES -------------------------!
   TYPE(t_sfl_boozer) :: sf !! self
-  !=================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
   SWRITE(UNIT_StdOut,'(A)') 'NEW sfl_boozer'
   sf%nrho = nrho
   ALLOCATE(sf%rho_pos(nrho),sf%iota(nrho),sf%phiPrime(nrho))
@@ -131,7 +130,7 @@ SUBROUTINE sfl_boozer_free(sf)
   USE MODgvec_Globals, ONLY: UNIT_stdOut
   IMPLICIT NONE
   TYPE(t_sfl_boozer), INTENT(INOUT) :: sf !! self
-  !=================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
   SWRITE(UNIT_StdOut,'(A)') 'FREE sfl_boozer'
   SDEALLOCATE(sf%rho_pos)
   SDEALLOCATE(sf%lambda)
@@ -170,16 +169,14 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
   USE MODgvec_LinAlg
   USE MODgvec_lambda_solve, ONLY:  Lambda_setup_and_solve
   IMPLICIT NONE
-  !-----------------------------------------------------------------------------------------------------------------------------------
-  ! INPUT VARIABLES
+    ! INPUT VARIABLES -------------------------!
     CLASS(t_base),INTENT(IN) :: X1_base_in,X2_base_in,LA_base_in   !< base classes for input U_in
     REAL(wp),INTENT(IN):: X1_in(1:X1_base_in%s%nbase,1:X1_base_in%f%modes)
     REAL(wp),INTENT(IN):: X2_in(1:X2_base_in%s%nbase,1:X2_base_in%f%modes)
     REAL(wp),INTENT(IN):: LA_in(1:LA_base_in%s%nbase,1:LA_base_in%f%modes)
-  !-----------------------------------------------------------------------------------------------------------------------------------
-  ! OUTPUT VARIABLES
-    CLASS(t_sfl_boozer), INTENT(INOUT) :: sf !!!-----------------------------------------------------------------------------------------------------------------------------------
-  ! LOCAL VARIABLES
+    ! OUTPUT VARIABLES -------------------------!
+    CLASS(t_sfl_boozer), INTENT(INOUT) :: sf
+    ! LOCAL VARIABLES --------------------------!
     INTEGER               :: mn_max(2),mn_nyq(2),irho,iMode,modes,i_mn,mn_IP
     INTEGER               :: nfp
     REAL(wp)              :: spos,dthet_dzeta,dPhids_int,iota_int,dChids_int
@@ -200,7 +197,7 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
     TYPE(t_fbase),ALLOCATABLE             :: X1_fbase_nyq
     TYPE(t_fbase),ALLOCATABLE             :: X2_fbase_nyq
     TYPE(t_fbase),ALLOCATABLE             :: LA_fbase_nyq
-  !===================================================================================================================================
+    ! CODE --------------------------------------------------------------------------------------------------------------------------!
     nfp = X1_base_in%f%nfp
     IF(nfp.NE.sf%nu_fbase%nfp) CALL abort(__STAMP__, &
                    'GET BOOZER ANGLE TRANSFORM,  sf%nu_fbase%nfp not the same as in X1')
@@ -413,15 +410,13 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
 SUBROUTINE self_find_boozer_angles(sf,tz_dim,tz_boozer,thetzeta_out)
   ! MODULES
   IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
+  ! INPUT VARIABLES -------------------------!
   CLASS(t_sfl_boozer), INTENT(IN) :: sf
   INTEGER             ,INTENT(IN) :: tz_dim                !< size of the list of in thetstar,zetastar
   REAL(wp)            ,INTENT(IN) :: tz_boozer(2,tz_dim) !< theta,zeta positions in boozer angle (same for all rho)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
+  ! OUTPUT VARIABLES -------------------------!
   REAL(wp)  ,INTENT(OUT)   :: thetzeta_out(2,tz_dim,sf%nrho)  !! theta,zeta position in original angles, for given boozer angles
-!===================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
   CALL find_boozer_angles(sf%nrho,sf%iota,sf%nu_fbase,sf%lambda,sf%nu,tz_dim,tz_boozer,thetzeta_out)
 END SUBROUTINE self_find_boozer_angles
 
@@ -433,16 +428,14 @@ END SUBROUTINE self_find_boozer_angles
 SUBROUTINE self_find_boozer_angles_irho(sf,irho,tz_dim,tz_boozer,thetzeta_out)
   ! MODULES
   IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
+  ! INPUT VARIABLES -------------------------!
   CLASS(t_sfl_boozer), INTENT(IN) :: sf
   INTEGER             ,INTENT(IN) :: irho                !< index of the flux surface to find boozer angles on, within 1:nrho
   INTEGER             ,INTENT(IN) :: tz_dim              !< size of the list of in thetstar,zetastar
   REAL(wp)            ,INTENT(IN) :: tz_boozer(2,tz_dim) !< theta,zeta positions in boozer angle (same for all rho)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
+  ! OUTPUT VARIABLES -------------------------!
   REAL(wp)  ,INTENT(OUT)   :: thetzeta_out(2,tz_dim)     !< theta,zeta position in original angles, for given boozer angles
-!===================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
   CALL find_boozer_angles(1,sf%iota(irho:irho),sf%nu_fbase,sf%lambda(:,irho:irho),sf%nu(:,irho:irho),tz_dim,tz_boozer,thetzeta_out)
 END SUBROUTINE self_find_boozer_angles_irho
 
@@ -466,8 +459,7 @@ SUBROUTINE find_boozer_angles(nrho,iota,fbase_in,LA_in,nu_in,tz_dim,tz_boozer,th
 USE MODgvec_Globals,ONLY: UNIT_stdOut,PI,ProgressBar,testlevel
 USE MODgvec_fbase  ,ONLY: t_fbase
 IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
+  ! INPUT VARIABLES -------------------------!
   INTEGER      ,INTENT(IN) :: nrho   !! number of surfaces, (second dimension  of LA_in and nu_in modes)
   REAL(wp)     ,INTENT(IN) :: iota(nrho)  !! iota at the rho positions.
   TYPE(t_fbase),INTENT(IN) ::fbase_in     !< same basis of lambda and nu
@@ -476,17 +468,15 @@ IMPLICIT NONE
   INTEGER      ,INTENT(IN) :: tz_dim                !< size of the list of in thetstar,zetastar
   REAL(wp)     ,INTENT(IN) :: tz_boozer(2,tz_dim) !< theta,zeta positions in boozer angle (same for all rho)
 
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
+  ! OUTPUT VARIABLES -------------------------!
   REAL(wp) ,INTENT(OUT)   :: thetzeta_out(2,tz_dim,nrho)  !! theta,zeta position in original angles, for given boozer angles
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
+  ! LOCAL VARIABLES --------------------------!
   INTEGER               :: irho,j
   REAL(wp)              :: bounds(2),x0(2)
   REAL(wp)              :: check(tz_dim),maxerr(2,nrho)
   REAL(wp)              :: Gt(1:fbase_in%modes)  !! transform in theta: lambda + iota*nu
   LOGICAL               :: docheck
-!===================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
   __PERFON('find_boozer_angles')
   SWRITE(UNIT_StdOut,'(A,2(I8,A))')'Find boozer angles via 2D Newton on  nrho=',nrho,' times ntheta_zeta= ',tz_dim, " points"
   docheck=(testlevel.GT.0)
@@ -533,18 +523,15 @@ FUNCTION get_booz_newton(x0,bounds,AB_fbase_in,A_in,B_in) RESULT(x_out)
   USE MODgvec_fbase  ,ONLY: t_fbase
   USE MODgvec_Newton ,ONLY: NewtonRoot2D
   IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-!INPUT VARIABLES
+  ! INPUT VARIABLES -------------------------!
   REAL(wp),INTENT(IN) :: x0(2),bounds(2)
   TYPE(t_fbase),INTENT(IN), TARGET :: AB_fbase_in
   REAL(wp),INTENT(IN), TARGET :: A_in(1:AB_fbase_in%modes),B_in(1:AB_fbase_in%modes)
-!-----------------------------------------------------------------------------------------------------------------------------------
-!OUTPUT VARIABLES
+  ! OUTPUT VARIABLES -------------------------!
   REAL(wp) :: x_out(2)
-!-----------------------------------------------------------------------------------------------------------------------------------
-!LOCAL VARIABLES
+  ! LOCAL VARIABLES --------------------------!
   TYPE(t_newton_Root2D_boozer) :: fobj
-!===================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
 
   !                                     a     b       maxstep  , xinit    ,funcs, funcs_jac
   fobj%AB_fbase_in => AB_fbase_in
@@ -564,7 +551,7 @@ FUNCTION get_booz_newton_FR(sf, x) RESULT(FF)
   REAL(wp), INTENT(IN) :: x(2) ! xiter
   REAL(wp) :: FF(2) !two functions of x1,x2 to find root of
   REAL(wp),DIMENSION(sf%AB_fbase_in%modes) :: base_x
-
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
   base_x = sf%AB_fbase_in%eval(0, x) !base evaluation
 
   FF(1) = x(1) - sf%x0(1) + DOT_PRODUCT(base_x, sf%A_in)
@@ -581,7 +568,7 @@ FUNCTION get_booz_newton_dFR(sf, x) RESULT(dFF)
   REAL(wp), INTENT(IN) :: x(2)
   REAL(wp) :: dFF(2,2) !jacobian
   REAL(wp),DIMENSION(sf%AB_fbase_in%modes) :: base_dthet, base_dzeta
-
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
   base_dthet = sf%AB_fbase_in%eval(DERIV_THET, x) !dbase/dtheta
   base_dzeta = sf%AB_fbase_in%eval(DERIV_ZETA, x) !dbase/dtheta
 

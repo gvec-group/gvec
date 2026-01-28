@@ -349,7 +349,7 @@
     - ls dist_${BUILDNAME}/*.whl
     - pip install `ls dist_${BUILDNAME}/*.whl`
     - module list || echo "No modules available"
-    - pip install jupyter ipykernel ipympl ipywidgets matplotlib nbconvert
+    - pip install -r docs/tutorials/requirements.txt
     - pip list
     - pygvec --version
     - end_details pre

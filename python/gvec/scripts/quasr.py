@@ -58,7 +58,6 @@ from numpy.typing import ArrayLike
 import xarray as xr
 
 from gvec.util import logging_setup, chdir, read_parameters, write_parameters
-from gvec.plotting import plot_zeta_cuts
 from gvec import gframe, run, State
 from gvec.coils import Coil, CoilSet, trace_fieldlines, intersection_planes_from_state
 
@@ -397,7 +396,7 @@ def generate_quasr_case(
     save_path: str | Path,
     totalIter: int = 100000,
     tol: float = 1e-8,
-    t: float = 1200.0,
+    time: float = 1200.0,
     **kwargs,
 ):
     """Generate a gvec quasr equilibrium and compare it to fieldline tracing.
@@ -412,13 +411,15 @@ def generate_quasr_case(
         GVEC totalIter, by default 100000
     tol: float, optional
         Tolerance for determining minimal necessary (M, N) for the output Fourier modes of X1,X2. default is 1e-8
-    t : float, optional
+    time : float, optional
         Time to trace fieldlines, by default 1200.0
     """
-    from gvec.plotting import has_matplotlib
+    try:
+        has_matplotlib = True
+    except ImportError:
+        has_matplotlib = False
 
     save_path = Path(save_path)
-    theta_plot = np.linspace(0, 2 * np.pi, 128, endpoint=True)
     id_path = save_path / f"quasr-{ID:07d}"
     if not save_path.exists():
         save_path.mkdir()
@@ -426,7 +427,7 @@ def generate_quasr_case(
         id_path.mkdir()
 
     with chdir(id_path):
-        main([str(ID), f"--tol={tol}"])
+        load_quasr(ID, tol=tol)
         coil_set = get_coils_from_json_file(f"quasr-{ID:07d}.json")
         param_file_path = f"quasr-{ID:07d}-parameters.toml"
         params = read_parameters(param_file_path)
@@ -436,12 +437,12 @@ def generate_quasr_case(
         state = gvec_run.state
         zetas = np.linspace(0, -2 * np.pi / state.nfp, 3, endpoint=False)
         if has_matplotlib:
-            fig, axs = plot_zeta_cuts(
-                state, zeta=zetas, theta=theta_plot, figsize=(4, 8), color="k", linestyle="--"
+            fig, axs = state.plot_poloidal_plane(
+                zeta=zetas, theta_contours=0, ntheta=128, quantity=None
             )
         else:
             axs = None
-        dt = quasr_fieldlines(state, coil_set, zetas=zetas, axs=axs, time=t, **kwargs)
+        dt = quasr_fieldlines(state, coil_set, zetas=zetas, axs=axs, time=time, **kwargs)
         if has_matplotlib:
             dt, axs = dt
             fig.savefig(f"quasr-{ID:07d}-poincare.png")

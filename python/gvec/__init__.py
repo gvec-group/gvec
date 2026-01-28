@@ -29,6 +29,6 @@ from gvec.core.run import run, Run
 
 # submodules
 
-from gvec import core, scripts
+from gvec import core, scripts, plotting
 from gvec import errors, fourier, quantities, surface, util, vtk, gframe
 # lib and _libpygvec are automatically generated, but stay hidden
