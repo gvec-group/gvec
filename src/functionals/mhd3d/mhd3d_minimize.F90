@@ -8,7 +8,7 @@
 !>
 !!# Module **MHD3D minimize**
 !!
-!! CONTAINS INITIALIZATION minimizer for MHD3D functional
+!! CONTAINS minimizer for MHD3D functional
 !!
 !===================================================================================================================================
 MODULE MODgvec_MHD3D_minimize
@@ -24,9 +24,9 @@ MODULE MODgvec_MHD3D_minimize
     ! TYPES
     !-----------------------------------------------------------------------------------------------------------------------------------
     TYPE, ABSTRACT :: a_minimizer_vars
-        CHARACTER(LEN=40) :: MinimizerType
+        CHARACTER(LEN=40) :: MinimizerType !! defines the minimization algorithm: 0 = Gradient-Descent, 10 = Accelerated Gradient-Descent
         LOGICAL   :: restart_iter, logger_is_initialized
-        INTEGER   :: JacCheck
+        INTEGER   :: JacCheck !! switch for restarts, if detJ<0 JacCheck=-1
         INTEGER   :: iter,nStepDecreased,nSkip_Jac,nSkip_dw
         INTEGER   :: lastoutputIter, logiter_ramp, logscreen
         REAL(wp)  :: dt,deltaW, dW_allowed
@@ -41,21 +41,34 @@ MODULE MODgvec_MHD3D_minimize
         TYPE(t_sol_var_MHD3D), ALLOCATABLE :: force(:)     !! force
         TYPE(t_sol_var_MHD3D), ALLOCATABLE :: temp_dofs(:) !! temporary for update
     END TYPE a_minimizer_vars
+
+    !===================================================================================================================================
+    !> State variables for a Gradient descent minimizer
+    !!
+    !===================================================================================================================================
     TYPE, EXTENDS(a_minimizer_vars) :: t_gradient_descent_vars
     END TYPE t_gradient_descent_vars
 
+    !===================================================================================================================================
+    !> State variables for an Accelerated Gradient-Descent descent minimizer
+    !!
+    !===================================================================================================================================
     TYPE, EXTENDS(a_minimizer_vars) :: t_accelerated_gradient_descent_vars
         REAL(wp) :: Vnorm(3)
         REAL(wp), ALLOCATABLE  :: tau(:)
         INTEGER   :: ndamp
         REAL(wp)  :: tau_bar
-        TYPE(t_sol_var_MHD3D), ALLOCATABLE :: velocity(:)       !! 'velocity' in minimizer
+        TYPE(t_sol_var_MHD3D), ALLOCATABLE :: velocity(:) !! 'velocity' in minimizer
     END TYPE t_accelerated_gradient_descent_vars
 
+    !===================================================================================================================================
+    !> Minimizer object
+    !!
+    !===================================================================================================================================
     TYPE :: t_minimizer_mhd3d
         !-------------------------------------------------------------------------------------------------------------------------------
-        LOGICAL   :: initialized
-        INTEGER   :: MinType
+        LOGICAL   :: initialized !! whether the object is initialized or ot
+        INTEGER   :: MinType !! gradient descent = 0, accelerated gradient descent = 10
         CLASS(a_minimizer_vars), ALLOCATABLE :: vars  !!! depend on the MinimizerType
         !-------------------------------------------------------------------------------------------------------------------------------
         CONTAINS
@@ -66,29 +79,40 @@ MODULE MODgvec_MHD3D_minimize
         PROCEDURE :: free             => Free_minimizer
     END TYPE t_minimizer_mhd3d
 
+    !===================================================================================================================================
 
     CONTAINS
 
+
+    !===================================================================================================================================
+    !> Initialization method for a minimizer
+    !!
+    !===================================================================================================================================
     SUBROUTINE new_minimizer(&
             sf, varsize_in, dt_initial, MinType_in, dW_allowed_in,& ! Minimizer
             DoCheckDistance, DoCheckAxis,& !what to log
             outputIter, nlogScreen, logIter& !when to log
         )
+        !-----------------------------------------------------------------------------------------------------------------------------------
         ! MODULES
         USE MODgvec_MHD3D_evalFunc, ONLY: EvalForce
         !-----------------------------------------------------------------------------------------------------------------------------------
         ! INPUT VARIABLES
-        INTEGER , INTENT(IN) :: varsize_in(:)
-        REAL(wp), INTENT(IN) :: dt_initial, dW_allowed_in
-        INTEGER, INTENT(IN)  :: MinType_in
-        LOGICAL, INTENT(IN)  :: DoCheckDistance, DoCheckAxis
-        INTEGER, INTENT(IN)  :: outputIter, nlogScreen, logIter
+        INTEGER , INTENT(IN) :: varsize_in(:) !! size of the dofs
+        REAL(wp), INTENT(IN) :: dt_initial !! initial stepsize for the minimization
+        REAL(wp), INTENT(IN) :: dW_allowed_in !! for minimizer, accept step if dW<dW_allowed*W_MHD(iter=0)
+        INTEGER, INTENT(IN)  :: MinType_in !! gradient descent = 0, accelerated gradient descent = 10
+        LOGICAL, INTENT(IN)  :: DoCheckDistance !! TRUE: check distance between solutions of two log output states
+        LOGICAL, INTENT(IN)  :: DoCheckAxis !! TRUE: check axis position
+        INTEGER, INTENT(IN)  :: outputIter !! number of iterations after which output files are written
+        INTEGER, INTENT(IN)  :: nlogScreen !! number of log outputs after a screen output is written
+        INTEGER, INTENT(IN)  :: logIter !! number of iterations after which a screen log is written
         !-----------------------------------------------------------------------------------------------------------------------------------
         ! OUTPUT VARIABLES
-        TYPE(t_minimizer_mhd3d),ALLOCATABLE, INTENT(INOUT) :: sf
+        TYPE(t_minimizer_mhd3d),ALLOCATABLE, INTENT(INOUT) :: sf !! allocatable minimizer object
         !-----------------------------------------------------------------------------------------------------------------------------------
         ! LOCAL VARIABLES
-        INTEGER :: i
+        INTEGER :: i !! iteration variable
         !===================================================================================================================================
         ALLOCATE(sf)
 
@@ -168,40 +192,24 @@ MODULE MODgvec_MHD3D_minimize
         sf%initialized = .TRUE.
     END SUBROUTINE new_minimizer
 
-    SUBROUTINE Free_minimizer(sf)
-        CLASS(t_minimizer_mhd3d), INTENT(INOUT) :: sf
-        INTEGER :: i
-
-        ASSOCIATE(vars=>sf%vars)
-            CLOSE(vars%logUnit)
-            DO i=-1,1
-                IF(ALLOCATED(vars%dofs)) CALL vars%dofs(i)%free()
-                IF(ALLOCATED(vars%temp_dofs)) CALL vars%temp_dofs(i)%free()
-            END DO
-            DO i=-1,0
-                IF(ALLOCATED(vars%force)) CALL vars%force(i)%free()
-            END DO
-
-            SDEALLOCATE(vars%dofs)
-            SDEALLOCATE(vars%temp_dofs)
-            SDEALLOCATE(vars%force)
-            SELECT TYPE(vars)
-            TYPE IS(t_accelerated_gradient_descent_vars)
-                DO i=-1,1
-                    IF(ALLOCATED(vars%velocity)) CALL vars%velocity(i)%free()
-                END DO
-                SDEALLOCATE(vars%velocity)
-                SDEALLOCATE(vars%tau)
-            END SELECT !Type
-        END ASSOCIATE !vars
-        SDEALLOCATE(sf%vars)
-    END SUBROUTINE Free_minimizer
-
+    !===================================================================================================================================
+    !> Reset the minimizer state
+    !!
+    !! Called during the first iteration or after resetting the minimizer, e.g. due to detJ<0.
+    !! Overwrites the degrees of freedom (dofs(-2:-1)) with the initial state (dofs(0)).
+    !! For the accelerated gradient descent also the history (e.g. tau) is reset.
+    !===================================================================================================================================
     SUBROUTINE MinimizeMHD3d_ResetDescent(sf)
+        ! MODULES
         USE MODgvec_MHD3D_EvalFunc, ONLY: EvalAux, EvalForce, EvalEnergy
         !-------------------------------------------------------------------------------------------------------------------------------
-        CLASS(t_minimizer_mhd3d), INTENT(INOUT) :: sf
+        ! INPUT VARIABLES
+        CLASS(t_minimizer_mhd3d), INTENT(INOUT) :: sf !! minimizer
         !-------------------------------------------------------------------------------------------------------------------------------
+        ! OUTPUT VARIABLES
+        !-------------------------------------------------------------------------------------------------------------------------------
+        ! LOCAL VARIABLES
+        !===============================================================================================================================
         ASSOCIATE(vars=>sf%vars)
             vars%JacCheck=1 !abort if detJ<0
             CALL EvalAux(vars%dofs(0), vars%JacCheck)
@@ -233,14 +241,25 @@ MODULE MODgvec_MHD3D_minimize
         END ASSOCIATE !vars
     END SUBROUTINE MinimizeMHD3d_ResetDescent
 
+    !===================================================================================================================================
+    !> Initialization of the Logging
+    !!
+    !! NOTE: Opens and writes to a csv file named in the style of logMinimizer_*
+    !===================================================================================================================================
     SUBROUTINE StartLogging_MHD3D(sf)
+        ! MODULES
         USE MODgvec_Globals,     ONLY: GETFREEUNIT
         USE MODgvec_Output_Vars, ONLY: ProjectName,outputLevel
         USE MODgvec_MHD3D_visu,  ONLY: checkPos
         IMPLICIT NONE
-        CLASS(t_minimizer_mhd3d), INTENT(INOUT) :: sf
-        !---------------------------------------------------------------------------------------------------------------------------------
-        CHARACTER(LEN=255)  :: fileString
+        !-------------------------------------------------------------------------------------------------------------------------------
+        ! INPUT VARIABLES
+        CLASS(t_minimizer_mhd3d), INTENT(INOUT) :: sf !! minimizer
+        !-------------------------------------------------------------------------------------------------------------------------------
+        ! OUTPUT VARIABLES
+        !-------------------------------------------------------------------------------------------------------------------------------
+        ! LOCAL VARIABLES
+        CHARACTER(LEN=255)  :: fileString !! filename
         INTEGER             :: TimeArray(8),iLogDat
         REAL(wp)            :: Pos(2,2),W_MHD3D
         INTEGER,PARAMETER   :: nLogDat=25
@@ -305,14 +324,24 @@ MODULE MODgvec_MHD3D_minimize
         __PERFOFF('log_output')
     END SUBROUTINE StartLogging_MHD3D
 
+    !===================================================================================================================================
+    !> Log the current minimizer and functional state
+    !!
+    !! NOTE: Writes to a csv file named in the style of logMinimizer_*
+    !===================================================================================================================================
     SUBROUTINE Logging_MHD3D(sf, quiet)
+        ! MODULES
         USE MODgvec_MHD3D_visu, ONLY: checkDistance
         USE MODgvec_MHD3D_visu, ONLY: checkPos
         IMPLICIT NONE
-
+        !-------------------------------------------------------------------------------------------------------------------------------
+        ! INPUT VARIABLES
         CLASS(t_minimizer_mhd3d), INTENT(INOUT) :: sf
         LOGICAL, INTENT(IN) :: quiet !! True: no screen output
-        !---------------------------------------------------------------------------------------------------------------------------------
+        !-------------------------------------------------------------------------------------------------------------------------------
+        ! OUTPUT VARIABLES
+        !-------------------------------------------------------------------------------------------------------------------------------
+        ! LOCAL VARIABLES
         INTEGER             :: TimeArray(8),runtime_ms,iLogDat
         REAL(wp)            :: Pos(2,2),maxDist,avgDist,W_MHD3D
         INTEGER,PARAMETER   :: nLogDat=25
@@ -381,6 +410,12 @@ MODULE MODgvec_MHD3D_minimize
         __PERFOFF('log_output')
     END SUBROUTINE Logging_MHD3D
 
+    !===================================================================================================================================
+    !> Core minimization routine
+    !!
+    !! Iterates until the (force-)tolerance or the maximum number of iterations is reached.
+    !! Also writes output files after set number of iterations
+    !===================================================================================================================================
     SUBROUTINE MinimizeMHD3D_descent(sf, abstol, maxIter_in)
         USE MODgvec_MHD3D_EvalFunc, ONLY: EvalAux, EvalForce, EvalEnergy
         USE MODgvec_Analyze, ONLY:analyze
@@ -389,14 +424,14 @@ MODULE MODgvec_MHD3D_minimize
         USE MODgvec_sol_var_MHD3D, ONLY: t_sol_var_MHD3D
         IMPLICIT NONE
 
-        REAL(wp), INTENT(IN) :: abstol
-        INTEGER, INTENT(IN)  :: maxIter_in
+        REAL(wp), INTENT(IN) :: abstol !! tolerance on the forces. If reached terminaters the minimization
+        INTEGER, INTENT(IN)  :: maxIter_in !! maximum number of iterations after which the iterations are terminated
         !-----------------------------------------------------------------------------------------------------------------------------------
         ! OUTPUT VARIABLES
-        CLASS(t_minimizer_mhd3d), INTENT(INOUT) :: sf
+        CLASS(t_minimizer_mhd3d), INTENT(INOUT) :: sf !! minimizer
         !-----------------------------------------------------------------------------------------------------------------------------------
         ! LOCAL VARIABLES
-        INTEGER :: maxIter
+        INTEGER :: maxIter !! maximum number of iterations
         !=================================================================================================================================
         ASSOCIATE(vars=>sf%vars)
             maxIter = vars%iter + maxIter_in
@@ -514,5 +549,46 @@ MODULE MODgvec_MHD3D_minimize
             CALL writeSFLoutfile(vars%dofs(0),MIN(vars%iter,MaxIter))
         END ASSOCIATE !vars
     END SUBROUTINE MinimizeMHD3D_descent
+
+    !===================================================================================================================================
+    !> Finalization method for a minimizer
+    !!
+    !! NOTE: Also closes the logging file
+    !===================================================================================================================================
+    SUBROUTINE Free_minimizer(sf)
+        ! MODULES
+        !-------------------------------------------------------------------------------------------------------------------------------
+        ! INPUT VARIABLES
+        CLASS(t_minimizer_mhd3d), INTENT(INOUT) :: sf !! minimizer
+        !-------------------------------------------------------------------------------------------------------------------------------
+        ! OUTPUT VARIABLES
+        !-------------------------------------------------------------------------------------------------------------------------------
+        ! LOCAL VARIABLES
+        INTEGER :: i !! iteration variable
+        !===============================================================================================================================
+        ASSOCIATE(vars=>sf%vars)
+            CLOSE(vars%logUnit)
+            DO i=-1,1
+                IF(ALLOCATED(vars%dofs)) CALL vars%dofs(i)%free()
+                IF(ALLOCATED(vars%temp_dofs)) CALL vars%temp_dofs(i)%free()
+            END DO
+            DO i=-1,0
+                IF(ALLOCATED(vars%force)) CALL vars%force(i)%free()
+            END DO
+
+            SDEALLOCATE(vars%dofs)
+            SDEALLOCATE(vars%temp_dofs)
+            SDEALLOCATE(vars%force)
+            SELECT TYPE(vars)
+            TYPE IS(t_accelerated_gradient_descent_vars)
+                DO i=-1,1
+                    IF(ALLOCATED(vars%velocity)) CALL vars%velocity(i)%free()
+                END DO
+                SDEALLOCATE(vars%velocity)
+                SDEALLOCATE(vars%tau)
+            END SELECT !Type
+        END ASSOCIATE !vars
+        SDEALLOCATE(sf%vars)
+    END SUBROUTINE Free_minimizer
 
 END MODULE MODgvec_MHD3D_minimize
