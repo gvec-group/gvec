@@ -126,9 +126,10 @@ REAL(wp)                :: StartTimeTotal,EndTimeTotal,StartTime,EndTime
   EndTime=GetTime()
   SWRITE(Unit_stdOut,'(A,2(F8.2,A))') ' FUNCTIONAL MINIMISATION FINISHED! [',EndTime-StartTime,' sec ], corresponding to [', &
        (EndTime-StartTime)/REAL(MaxIter,wp)*1.e3_wp,' msec/iteration ]'
-
-  CALL functional%free()
-  DEALLOCATE(functional)
+  IF(ALLOCATED(functional))THEN
+    CALL functional%free()
+    DEALLOCATE(functional)
+  END IF
   CALL enter_subregion("finalize")
   CALL FinalizeAnalyze()
   CALL FinalizeOutput()

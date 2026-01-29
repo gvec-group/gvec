@@ -29,7 +29,6 @@ SUBROUTINE Init(parameterfile)
   USE MODgvec_Restart,        ONLY: InitRestart
   USE MODgvec_ReadInTools,    ONLY: FillStrings,GETLOGICAL,GETINT,IgnoredStrings
 !$ USE omp_lib
-  USE MODgvec_MHD3D,  ONLY: InitMHD3D
   USE MODgvec_MPI    ,ONLY: par_Init
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   CHARACTER(LEN=*) :: parameterfile
@@ -62,7 +61,7 @@ SUBROUTINE Init(parameterfile)
 
   ! initialize the functional
   ALLOCATE(t_functional_mhd3d :: functional)
-  CALL InitMHD3D(functional)
+  CALL functional%init()
 
   ! print the ignored parameters
   CALL IgnoredStrings()
@@ -92,7 +91,7 @@ SUBROUTINE ReadState(statefile)
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL enter_subregion("read statefile")
   ProjectName='POST_'//TRIM(StateFile(1:INDEX(StateFile,'_State_')-1))
-  CALL RestartFromState(StateFile,functional%minimizer%dofs(0))
+  CALL RestartFromState(StateFile,functional%minimizer%vars%dofs(0))
   outputLevel=outputLevel_r
   CALL exit_subregion("read statefile")
 END SUBROUTINE ReadState
@@ -130,13 +129,13 @@ SUBROUTINE select_base_dofs(var, base, dofs)
   SELECT CASE(var)
     CASE('X1')
       base => X1_base
-      dofs => functional%minimizer%dofs(0)%X1
+      dofs => functional%minimizer%vars%dofs(0)%X1
     CASE('X2')
       base => X2_base
-      dofs => functional%minimizer%dofs(0)%X2
+      dofs => functional%minimizer%vars%dofs(0)%X2
     CASE('LA')
       base => LA_base
-      dofs => functional%minimizer%dofs(0)%LA
+      dofs => functional%minimizer%vars%dofs(0)%LA
     CASE DEFAULT
       CALL abort(__STAMP__, &
       'ERROR: variable "'//TRIM(var)//'" not recognized')
@@ -966,7 +965,7 @@ SUBROUTINE get_boozer(sfl_boozer)
   TYPE(t_sfl_boozer), INTENT(INOUT) :: sfl_boozer  ! SFL-Boozer object
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL sfl_boozer%get_boozer(X1_base, X2_base, LA_base,&
-  functional%minimizer%dofs(0)%X1, functional%minimizer%dofs(0)%X2, functional%minimizer%dofs(0)%LA)
+  functional%minimizer%vars%dofs(0)%X1, functional%minimizer%vars%dofs(0)%X2, functional%minimizer%vars%dofs(0)%LA)
 END SUBROUTINE get_boozer
 
 
@@ -990,7 +989,7 @@ SUBROUTINE find_pest_angles_2D(n_s, s, n_tz, tz_pest, tz_out)
   !$OMP PRIVATE(i_s)
   DO i_s=1,n_s
     ! evaluate spline to get the fourier dofs
-    LA(:, i_s) = LA_base%s%evalDOF2D_s(s(i_s), LA_base%f%modes, 0, functional%minimizer%dofs(0)%LA)
+    LA(:, i_s) = LA_base%s%evalDOF2D_s(s(i_s), LA_base%f%modes, 0, functional%minimizer%vars%dofs(0)%LA)
   END DO
   !$OMP END PARALLEL DO
   CALL find_pest_angles(n_s, LA_base%f, LA, n_tz, tz_pest, tz_out)

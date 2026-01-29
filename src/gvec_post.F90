@@ -23,7 +23,7 @@ PROGRAM GVEC_POST
   USE MODgvec_MHD3D_visu   ,ONLY:WriteSFLoutfile
   USE MODgvec_MHD3D_EvalFunc , ONLY: InitProfilesGP,EvalEnergy,EvalForce
   USE MODgvec_ReadInTools  ,ONLY: FillStrings,GETLOGICAL,GETINT,IgnoredStrings
-  USE MODgvec_MHD3D, ONLY:t_functional_mhd3d, InitMHD3D
+  USE MODgvec_MHD3D, ONLY:t_functional_mhd3d
 !$ USE omp_lib
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -75,7 +75,7 @@ PROGRAM GVEC_POST
   CALL InitAnalyze()
 
   ALLOCATE(t_functional_mhd3d :: functional)
-  CALL InitMHD3D(functional)
+  CALL functional%init()
 
   CALL IgnoredStrings()
   DO iArg=2,nArgs
@@ -84,15 +84,17 @@ PROGRAM GVEC_POST
     SWRITE(UNIT_stdOut,'(A,I4,A4,I4,A3,A)') 'Post-Analyze StateFile ',iArg-1,' of ',nArgs-1,' : ',TRIM(StateFile)
     SWRITE(Unit_stdOut,'(132("-"))')
     ProjectName='POST_'//TRIM(StateFile(1:INDEX(StateFile,'_State_')-1))
-    CALL RestartFromState(StateFile,functional%minimizer%dofs(0))
-    outputLevel=outputLevel_r
-    JacCheck=2
-    !...check this: temporarily commented for gvec_post to run with MPI version...
-    CALL InitProfilesGP() !evaluate profiles once at Gauss Points (on MPIroot + BCast)
-    functional%minimizer%dofs(0)%W_MHD3D=EvalEnergy(functional%minimizer%dofs(0),.TRUE.,JacCheck)
-    CALL EvalForce(functional%minimizer%dofs(0),.FALSE.,JacCheck, functional%minimizer%force(0))
-    CALL Analyze(FileID_r, functional%minimizer%dofs(0), functional%minimizer%force(0))
-    CALL writeSFLoutfile(functional%minimizer%dofs(0),FileID_r)
+    ASSOCIATE(vars=>functional%minimizer%vars)
+      CALL RestartFromState(StateFile,vars%dofs(0))
+      outputLevel=outputLevel_r
+      JacCheck=2
+      !...check this: temporarily commented for gvec_post to run with MPI version...
+      CALL InitProfilesGP() !evaluate profiles once at Gauss Points (on MPIroot + BCast)
+      vars%dofs(0)%W_MHD3D=EvalEnergy(vars%dofs(0),.TRUE.,JacCheck)
+      CALL EvalForce(vars%dofs(0),.FALSE.,JacCheck, vars%force(0))
+      CALL Analyze(FileID_r, vars%dofs(0), vars%force(0))
+      CALL writeSFLoutfile(vars%dofs(0),FileID_r)
+    END ASSOCIATE
   END DO !iArg
 
   CALL functional%free()

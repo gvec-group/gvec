@@ -18,7 +18,7 @@ MODULE MODgvec_MHD3D
   IMPLICIT NONE
 
   PRIVATE
-  PUBLIC t_functional_mhd3d, InitMHD3D
+  PUBLIC t_functional_mhd3d
 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! TYPES
@@ -609,46 +609,47 @@ SUBROUTINE InitSolutionMHD3D(sf)
 !===================================================================================================================================
   CALL par_barrier(beforeScreenOut="    INITIALIZE SOLUTION...",afterScreenOut="                           ...")
   CALL enter_subregion("init-solution")
-  IF(MPIroot) THEN
-    IF(doRestart)THEN
-      WRITE(UNIT_stdOut,'(4X,A)')'... restarting from file ... '
-      CALL RestartFromState(RestartFile,sf%minimizer%dofs(0))
-      CALL InitSolution(sf%minimizer%dofs(0),-1) ! (re-)apply BC and init LA (if init_LA is true)
+  ASSOCIATE(vars=>sf%minimizer%vars)
+    IF(MPIroot) THEN
+      IF(doRestart)THEN
+        WRITE(UNIT_stdOut,'(4X,A)')'... restarting from file ... '
+        CALL RestartFromState(RestartFile,vars%dofs(0))
+        CALL InitSolution(vars%dofs(0),-1) ! (re-)apply BC and init LA (if init_LA is true)
+      ELSE
+        CALL InitSolution(vars%dofs(0),which_init)
+      END IF
+      IF(boundary_perturb)THEN
+        CALL AddBoundaryPerturbation(vars%dofs(0),boundary_perturb_depth,boundary_perturb_type)
+      END IF !boundary_perturb
+    END IF !MPIroot
+    CALL par_Bcast(vars%dofs(0)%X1,0)
+    CALL par_Bcast(vars%dofs(0)%X2,0)
+    CALL exit_subregion("init-solution")
+
+    IF(init_LA) THEN
+      CALL Init_LA_From_Solution(vars%dofs(0))  !BCast inside
     ELSE
-      CALL InitSolution(sf%minimizer%dofs(0),which_init)
+      CALL par_Bcast(vars%dofs(0)%LA,0)
     END IF
-    IF(boundary_perturb)THEN
-      CALL AddBoundaryPerturbation(sf%minimizer%dofs(0),boundary_perturb_depth,boundary_perturb_type)
-    END IF !boundary_perturb
-  END IF !MPIroot
-  CALL par_Bcast(sf%minimizer%dofs(0)%X1,0)
-  CALL par_Bcast(sf%minimizer%dofs(0)%X2,0)
-  CALL exit_subregion("init-solution")
 
-  IF(init_LA) THEN
-    CALL Init_LA_From_Solution(sf%minimizer%dofs(0))  !BCast inside
-  ELSE
-    CALL par_Bcast(sf%minimizer%dofs(0)%LA,0)
-  END IF
+    CALL vars%dofs(-1)%set_to(vars%dofs(0))
 
-  CALL sf%minimizer%dofs(-1)%set_to(sf%minimizer%dofs(0))
+    JacCheck=2
+    CALL InitProfilesGP() !evaluate profiles once at Gauss Points (on MPIroot + BCast)
 
-  JacCheck=2
-  CALL InitProfilesGP() !evaluate profiles once at Gauss Points (on MPIroot + BCast)
-
-  CALL enter_subregion("check-solution")
-  sf%minimizer%dofs(0)%W_MHD3D=EvalEnergy(sf%minimizer%dofs(0),.TRUE.,JacCheck)
-  IF(JacCheck.EQ.-1)THEN
-    CALL Analyze(0, sf%minimizer%dofs(0), sf%minimizer%force(0))
-    CALL abort(__STAMP__,&
-        "NEGATIVE JACOBIAN FOUND AFTER INITIALIZATION!",TypeInfo="InitializationError")
-  END IF
-  CALL WriteState(sf%minimizer%dofs(0),0)
-  CALL EvalForce(sf%minimizer%dofs(0),.FALSE.,JacCheck, sf%minimizer%force(0))
-  SWRITE(UNIT_stdOut,'(8x,A,3E11.4)')'|Force|= ',SQRT(sf%minimizer%force(0)%norm_2())
-  CALL Analyze(0, sf%minimizer%dofs(0), sf%minimizer%force(0))
+    CALL enter_subregion("check-solution")
+    vars%dofs(0)%W_MHD3D=EvalEnergy(vars%dofs(0),.TRUE.,JacCheck)
+    IF(JacCheck.EQ.-1)THEN
+      CALL Analyze(0, vars%dofs(0), vars%force(0))
+      CALL abort(__STAMP__,&
+          "NEGATIVE JACOBIAN FOUND AFTER INITIALIZATION!",TypeInfo="InitializationError")
+    END IF
+    CALL WriteState(vars%dofs(0),0)
+    CALL EvalForce(vars%dofs(0),.FALSE.,JacCheck, vars%force(0))
+    SWRITE(UNIT_stdOut,'(8x,A,3E11.4)')'|Force|= ',SQRT(vars%force(0)%norm_2())
+    CALL Analyze(0, vars%dofs(0), vars%force(0))
+  END ASSOCIATE !vars
   CALL exit_subregion("check-solution")
-
   CALL par_barrier(afterScreenOut="    ...DONE")
   SWRITE(UNIT_stdOut,fmt_sep)
 END SUBROUTINE InitSolutionMHD3D
@@ -1191,20 +1192,12 @@ SUBROUTINE MinimizeMHD3D(sf, dt_in)
 ! LOCAL VARIABLES
 !===================================================================================================================================
   __PERFON('minimizer')
-  SELECT CASE(MinimizerType)
-  CASE(0,10)
-    IF (PRESENT(dt_in)) THEN
-      sf%minimizer%dt = dt_in
-    ENDIF
-
-    CALL enter_subregion("Minimization")
-    CALL sf%minimizer%minimize(minimize_tol, maxIter)
-    CALL exit_subregion("Minimization")
-  CASE DEFAULT
-    CALL abort(__STAMP__,&
-        "requested MinimizeType does not exist, expecting 0 or 10",intinfo=MinimizerType,&
-        TypeInfo="InvalidParameterError")
-  END SELECT
+  CALL enter_subregion("Minimization")
+  IF (PRESENT(dt_in)) THEN
+      sf%minimizer%vars%dt = dt_in
+  ENDIF
+  CALL sf%minimizer%minimize(minimize_tol, maxIter)
+  CALL exit_subregion("Minimization")
   __PERFOFF('minimizer')
 END SUBROUTINE MinimizeMHD3D
 
