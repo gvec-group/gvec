@@ -14,7 +14,9 @@ name = "gvec"
 description = "Galerkin Variational Equilibrium Code"
 dependencies = [
     "PyYAML",
+    "f90nml",
     "f90wrap>=0.3.0",
+    "matplotlib",
     "netcdf4",
     "numpy>=2",
     "pyevtk",
@@ -23,7 +25,6 @@ dependencies = [
     "tomlkit",
     "tqdm",
     "xarray",
-    "f90nml",
 ]
 authors = [
     {name = "Florian Hindenlang"},
@@ -61,7 +62,7 @@ Issues = "https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/issues"
 
 [project.optional-dependencies]
 dev = ["pytest"]
-examples = ["matplotlib", "jupyter", "ipywidgets", "ipympl", "simsopt"]
+examples = ["jupyter", "ipywidgets", "ipympl", "simsopt", "nbformat", "plotly<6.0"]
 
 [project.scripts]
 pygvec = "gvec.scripts.main:main"

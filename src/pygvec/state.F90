@@ -35,7 +35,7 @@ SUBROUTINE Init(parameterfile)
   CHARACTER(LEN=*) :: parameterfile
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: which_functional
-  !================================================================================================================================!
+  ! CODE ========================================================================================================================!
   CALL reset_subregion()
   CALL enter_subregion("startup")
   CALL par_Init() !USE MPI_COMM_WORLD
@@ -1035,7 +1035,7 @@ SUBROUTINE Finalize()
   USE MODgvec_Functional,     ONLY: FinalizeFunctional
   USE MODgvec_ReadInTools,    ONLY: FinalizeReadIn
   USE MODgvec_MPI,            ONLY: par_Finalize
-  !================================================================================================================================!
+  ! CODE ========================================================================================================================!
 
   IF(ALLOCATED(functional)) THEN
     CALL FinalizeFunctional(functional)

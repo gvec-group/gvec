@@ -78,7 +78,7 @@ def register(
     requirements: Collection[str] = (),
     integration: Collection[str] = (),
     attrs: Mapping = {},
-    registry: MutableMapping = QUANTITIES,
+    registry: MutableMapping | None = None,
 ):
     """Function decorator to register equilibrium quantities.
 
@@ -90,6 +90,8 @@ def register(
         * the names of the integration axes required for the computation
         * the attributes of the computed quantity (long_name, symbol, etc.)
     """
+    if registry is None:
+        registry = QUANTITIES
 
     def _register(
         func: (Callable[[xr.Dataset], xr.Dataset] | Callable[[xr.Dataset, State], xr.Dataset]),
@@ -115,14 +117,17 @@ def register(
     return _register
 
 
-def table_of_quantities(markdown: bool = False, registry: Mapping = QUANTITIES):
+def table_of_quantities(markdown: bool = False, registry: Mapping | None = None):
     """
     Generate a table of computable quantities.
 
     Parameters
     ----------
-    markdown : optional
+    markdown : bool, optional
         If True, return the table as a Ipython.Markdown object. Otherwise, return the table as a string.
+    registry : Mapping | None, optional
+        The registry of computable quantites to use.
+        Default: the ``gvec.core.compute.QUANTITIES`` registry used to evaluate a gvec.State object.
 
     Returns
     -------
@@ -135,6 +140,9 @@ def table_of_quantities(markdown: bool = False, registry: Mapping = QUANTITIES):
     This method generates a table of quantities based on the attributes of the registered quantities.
     The table includes the label, long name, and symbol of each quantity.
     """
+    if registry is None:
+        registry = QUANTITIES
+
     lines = []
     for key, func in sorted(list(registry.items())):
         long_name = func.attrs[key].get("long_name", "")
@@ -157,24 +165,37 @@ def table_of_quantities(markdown: bool = False, registry: Mapping = QUANTITIES):
 def compute(
     ev: xr.Dataset,
     *quantities: str,
-    state: State = None,
-    registry: Mapping = QUANTITIES,
+    state: State | None = None,
+    registry: Mapping | None = None,
 ) -> xr.Dataset:
-    """Compute the target equilibrium quantity and add it to the given evaluation dataset.
+    """
+    Compute the target quantity and add it to the given evaluation dataset.
 
-    This method will compute required parameters recursively and add them to the dataset.
+    This method will recursively determine prerequisites, compute them and add them to the dataset as needed.
 
     Parameters
     ----------
     ev : xr.Dataset
-        The evaluation dataset with the target coordinates (rho, theta, zeta) and possibly some precomputed quantities.
-    quantities : str
-        One or more names of the quantities to compute. See `table_of_quantities` for a list of available quantities.
-    state : State, optional
-        A gvec.State object that is used to compute the quantities. Not necessary if the desired quantities only depend on already computed quantities.
-    registry : Mapping, optional
+        The evaluation dataset with the target grid ``(rad, pol, tor)``, coordinates ``(rho, theta, zeta)`` and possibly some precomputed quantities.
+    *quantities : str
+        One or more names of the quantities to compute.
+        See the :ref:`default table of available quantities <table-of-quantities>`
+        or call ``table_of_quantities`` to see all options.
+    state : gvec.State | None, optional
+        A gvec.State object that can be used by quantities which require it. Not necessary if the desired quantities only depend on already computed quantities.
+    registry : Mapping | None, optional
         The registry of computable quantites to use.
+        Default: the ``gvec.core.compute.QUANTITIES`` registry used to evaluate a gvec.State object.
+
+    See Also
+    --------
+    evaluate: create a new grid in logical coordinates and compute target quantities.
+    evaluate_sfl: create a new grid in straight-fieldline coordinates and compute target quantities.
+    gvec.core.state.State.evaluate: this function as a method of gvec.State.
     """
+    if registry is None:
+        registry = QUANTITIES
+
     for quantity in quantities:
         # --- get the compute function --- #
         if quantity in ev:
@@ -346,8 +367,8 @@ def Evaluations(
             coords["rho"] = ("rad", rho)
         case int() as num:
             coords["rho"] = ("rad", np.linspace(0, 1, num))
-            coords["rho"][1][0] = (
-                0.1 * coords["rho"][1][1]
+            coords["rho"][1][0] = min(
+                1.0e-4, 0.1 * coords["rho"][1][1]
             )  # avoid numerical issues at the magnetic axis
         case float():
             coords["rho"] = ("rad", np.array([rho]))
@@ -472,10 +493,16 @@ def EvaluationsBoozer(
     radial_derivative : bool
         Whether to compute the radial derivatives of the `LA` and `NU_B` variables, at fixed GVEC angles
         $(\\vartheta(\\rho_i,\\vartheta_{B,j},\\zeta_{B,k}),\\zeta(\\rho_i,\\vartheta_{B,j},\\zeta_{B,k}))$.
-        Computes boozer transform  at additional radial points `rho- epsilon`, and uses a first order Finite Difference in epsilon (`=1e-8`) for the derivatives.
+        Computes boozer transform at additional radial points $\\rho-\\epsilon$, and uses a first order Finite Difference for the derivatives.
+    epsilon_FD : float
+        The offset in rho used for the Finite Difference computation of the radial derivatives.
     boozer_kwargs : dict
         Additional keyword arguments to pass to the `get_boozer` method of the state object.
         These can be used to specify the Boozer transform parameters, such as the maximum mode numbers via 'MNfactor'.
+
+    Returns
+    -------
+    xr.Dataset
     """
     match rho:
         case str() if rho == "int":
@@ -775,7 +802,7 @@ def EvaluationsPEST(
 def EvaluationsBoozerCustom(rho, theta_B, zeta_B, state, **boozer_kwargs):
     """Create a custom EvaluationsBoozer dataset with Boozer coordinates.
 
-    DEPRECATED: use `EvaluationsBoozer` instead.
+    .. deprecated:: v1.2
     """
     warnings.warn(
         "`EvaluationsBoozerCustom` is deprecated, use `EvaluationsBoozer` instead.",
@@ -843,7 +870,67 @@ def evaluate(
     rho: Literal["int"] | CoordinateSpec | None = "int",
     theta: Literal["int"] | CoordinateSpec | None = "int",
     zeta: Literal["int"] | CoordinateSpec | None = "int",
-):
+) -> xr.Dataset:
+    r"""
+    Evaluate the specified quantities on a grid in logical coordinates (rho, theta, zeta).
+    This function creates an xarray Dataset with a specified grid and evaluates the desired
+    quantities and recursively determined prerequisites on that grid.
+
+    Parameters
+    ----------
+    state : State
+        The gvec.State object to evaluate the quantities for.
+    *quantities : str
+        The names of (registered) quantities to evaluate, e.g. ``"pos"``, ``"B"``, ``"mod_B"``.
+
+        See the :ref:`default table of available quantities <table-of-quantities>`
+        or call ``table_of_quantities`` to see all options.
+    rho : "int" | int | float | 1D array | None, default: "int"
+        The specification of the radial, radius-like coordinate ($\rho$), defined in the interval $[0, 1]$.
+        It can be specified as:
+
+        - The literal string ``"int"`` to use the integration points from the state object.
+        - An integer number of points (e.g. ``rho=10``) to create a uniform grid (offset at the magnetic axis).
+        - A float value (e.g. ``rho=0.5``) to evaluate at a single point.
+        - A 1D array-like (list, numpy.ndarray) of values.
+        - An xarray.DataArray containing at least the required dimension ``rad`` respectively.
+        - ``None`` to omit this dimension and coordinate.
+    theta : "int" | int | float | 1D array | None, default: "int"
+        The specification of the poloidal, angle-like coordinate ($\vartheta$), defined in the interval $[0, 2\pi)$.
+        It can be specified as:
+
+        - The literal string ``"int"`` to use the integration points from the state object.
+        - An integer number of points (e.g. ``theta=10``) to create a uniform grid.
+        - A float value (e.g. ``theta=0.5``) to evaluate at a single point.
+        - A 1D array-like (list, numpy.ndarray) of values.
+        - An xarray.DataArray containing at least the required dimension ``pol`` respectively.
+        - ``None`` to omit this dimension and coordinate.
+    zeta : "int" | int | float | 1D array | None, default: "int"
+        The specification of the toroidal, angle-like coordinate ($\zeta$), defined in the interval $[0, 2\pi)$.
+        It can be specified as:
+
+        - The literal string ``"int"`` to use the integration points from the state object (distributed on a single field-period).
+        - An integer number of points (e.g. ``zeta=10``) to create a uniform grid (on a single field-period).
+        - A float value (e.g. ``zeta=0.5``) to evaluate at a single point.
+        - A 1D array-like (list, numpy.ndarray) of values.
+        - An xarray.DataArray containing at least the required dimension ``tor`` respectively.
+        - ``None`` to omit this dimension and coordinate.
+
+    Returns
+    -------
+    xarray.Dataset
+        An xarray Dataset containing the evaluated quantities and prerequisites on the specified grid.
+
+        The returned Dataset has dimensions ``("rad", "pol", "tor")`` corresponding to the radial, poloidal, and toroidal directions,
+        with respective coordinates ``rho(rad)``, ``theta(pol)``, and ``zeta(tor)``.
+
+    See Also
+    --------
+    gvec.core.compute.evaluate: this function as a standalone function.
+    gvec.core.state.State.evaluate: this function as a method of gvec.State.
+    gvec.core.compute.compute: compute quantities and add them to an existing dataset.
+    gvec.core.compute.evaluate_sfl: evaluate quantities on a grid in straight-fieldline coordinates.
+    """
     if not isinstance(state, State):
         raise TypeError(f"Expected a gvec.State object, got {type(state)}.")
     ev = Evaluations(rho, theta, zeta, state)
@@ -859,7 +946,68 @@ def evaluate_sfl(
     zeta: CoordinateSpec,
     sfl: Literal["boozer", "pest"],
     **boozer_kwargs,
-):
+) -> xr.Dataset:
+    r"""
+    Evaluate the specified quantities on a grid in straight-fieldline coordinates (Boozer or PEST).
+    This function creates an xarray Dataset with a specified grid and evaluates the desired
+    quantities and recursively determined prerequisites on that grid.
+
+    Parameters
+    ----------
+    state : State
+        The gvec.State object to evaluate the quantities for.
+    *quantities : str
+        The names of (registered) quantities to evaluate, e.g. ``"pos"``, ``"B"``, ``"mod_B"``.
+
+        See the :ref:`default table of available quantities <table-of-quantities>`
+        or call ``table_of_quantities`` to see all options.
+    rho : "int" | int | float | 1D array
+        The specification of the radial, radius-like coordinate ($\rho$), defined in the interval $[0, 1]$.
+        It can be specified as:
+
+        - The literal string ``"int"`` to use the integration points from the state object.
+        - An integer number of points (e.g. ``rho=10``) to create a uniform grid.
+        - A float value (e.g. ``rho=0.5``) to evaluate at a single point.
+        - A 1D array-like (list, numpy.ndarray) of values.
+        - An xarray.DataArray containing at least the dimension ``rad``.
+    theta : int | float | 1D, 2D or 3D array
+        The specification of the poloidal, angle-like coordinate ($\vartheta$, $\vartheta_P$ or $\vartheta_B$), defined in the interval $[0, 2\pi)$.
+        It can be specified as:
+
+        - An integer number of points (e.g. ``theta=10``) to create a uniform grid.
+        - A float value (e.g. ``theta=0.5``) to evaluate at a single point.
+        - A 1D array-like (list, numpy.ndarray) of values.
+        - A 2D array-like with assumed dimensions (pol, tor).
+        - A 3D array-like with assumed dimensions (rad, pol, tor).
+        - An xarray.DataArray containing at least the dimension ``pol``.
+    zeta : int | float | 1D, 2D or 3D array
+        The specification of the toroidal, angle-like coordinate ($\zeta$ or $\zeta_B$), defined in the interval $[0, 2\pi)$.
+        For equidistant grids, the grid will only cover one field period (i.e. $[0, 2\pi/N_{FP})$).
+        It can be specified as:
+
+        - An integer number of points (e.g. ``zeta=10``) to create a uniform grid (on a single field-period).
+        - A float value (e.g. ``zeta=0.5``) to evaluate at a single point.
+        - A 1D array-like (list, numpy.ndarray) of values.
+        - A 2D array-like with assumed dimensions (pol, tor).
+        - A 3D array-like with assumed dimensions (rad, pol, tor).
+        - An xarray.DataArray containing at least the dimension ``tor``.
+
+    Returns
+    -------
+    xarray.Dataset
+        An xarray Dataset containing the evaluated quantities and prerequisites on the specified grid.
+
+        The returned Dataset has (at least) dimensions ``("rad", "pol", "tor")`` corresponding to the radial, poloidal, and toroidal directions.
+        With 1D or equidistant coordinates, the respective coordinates are ``rho(rad)``, ``theta_P(pol)`` or ``theta_B(pol)``, and ``zeta(tor)`` or ``zeta_B(tor)``.
+        The logical coordinates are then normal data variables of more dimensions in the dataset.
+
+    See Also
+    --------
+    gvec.core.compute.evaluate_sfl: this function as a standalone function.
+    gvec.core.state.State.evaluate_sfl: this function as a method of gvec.State.
+    gvec.core.compute.compute: compute quantities and add them to an existing dataset.
+    gvec.core.compute.evaluate: evaluate quantities on a grid in logical coordinates.
+    """
     if not isinstance(state, State):
         raise TypeError(f"Expected a gvec.State object, got {type(state)}.")
     if sfl.lower() == "boozer":
@@ -870,6 +1018,10 @@ def evaluate_sfl(
         raise ValueError(f"Unsupported SFL type {sfl}. Expected 'boozer' or 'pest'.")
     compute(ev, *quantities, state=state)
     return ev
+
+
+State.evaluate = evaluate
+State.evaluate_sfl = evaluate_sfl
 
 
 # === Fourier Transform === #
