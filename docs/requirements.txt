@@ -11,4 +11,5 @@ ford
 graphviz
 
 matplotlib
-plotly<6.0
+plotly<6.0 # plotly 6.0 has issues with myst-nb and won't show plots in notebook
+simsopt # for setting up the quasr case
