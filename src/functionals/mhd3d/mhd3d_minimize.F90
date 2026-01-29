@@ -193,8 +193,8 @@ MODULE MODgvec_MHD3D_minimize
                 SDEALLOCATE(vars%velocity)
                 SDEALLOCATE(vars%tau)
             END SELECT !Type
-            DEALLOCATE(vars)
         END ASSOCIATE !vars
+        SDEALLOCATE(sf%vars)
     END SUBROUTINE Free_minimizer
 
     SUBROUTINE MinimizeMHD3d_ResetDescent(sf)
