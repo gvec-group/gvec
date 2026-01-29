@@ -34,7 +34,7 @@ SUBROUTINE Init(parameterfile)
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   CHARACTER(LEN=*) :: parameterfile
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  ! CODE ========================================================================================================================!
   CALL reset_subregion()
   CALL enter_subregion("startup")
   CALL par_Init() !USE MPI_COMM_WORLD
@@ -113,34 +113,6 @@ SUBROUTINE minimize(dt_in)
         (EndTime-StartTime)/REAL(MaxIter,wp)*1.e3_wp,' msec/iteration ]'
 END SUBROUTINE minimize
 
-
-!================================================================================================================================!
-SUBROUTINE Finalize()
-  ! MODULES
-  USE MODgvec_Globals,        ONLY: Unit_stdOut,MPIroot
-  USE MODgvec_Analyze,        ONLY: FinalizeAnalyze
-  USE MODgvec_Output,         ONLY: FinalizeOutput
-  USE MODgvec_Restart,        ONLY: FinalizeRestart
-  USE MODgvec_ReadInTools,    ONLY: FinalizeReadIn
-  USE MODgvec_MPI,            ONLY: par_Finalize
-  !================================================================================================================================!
-
-  IF(ALLOCATED(functional)) THEN
-    CALL functional%free()
-    DEALLOCATE(functional)
-  END IF
-  CALL FinalizeAnalyze()
-  CALL FinalizeOutput()
-  CALL FinalizeRestart()
-  CALL FinalizeReadIn()
-  CALL par_Finalize()
-  initialized = .FALSE.
-
-  SWRITE(Unit_stdOut,'(132("="))')
-  SWRITE(UNIT_stdOut,'(A)') "GVEC POST FINISHED !"
-  SWRITE(Unit_stdOut,'(132("="))')
-  FLUSH(Unit_stdOut)
-END SUBROUTINE Finalize
 
 !================================================================================================================================!
 !> Handle the selection of the base, based on the selection string
@@ -1072,5 +1044,34 @@ SUBROUTINE evaluate_boozer_list_tz_all(sfl_boozer, n_s, n_tz, irho, thetazeta, Q
   END DO
   DEALLOCATE(Q_dofs)
 END SUBROUTINE evaluate_boozer_list_tz_all
+
+!================================================================================================================================!
+SUBROUTINE Finalize()
+  ! MODULES
+  USE MODgvec_Globals,        ONLY: Unit_stdOut,MPIroot
+  USE MODgvec_Analyze,        ONLY: FinalizeAnalyze
+  USE MODgvec_Output,         ONLY: FinalizeOutput
+  USE MODgvec_Restart,        ONLY: FinalizeRestart
+  USE MODgvec_ReadInTools,    ONLY: FinalizeReadIn
+  USE MODgvec_MPI,            ONLY: par_Finalize
+  ! CODE ========================================================================================================================!
+
+  IF(ALLOCATED(functional)) THEN
+    CALL functional%free()
+    DEALLOCATE(functional)
+  END IF
+  CALL FinalizeAnalyze()
+  CALL FinalizeOutput()
+  CALL FinalizeRestart()
+  CALL FinalizeReadIn()
+  CALL par_Finalize()
+  initialized = .FALSE.
+
+  SWRITE(Unit_stdOut,'(132("="))')
+  SWRITE(UNIT_stdOut,'(A)') "GVEC POST FINISHED !"
+  SWRITE(Unit_stdOut,'(132("="))')
+  FLUSH(Unit_stdOut)
+END SUBROUTINE Finalize
+
 
 END MODULE MODgvec_py_state

@@ -423,6 +423,7 @@ IF(COMPILE_PYGVEC)
     src/profiles/rprofile_bspline.F90
     src/profiles/rprofile_polynomial.F90
     src/base/fbase.F90
+    src/pygvec/BiotSavart.F90
   )
 
   FOREACH(file ${pygvec_src_files})

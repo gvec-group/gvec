@@ -3,6 +3,9 @@ elliptok_parameters.toml
 radial_refinement_parameters.toml
 pyGVEC_3d_visu.nc
 pyGVEC_3d_visu.vts
+coils.NCSX
+NCSX_coils.nc
+quasr*
 
 run_*
 no_radial_refinement
