@@ -97,8 +97,10 @@ PROGRAM GVEC_POST
     END ASSOCIATE
   END DO !iArg
 
-  CALL functional%free()
-  SDEALLOCATE(functional)
+  IF(ALLOCATED(functional))THEN
+    CALL functional%free()
+    DEALLOCATE(functional)
+  END IF
 
   CALL FinalizeAnalyze()
   CALL FinalizeOutput()
