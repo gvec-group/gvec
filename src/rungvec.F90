@@ -33,7 +33,6 @@ USE MODgvec_Analyze    ,ONLY : InitAnalyze,FinalizeAnalyze
 USE MODgvec_Output     ,ONLY : InitOutput,FinalizeOutput
 USE MODgvec_Restart    ,ONLY : InitRestart,FinalizeRestart
 USE MODgvec_ReadInTools,ONLY : FillStrings,GETLOGICAL,GETINT,IgnoredStrings,FinalizeReadIn
-USE MODgvec_MHD3D_Vars ,ONLY : maxIter
 !$ USE omp_lib
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -125,7 +124,7 @@ REAL(wp)                :: StartTimeTotal,EndTimeTotal,StartTime,EndTime
   CALL functional%minimize()
   EndTime=GetTime()
   SWRITE(Unit_stdOut,'(A,2(F8.2,A))') ' FUNCTIONAL MINIMISATION FINISHED! [',EndTime-StartTime,' sec ], corresponding to [', &
-       (EndTime-StartTime)/REAL(MaxIter,wp)*1.e3_wp,' msec/iteration ]'
+       (EndTime-StartTime)/REAL(functional%minimizer%vars%iter,wp)*1.e3_wp,' msec/iteration ]'
   IF(ALLOCATED(functional))THEN
     CALL functional%free()
     DEALLOCATE(functional)
