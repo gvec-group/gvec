@@ -12,12 +12,12 @@
 !===================================================================================================================================
 MODULE MODgvec_rungvec
 
-USE MODgvec_Functional, ONLY: t_functional
+USE MODgvec_MHD3D, ONLY: t_functional_mhd3d
 
 IMPLICIT NONE
 PUBLIC
 
-CLASS(t_functional), ALLOCATABLE :: functional
+CLASS(t_functional_mhd3d), ALLOCATABLE :: functional
 LOGICAL :: dorestart
 
 !INTERFACE rungvec
@@ -33,8 +33,6 @@ USE MODgvec_Analyze    ,ONLY : InitAnalyze,FinalizeAnalyze
 USE MODgvec_Output     ,ONLY : InitOutput,FinalizeOutput
 USE MODgvec_Restart    ,ONLY : InitRestart,FinalizeRestart
 USE MODgvec_ReadInTools,ONLY : FillStrings,GETLOGICAL,GETINT,IgnoredStrings,FinalizeReadIn
-USE MODgvec_Functional ,ONLY : t_functional, InitFunctional,FinalizeFunctional
-USE MODgvec_MHD3D_Vars ,ONLY : maxIter
 !$ USE omp_lib
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -43,7 +41,6 @@ IMPLICIT NONE
   CHARACTER(LEN=*),INTENT(IN),OPTIONAL    :: RestartFile_in  !! if present, a restart will be executed
 !-----------------------------------------------------------------------------------------------------------------------------------
 !local variables
-INTEGER                 :: which_functional
 INTEGER                 :: TimeArray(8)
 CHARACTER(LEN=255)      :: testfile
 REAL(wp)                :: StartTimeTotal,EndTimeTotal,StartTime,EndTime
@@ -112,8 +109,8 @@ REAL(wp)                :: StartTimeTotal,EndTimeTotal,StartTime,EndTime
   IF(dorestart) CALL InitRestart(RestartFile_in)
   CALL InitOutput()
   CALL InitAnalyze()
-  which_functional=GETINT('which_functional', Proposal=1 )
-  CALL InitFunctional(functional,which_functional)
+  ALLOCATE(t_functional_mhd3d :: functional)
+  CALL functional%init()
 
   CALL IgnoredStrings()
 
@@ -127,10 +124,11 @@ REAL(wp)                :: StartTimeTotal,EndTimeTotal,StartTime,EndTime
   CALL functional%minimize()
   EndTime=GetTime()
   SWRITE(Unit_stdOut,'(A,2(F8.2,A))') ' FUNCTIONAL MINIMISATION FINISHED! [',EndTime-StartTime,' sec ], corresponding to [', &
-       (EndTime-StartTime)/REAL(MaxIter,wp)*1.e3_wp,' msec/iteration ]'
-
-  CALL FinalizeFunctional(functional)
-  DEALLOCATE(functional)
+       (EndTime-StartTime)/REAL(functional%minimizer%vars%iter,wp)*1.e3_wp,' msec/iteration ]'
+  IF(ALLOCATED(functional))THEN
+    CALL functional%free()
+    DEALLOCATE(functional)
+  END IF
   CALL enter_subregion("finalize")
   CALL FinalizeAnalyze()
   CALL FinalizeOutput()

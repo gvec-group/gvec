@@ -20,11 +20,10 @@ PROGRAM GVEC_POST
   USE MODgvec_Restart      ,ONLY: RestartFromState
   USE MODgvec_Output_Vars  ,ONLY: OutputLevel,ProjectName
   USE MODgvec_ReadState_Vars,ONLY: fileID_r,outputLevel_r
-  USE MODgvec_MHD3D_Vars   ,ONLY: U,F
   USE MODgvec_MHD3D_visu   ,ONLY:WriteSFLoutfile
   USE MODgvec_MHD3D_EvalFunc , ONLY: InitProfilesGP,EvalEnergy,EvalForce
   USE MODgvec_ReadInTools  ,ONLY: FillStrings,GETLOGICAL,GETINT,IgnoredStrings
-  USE MODgvec_Functional
+  USE MODgvec_MHD3D, ONLY:t_functional_mhd3d
 !$ USE omp_lib
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -32,9 +31,8 @@ PROGRAM GVEC_POST
   INTEGER                 :: iArg,nArgs
   CHARACTER(LEN=255)      :: Parameterfile
   CHARACTER(LEN=255)      :: Statefile
-  INTEGER                 :: which_functional
   INTEGER                 :: JacCheck
-  CLASS(t_functional),ALLOCATABLE   :: functional
+  CLASS(t_functional_mhd3d),ALLOCATABLE :: functional
   REAL(wp)                :: StartTime,EndTime
 !===================================================================================================================================
   CALL par_Init()
@@ -76,8 +74,8 @@ PROGRAM GVEC_POST
   CALL InitOutput()
   CALL InitAnalyze()
 
-  which_functional=GETINT('which_functional', Proposal=1 )
-  CALL InitFunctional(functional,which_functional)
+  ALLOCATE(t_functional_mhd3d :: functional)
+  CALL functional%init()
 
   CALL IgnoredStrings()
   DO iArg=2,nArgs
@@ -86,18 +84,23 @@ PROGRAM GVEC_POST
     SWRITE(UNIT_stdOut,'(A,I4,A4,I4,A3,A)') 'Post-Analyze StateFile ',iArg-1,' of ',nArgs-1,' : ',TRIM(StateFile)
     SWRITE(Unit_stdOut,'(132("-"))')
     ProjectName='POST_'//TRIM(StateFile(1:INDEX(StateFile,'_State_')-1))
-    CALL RestartFromState(StateFile,U(0))
-    outputLevel=outputLevel_r
-    JacCheck=2
-    !...check this: temporarily commented for gvec_post to run with MPI version...
-    CALL InitProfilesGP() !evaluate profiles once at Gauss Points (on MPIroot + BCast)
-    U(0)%W_MHD3D=EvalEnergy(U(0),.TRUE.,JacCheck)
-    CALL EvalForce(U(0),.FALSE.,JacCheck, F(0))
-    CALL Analyze(FileID_r)
-    CALL writeSFLoutfile(U(0),FileID_r)
+    ASSOCIATE(vars=>functional%minimizer%vars)
+      CALL RestartFromState(StateFile,vars%dofs(0))
+      outputLevel=outputLevel_r
+      JacCheck=2
+      !...check this: temporarily commented for gvec_post to run with MPI version...
+      CALL InitProfilesGP() !evaluate profiles once at Gauss Points (on MPIroot + BCast)
+      vars%dofs(0)%W_MHD3D=EvalEnergy(vars%dofs(0),.TRUE.,JacCheck)
+      CALL EvalForce(vars%dofs(0),.FALSE.,JacCheck, vars%force(0))
+      CALL Analyze(FileID_r, vars%dofs(0), vars%force(0))
+      CALL writeSFLoutfile(vars%dofs(0),FileID_r)
+    END ASSOCIATE
   END DO !iArg
 
-  CALL FinalizeFunctional(functional)
+  IF(ALLOCATED(functional))THEN
+    CALL functional%free()
+    DEALLOCATE(functional)
+  END IF
 
   CALL FinalizeAnalyze()
   CALL FinalizeOutput()

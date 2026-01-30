@@ -183,8 +183,6 @@ SUBROUTINE InitializeMHD3D_evalFunc()
   CALL exit_subregion("init-MHD3D-evalfunc")
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
   SWRITE(UNIT_stdOut,fmt_sep)
-
-
 END SUBROUTINE InitializeMHD3D_evalFunc
 
 !===================================================================================================================================
@@ -228,7 +226,7 @@ END SUBROUTINE InitProfilesGP
 !> Evaluate auxiliary variables at input state, writes onto module variables!!!
 !!
 !===================================================================================================================================
-SUBROUTINE EvalAux(Uin,JacCheck)
+SUBROUTINE EvalAux(dofs_in,JacCheck)
 ! MODULES
   USE MODgvec_MPI             , ONLY: par_AllReduce
   USE MODgvec_Globals         , ONLY: n_warnings_occured,myRank
@@ -237,7 +235,7 @@ SUBROUTINE EvalAux(Uin,JacCheck)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: Uin      !! input solution
+  CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: dofs_in  !! input solution
   INTEGER               , INTENT(INOUT) :: JacCheck !! if 1 on input: abort if detJ<0.
                                                     !! if 2 on input, no abort, unchanged if detJ>0 ,return -1 if detJ<=0
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -259,18 +257,18 @@ SUBROUTINE EvalAux(Uin,JacCheck)
   !CALL X1_base%evalDOF((/0,0/)         ,Uin%X1,X1_IP_GP  )
   !CALL X1_base%evalDOF((/0,DERIV_THET/),Uin%X1,dX1_dthet )
   !CALL X1_base%evalDOF((/0,DERIV_ZETA/),Uin%X1,dX1_dzeta)
-  CALL X1_base%evalDOF_all(Uin%X1, y_IP_GP=X1_IP_GP, &
+  CALL X1_base%evalDOF_all(dofs_in%X1, y_IP_GP=X1_IP_GP, &
                                    dy_dthet_IP_GP=dX1_dthet, &
                                    dy_dzeta_IP_GP=dX1_dzeta )
-  CALL X1_base%evalDOF((/DERIV_S,0/)   , Uin%X1, dX1_ds    )
+  CALL X1_base%evalDOF((/DERIV_S,0/)   , dofs_in%X1, dX1_ds    )
 
   !CALL X2_base%evalDOF((/0,0/)         ,Uin%X2,X2_IP_GP  )
   !CALL X2_base%evalDOF((/0,DERIV_THET/),Uin%X2,dX2_dthet )
   !CALL X2_base%evalDOF((/0,DERIV_ZETA/),Uin%X2,dX2_dzeta )
-  CALL X2_base%evalDOF_all(Uin%X2, y_IP_GP=X2_IP_GP, &
+  CALL X2_base%evalDOF_all(dofs_in%X2, y_IP_GP=X2_IP_GP, &
                                   dy_dthet_IP_GP=dX2_dthet, &
                                    dy_dzeta_IP_GP=dX2_dzeta )
-  CALL X2_base%evalDOF((/DERIV_S,0/)   , Uin%X2, dX2_ds    )
+  CALL X2_base%evalDOF((/DERIV_S,0/)   , dofs_in%X2, dX2_ds    )
 
   __PERFOFF('EvalDOF_1')
 
@@ -334,7 +332,7 @@ SUBROUTINE EvalAux(Uin,JacCheck)
   !2D data: interpolation points x gauss-points
   !CALL LA_base%evalDOF((/0,DERIV_THET/),Uin%LA,dLA_dthet)
   !CALL LA_base%evalDOF((/0,DERIV_ZETA/),Uin%LA,dLA_dzeta)
-  CALL LA_base%evalDOF_all(Uin%LA, dy_dthet_IP_GP=dLA_dthet, &
+  CALL LA_base%evalDOF_all(dofs_in%LA, dy_dthet_IP_GP=dLA_dthet, &
                                    dy_dzeta_IP_GP=dLA_dzeta )
   __PERFOFF('EvalDOF_2')
 
@@ -370,7 +368,7 @@ END SUBROUTINE EvalAux
 !> Evaluate total volume and average surface
 !!
 !===================================================================================================================================
-SUBROUTINE EvalTotals(Uin,vol,surfAvg)
+SUBROUTINE EvalTotals(dofs_in,vol,surfAvg)
 ! MODULES
   USE MODgvec_globals      , ONLY: TWOPI
   USE MODgvec_MPI          , ONLY: par_Reduce
@@ -378,7 +376,7 @@ SUBROUTINE EvalTotals(Uin,vol,surfAvg)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_sol_var_MHD3D), INTENT(IN ) :: Uin  !! input solution
+  CLASS(t_sol_var_MHD3D), INTENT(IN ) :: dofs_in  !! input solution
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)              , INTENT(OUT) :: vol      !! total integral of the volume
@@ -388,7 +386,7 @@ SUBROUTINE EvalTotals(Uin,vol,surfAvg)
   INTEGER             :: iGP,i_mn,JacCheck
 !===================================================================================================================================
   JacCheck=2
-  CALL EvalAux(Uin,JacCheck)
+  CALL EvalAux(dofs_in,JacCheck)
   IF(JacCheck.EQ.-1) THEN
       CALL abort(__STAMP__, &
           ' detJ<0 in EvalAux, called from EvalTotals!!!' )
@@ -415,10 +413,10 @@ END SUBROUTINE EvalTotals
 
 !===================================================================================================================================
 !> Evaluate 3D MHD energy
-!! NOTE: set callEvalaux >0 if not called before for the same Uin !!
+!! NOTE: set callEvalaux >0 if not called before for the same dofs_in !!
 !!
 !===================================================================================================================================
-FUNCTION EvalEnergy(Uin,callEvalAux,JacCheck) RESULT(W_MHD3D)
+FUNCTION EvalEnergy(dofs_in,callEvalAux,JacCheck) RESULT(W_MHD3D)
 ! MODULES
   USE MODgvec_MPI          , ONLY: par_AllReduce
   USE MODgvec_MHD3D_Vars   , ONLY: mu_0,sgammM1
@@ -426,8 +424,8 @@ FUNCTION EvalEnergy(Uin,callEvalAux,JacCheck) RESULT(W_MHD3D)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: Uin         !! input solution
-  LOGICAL               , INTENT(IN   ) :: callEvalAux !! set True if evalAux was not called on Uin
+  CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: dofs_in     !! input solution
+  LOGICAL               , INTENT(IN   ) :: callEvalAux !! set True if evalAux was not called on dofs_in
   INTEGER               , INTENT(INOUT) :: JacCheck !! if 1 on input: abort if detJ<0.
                                                     !! if 2 on input, no abort, unchanged if detJ>0 ,return -1 if detJ<=0
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -446,7 +444,7 @@ FUNCTION EvalEnergy(Uin,callEvalAux,JacCheck) RESULT(W_MHD3D)
   __PERFON('EvalEnergy')
 
   IF(callEvalAux) THEN
-    CALL EvalAux(Uin,JacCheck)
+    CALL EvalAux(dofs_in,JacCheck)
     IF(JacCheck.EQ.-1) THEN
       W_MHD3D=1.0e30_wp
       WRITE(UNIT_stdOut,'(A)')'... detJ<0 in EvalAux '
@@ -495,27 +493,27 @@ END FUNCTION EvalEnergy
 
 !===================================================================================================================================
 !> Evaluate the variation of the Energy = Force... F_j=-(D_U W(U))_j = -DW(u_h)*testfunc_j
-!! NOTE: set callEvalaux TRUE if not called before for the same Uin !!
+!! NOTE: set callEvalaux TRUE if not called before for the same dofs_in !!
 !!
 !===================================================================================================================================
-SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
+SUBROUTINE EvalForce(dofs_in,callEvalAux,JacCheck,F_MHD3D,noBC)
 ! MODULES
   USE MODgvec_Globals,       ONLY : nRanks
   USE MODgvec_MPI,           ONLY : par_IReduce,par_IBcast,par_Wait,req1,req2,req3,par_Barrier,par_BCast
-  USE MODgvec_MHD3D_Vars,    ONLY : X1_base,X2_base,LA_base,mu_0,PrecondType
+  USE MODgvec_MHD3D_Vars,    ONLY : X1_base,X2_base,LA_base,hmap,mu_0,PrecondType
   USE MODgvec_MHD3D_Vars,    ONLY : X1_BC_type,X2_BC_type,LA_BC_type
   USE MODgvec_sol_var_MHD3D, ONLY : t_sol_var_MHD3D
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: Uin         !! input solution
-  LOGICAL               , INTENT(IN   ) :: callEvalAux !! set True if evalAux was not called on Uin
+  CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: dofs_in         !! input solution
+  LOGICAL               , INTENT(IN   ) :: callEvalAux !! set True if evalAux was not called on dofs_in
   INTEGER               , INTENT(INOUT) :: JacCheck !! if 1 on input: abort if detJ<0.
                                                     !! if 2 on input, no abort, unchanged if detJ>0 ,return -1 if detJ<=0
   LOGICAL, OPTIONAL     , INTENT(IN)    :: noBC
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: F_MHD3D     !! variation of the energy projected onto the basis functions of Uin
+  CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: F_MHD3D     !! variation of the energy projected onto the basis functions of dofs_in
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER   :: ibase,nBase,iMode,modes,iGP,i_mn,Deg,iElem,modes_str,modes_end,iRank,offset_modes(0:nRanks)
@@ -536,7 +534,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 #endif
   __PERFON('EvalForce')
   IF(callEvalAux) THEN
-    CALL EvalAux(Uin,JacCheck)
+    CALL EvalAux(dofs_in,JacCheck)
   END IF
   IF(JacCheck.EQ.-1) THEN
     CALL abort(__STAMP__, &
@@ -564,7 +562,6 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   END DO !iGP
 !$OMP END PARALLEL DO
   __PERFOFF('loop_prepare')
-
 
 
   nBase = X1_Base%s%nBase
@@ -999,7 +996,7 @@ SUBROUTINE ApplyBC_Fstrong(whichVar,F_MHD3D)
   INTEGER, INTENT(IN) :: whichVar !! =1: X1, =2: X2,  =3: LA
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: F_MHD3D     !! variation of the energy projected onto the basis functions of Uin
+  CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: F_MHD3D     !! variation of the energy projected onto the basis functions of dofs_in
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER   :: iMode
