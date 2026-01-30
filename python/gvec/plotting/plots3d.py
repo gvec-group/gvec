@@ -4,6 +4,7 @@
 import numpy as np
 
 from gvec.core.state import State
+from typing import Literal
 
 
 def plot_3d_surface(
@@ -12,7 +13,7 @@ def plot_3d_surface(
     rho: float | np.ndarray | list = 1.0,
     ntheta: int = 41,
     nzeta: int = 51,
-    period: str = "single",
+    period: Literal["single", "half", "full"] = "single",
     to_file: str | None = None,
     surface_kwargs: dict = dict(),
 ):

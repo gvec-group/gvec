@@ -8,6 +8,7 @@ stages
 gvec-parameter-list
 theory
 coordinate-conventions
+quantities
 ```
 
 ```{toctree}
@@ -21,6 +22,8 @@ coordinate-conventions
 /tutorials/notebooks/040_current
 /tutorials/notebooks/050_pygvec
 /tutorials/notebooks/051_plotting
+/tutorials/notebooks/060_coils
+/tutorials/notebooks/061_coils
 ```
 
 ```{toctree}

@@ -558,11 +558,12 @@
     # prepare & build
     - pip install twine build
     - python -m build --sdist
-    - ls dist/
+    - ls -alH dist/
     # check if gvec installs successfully
     - pip install dist/*.tar.gz
     - pygvec --version
     # upload to PyPI
+    - ls -alH dist/
     - python -m twine upload dist/*
   artifacts:
     expire_in: 3 days
