@@ -1,0 +1,21 @@
+#!/bin/bash
+# bash source script for loading modules on mpcdf shared runner (images from 2024)
+# LAST MODIFIED: 2026-01-10
+# ===========================================
+
+module purge
+module load git
+module load cmake
+module load gcc
+module load mkl
+module load hdf5-serial
+module load netcdf-serial
+module load anaconda
+
+module list
+export FC=`which gfortran`
+export CC=`which gcc`
+export CXX=`which g++`
+
+#for anaconda to not have an error in `import gvec`
+export LD_PRELOAD="/usr/lib64/libcrypto.so /usr/lib64/libssl.so"

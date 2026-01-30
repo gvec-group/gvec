@@ -20,25 +20,25 @@ This module checks the input arguments and handles the initialization and finali
 
 # === Imports === #
 
-from pathlib import Path
-from typing import Literal, Union, TypeAlias
-from collections.abc import Iterable, Sequence, Mapping
-import re
-import inspect
 import functools
-import tempfile
+import inspect
 import logging
+import re
+import tempfile
 import warnings
+from collections.abc import Iterable, Mapping, Sequence
+from pathlib import Path
+from typing import Literal, TypeAlias, Union
 
 import numpy as np
 import xarray as xr
 
+import gvec.lib
 import gvec.util
 from gvec.errors import catch_gvec_errors
-import gvec.lib
-from gvec.lib import modgvec_py_state as _state
 from gvec.lib import modgvec_py_binding as _binding
 from gvec.lib import modgvec_py_run as _run
+from gvec.lib import modgvec_py_state as _state
 
 # === Globals === #
 
@@ -236,9 +236,8 @@ class State:
         with catch_gvec_errors():
             for child in self._children:
                 if isinstance(child, gvec.lib.Modgvec_Sfl_Boozer.t_sfl_boozer):
-                    if child.initialized:
-                        logger.debug(f"Finalizing Boozer potential {child!r}")
-                        child.free()
+                    logger.debug(f"Unbinding child {child!r} from the fortran library.")
+                    del child
                 else:
                     logger.error(f"Unknown child: {child!r}")
             self._children = []
@@ -774,6 +773,53 @@ class State:
         )
         return outputs
 
+    # === Straight-Fieldline PEST angles === #
+
+    @with_binding
+    def get_pest_angles(
+        self,
+        rho: np.ndarray,
+        tz_list: np.ndarray,
+    ):
+        """
+        Find the logical theta angle for the corresponding (theta_P, zeta) coordinates on the flux surface.
+
+        Parameters
+        ----------
+        rho: 1D array
+        tz_list : 2D array of shape (2, n) or 3D array of shape (2, n, rho.size)
+            The list of (theta_P, zeta) coordinates for which to find the logical angles.
+            The first row contains theta_P and the second row contains zeta.
+            If a 2D array is given, the same postions are searched for on each surface.
+
+        Returns
+        -------
+        2D np.ndarray of shape (n, rho.size)
+            The logical theta angle corresponding to the input (theta_P, zeta) coordinates.
+        """
+        rho = np.asfortranarray(rho, dtype=np.float64)
+        if rho.ndim != 1:
+            raise ValueError(f"Expected a 1D array for rho, got shape {rho.shape}.")
+        if rho.max() > 1.0 or rho.min() < 0.0:
+            raise ValueError("rho must be in the range [0, 1].")
+        tz_list = np.asfortranarray(tz_list, dtype=np.float64)
+        match tz_list.shape:
+            case (2, n):
+                tz_out = np.zeros((2, n, rho.size), order="F")
+                _state.find_pest_angles_2d(rho.size, rho, n, tz_list, tz_out)
+                return tz_out[0, :, :]
+            case (2, n, k) if k == rho.size:
+                t_out = np.zeros((n, rho.size))
+                tz_out = np.zeros((2, n, 1), order="F")
+                for i, r in enumerate(rho):
+                    _state.find_pest_angles_2d(1, [r], n, tz_list[:, :, i], tz_out)
+                    t_out[:, i] = tz_out[0, :, 0]
+                return t_out
+            case _:
+                raise ValueError(
+                    f"Expected 'tz_list' of shape (2, n) or (2, n, rho.size), got {tz_list.shape}."
+                )
+
     # === High Level Interface for Evaluations === #
 
     def compute(
@@ -781,35 +827,32 @@ class State:
         ev: xr.Dataset,
         *quantities: str,
     ):
+        """
+        Compute the target equilibrium quantity and add it to the given evaluation dataset.
+
+        This method will recursively determine prerequisites, compute them and add them to the dataset as needed.
+
+        Parameters
+        ----------
+        ev : xr.Dataset
+            The evaluation dataset with the target grid ``(rad, pol, tor)``, coordinates ``(rho, theta, zeta)`` and possibly some precomputed quantities.
+        *quantities : str
+            One or more names of the quantities to compute.
+            See the :ref:`default table of available quantities <table-of-quantities>`
+            or call ``table_of_quantities`` to see all options.
+
+        See Also
+        --------
+        gvec.core.compute.compute: this function as a standalone function.
+        evaluate: create a new grid in logical coordinates and compute target quantities.
+        evaluate_sfl: create a new grid in straight-fieldline coordinates and compute target quantities.
+        """
         from gvec.core.compute import compute
 
         return compute(ev, *quantities, state=self)
 
-    def evaluate(
-        self,
-        *quantities: str,
-        rho: Literal["int"] | CoordinateSpec | None = "int",
-        theta: Literal["int"] | CoordinateSpec | None = "int",
-        zeta: Literal["int"] | CoordinateSpec | None = "int",
-    ):
-        from gvec.core.compute import evaluate
-
-        return evaluate(self, *quantities, rho=rho, theta=theta, zeta=zeta)
-
-    def evaluate_sfl(
-        self,
-        *quantities: str,
-        rho: Literal["int"] | CoordinateSpec | None = "int",
-        theta: Literal["int"] | CoordinateSpec | None = "int",
-        zeta: Literal["int"] | CoordinateSpec | None = "int",
-        sfl: Literal["boozer", "pest"] = "boozer",
-        **boozer_kwargs,
-    ):
-        from gvec.core.compute import evaluate_sfl
-
-        return evaluate_sfl(
-            self, *quantities, rho=rho, theta=theta, zeta=zeta, sfl=sfl, **boozer_kwargs
-        )
+    # def evaluate(...) -> injected in gvec.core.compute
+    # def evaluate_sfl(...) -> injected in gvec.core.compute
 
 
 # === Functions === #

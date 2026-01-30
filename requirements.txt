@@ -3,6 +3,6 @@
 #$ pip install --no-build-isolation -ve .
 
 numpy>=2
-scikit_build_core
+scikit_build_core>=0.11.0
 setuptools_scm
-f90wrap
+f90wrap>=0.3.0

@@ -8,23 +8,51 @@ GVEC is mainly being developed in the department of **Numerical Methods in Plasm
 led by Prof. Eric Sonnendruecker at the Max Planck Institute for Plasma Physics
 in Garching, Germany. Outside contributions are of course very welcome!
 
+If you have questions you can contact the maintainers ([Florian](https://www.ipp.mpg.de/person/139885/5497858)) directly or join the [matrix-chat channel](https://matrix.to/#/#gvec:mpg.de).
+
 <!-- Other Topics -->
 
 ## Development Workflow
 
-* main repository on [MPCDF-GitLab](https://gitlab.mpcdf.mpg.de/gvec-group/gvec): Issues, Merge Requests, CI-Pipelines
-    * requires a MPCDF account, contact the maintainers to obtain a guest account
-* mirror repository on [GitHub](https://github.com/gvec-group/gvec) for visibility and public contributions
-* prefer merging over rebasing
-* automatic testing of all pushes to GitLab, **add tests for new features**
-* use feature branches, merge to `develop` early and often (*at least in theory*)
+GVEC is hosted on two *git* repositories:
+1) the main development repository on [MPCDF-GitLab](https://gitlab.mpcdf.mpg.de/gvec-group/gvec): Issues, Merge Requests, CI-Pipelines
+    * Benefit: in-house support, unlimited CI/CD budget
+    * Drawback: requires an MPCDF account for contributions → contact the maintainers to obtain a guest account
+2) a public repository on [GitHub](https://github.com/gvec-group/gvec) for visibility and public contributions
+
+### New contributors
+
+**Contributions are always welcome!**
+
+If you already have a GitHub account, just [open an issue](https://github.com/gvec-group/gvec/issues/new) on GitHub if you want to report a bug or have a question.
+
+If you want to contribute, it is easiest to submit a Pull Request on GitHub for your proposed changes. The Maintainers will then mirror your branch back to GitLab to run all the testing pipelines. For larger contributions, you can contact the maintainers to obtain a guest account for the MPCDF-GitLab.
+
+You can also join the [matrix-chat channel](https://matrix.to/#/#gvec:mpg.de) for questions and discussions.
+
+### Remarks / Guidelines
+
+* `develop` is the main development branch
+    * use feature branches, merge to `develop` early and often
     * use GitLab *merge requests* to document the changes and code review
+    * update with `develop` before merging → resolve conflicts in the feature branch
+* prefer merging over rebasing
+* automatic testing in GitLab: **add tests for new features**
 * `main` points to the latest release / tag
     * releases (with corresponding tags) are created within GitLab
     * associate milestones with the releases to document progress
     * tags/releases (mostly) follow [semantic versioning](https://semver.org/)
+* fixes should be added to `develop` / a feature branch and can be cherry-picked back to older releases if necessary
+    * a release branch (e.g. `v1.3.x`) can be setup to track the history of a release which has branched away from `develop`
+* `docs` can be used to quickly fix the documentation (allows directly committing to it)
+    * On readthedocs `latest` → `docs` branch, the other branches / tags are used by name
+    * configure readthedocs here: https://app.readthedocs.org/projects/gvec/
+    * in repo: `.readthedocs.yaml` & `docs/static/version-switcher.json`
 * use pre-commit hooks (python formatting, notebook cleaning, etc.)
     * `pip install pre-commit` & `pre-commit install`
+    * use *ruff* for python formatting & linting
+* split your work into small commits
+* don't commit large binary data (use pre-commit!)
 
 ## Repository structure
 
@@ -94,6 +122,10 @@ gvec.gframe </api/gframe>
 gvec.surface </api/surface>
 gvec.util </api/util>
 gvec.vtk </api/vtk>
+gvec.gframe </api/gframe>
+gvec.plotting.plots1d </api/plotting-plots1d>
+gvec.plotting.plots2d </api/plotting-plots2d>
+gvec.plotting.plots3d </api/plotting-plots3d>
 gvec.scripts.main </api/scripts-main>
 gvec.scripts.run </api/scripts-run>
 gvec.scripts.cas3d </api/scripts-cas3d>

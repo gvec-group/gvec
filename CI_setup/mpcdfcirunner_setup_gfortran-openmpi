@@ -1,3 +1,8 @@
+#!/bin/bash
+# bash source script for loading modules on mpcdf shared runner
+# LAST MODIFIED: 2026-01-10
+# ===========================================
+
 module purge
 module load git
 module load cmake
@@ -6,9 +11,12 @@ module load openmpi
 module load mkl
 module load hdf5-serial
 module load netcdf-serial
-module load anaconda/3/2023.03  # for pytest
+module load python-waterboa
 
 module list
 export FC=`which gfortran`
 export CC=`which gcc`
 export CXX=`which g++`
+
+#temporary fix to suppress warning message in latest openmpi image
+export PMIX_MCA_pcompress_base_silence_warning=1

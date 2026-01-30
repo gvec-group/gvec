@@ -286,6 +286,80 @@ $$
 \end{align}
 $$
 
+## Transformation to PEST coordinates
+
+In terms of the GVEC coordinates $(\rho,\thet,\zeta)$ the PEST transform is given as
+
+$$
+\begin{align}
+\rho_P &= \rho \\
+\thet_B &= \thet + \lambda(\rho,\thet,\zeta) \\
+\zeta_P &= \zeta \\
+\end{align}
+$$
+
+The derivatives are
+
+$$
+\begin{align}
+\pdv{\rho_P}{\rho} &= 1, &
+\pdv{\thet_P}{\rho} &= \pdv{\lambda}{\rho},&
+\pdv{\zeta_P}{\rho} &= 0,\\
+\pdv{\rho_P}{\thet} &=  0,&
+\pdv{\thet_P}{\thet} &= 1 + \pdv{\lambda}{\thet},&
+\pdv{\zeta_P}{\thet} &= 0,\\
+\pdv{\rho_P}{\zeta} &= 0,&
+\pdv{\thet_P}{\zeta} &= \pdv{\lambda}{\zeta},&
+\pdv{\zeta_P}{\zeta} &= 1.\\
+\end{align}
+$$
+
+The reciprocal basis vectors are then
+
+$$
+\begin{align}
+\grad \rho_P &= \grad \rho \\
+\grad \thet_P &= \pdv{\thet_P}{\rho}\grad \rho + \pdv{\thet_P}{\thet}\grad \thet + \pdv{\thet_P}{\zeta}\grad \zeta \\
+\grad \zeta_P &= \grad \zeta \\
+\end{align}
+$$
+
+The Jacobian determinant is therefore
+
+$$
+\begin{align}
+\Jac_P &= \frac{1}{\grad\rho_P \cdot \grad\theta_P \times \grad\zeta_P} \\
+&= \frac{1}{\grad\rho \cdot \pdv{\thet_P}{\thet}\grad\thet \times \grad\zeta} \\
+&= \frac{\Jac}{\pdv{\thet_P}{\thet}} \\
+&= \frac{\Jac}{1 + \pdv{\lambda}{\thet}}. \\
+\end{align}
+$$
+
+with that we can express the inverse derivatives
+
+$$
+\begin{align}
+\pdv{\rho}{\rho_P} &= 1, &
+\pdv{\rho}{\thet_P} &= 0  ,&
+\pdv{\rho}{\zeta_P} &= 0 \\
+ \pdv{\thet}{\rho_P} &= -\pdv{\thet_P}{\rho}\left(\pdv{\thet_P}{\thet}\right)^{-1},&
+\pdv{\thet}{\thet_P} &= \left(\pdv{\thet_P}{\thet}\right)^{-1}, &
+\pdv{\thet}{\zeta_P} &= -\pdv{\thet_P}{\zeta}\left(\pdv{\thet_P}{\thet}\right)^{-1} \\
+\pdv{\zeta}{\rho_P} &=  0,&
+\pdv{\zeta}{\thet_P} &=  0,&
+\pdv{\zeta}{\zeta_P} &=  1\\
+\end{align}
+$$
+
+The basis vectors are then computed as:
+
+$$
+\begin{align}
+\vec{e}_{\rho_P} &=&  \erho + &\pdv{\thet}{\rho_P}\ethet  \\
+\vec{e}_{\thet_P} &=&  &\pdv{\thet}{\thet_P}\ethet  \\
+\vec{e}_{\zeta_P} &=&  &\pdv{\thet}{\zeta_P}\ethet + \ezeta \\
+\end{align}
+$$
 
 ## Writhe, Twist and Linking number
 

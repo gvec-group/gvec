@@ -158,12 +158,22 @@ mathjax3_config = {
 
 # options for myst_nb notebook parser
 nb_merge_streams = True
-
+html_js_files = [
+    "https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"
+]  # for interactive plotly
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ["ford/ford.md", "ford/static/index.md", "generators", "_downloads", "build"]
+exclude_patterns = [
+    "ford/ford.md",
+    "ford/static/index.md",
+    "generators",
+    "_downloads",
+    "build",
+    "tutorials/requirements.txt",
+    "tutorials/notebooks/ruff.toml",
+]
 
 intersphinx_mapping = {
     "xarray": ("https://docs.xarray.dev/en/stable/", None),
