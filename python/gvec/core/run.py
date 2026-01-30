@@ -499,7 +499,13 @@ class Run:
                 self.diagnostics_run = diag_run
             else:
                 diag_run = diag_run.expand_dims(dict(run=[self.diagnostics_run.run.size]))
-                self.diagnostics_run = xr.concat([self.diagnostics_run, diag_run], dim="run")
+                self.diagnostics_run = xr.concat(
+                    [self.diagnostics_run, diag_run],
+                    dim="run",
+                    join="outer",
+                    coords="different",
+                    compat="equals",
+                )
             if self.diagnostics_minimizer is None:
                 diag_minimizer.force_X1.attrs = dict(
                     long_name="absolute MHD force on X1", symbol=r"|F_{X^1}|"

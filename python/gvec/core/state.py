@@ -827,35 +827,32 @@ class State:
         ev: xr.Dataset,
         *quantities: str,
     ):
+        """
+        Compute the target equilibrium quantity and add it to the given evaluation dataset.
+
+        This method will recursively determine prerequisites, compute them and add them to the dataset as needed.
+
+        Parameters
+        ----------
+        ev : xr.Dataset
+            The evaluation dataset with the target grid ``(rad, pol, tor)``, coordinates ``(rho, theta, zeta)`` and possibly some precomputed quantities.
+        *quantities : str
+            One or more names of the quantities to compute.
+            See the :ref:`default table of available quantities <table-of-quantities>`
+            or call ``table_of_quantities`` to see all options.
+
+        See Also
+        --------
+        gvec.core.compute.compute: this function as a standalone function.
+        evaluate: create a new grid in logical coordinates and compute target quantities.
+        evaluate_sfl: create a new grid in straight-fieldline coordinates and compute target quantities.
+        """
         from gvec.core.compute import compute
 
         return compute(ev, *quantities, state=self)
 
-    def evaluate(
-        self,
-        *quantities: str,
-        rho: Literal["int"] | CoordinateSpec | None = "int",
-        theta: Literal["int"] | CoordinateSpec | None = "int",
-        zeta: Literal["int"] | CoordinateSpec | None = "int",
-    ):
-        from gvec.core.compute import evaluate
-
-        return evaluate(self, *quantities, rho=rho, theta=theta, zeta=zeta)
-
-    def evaluate_sfl(
-        self,
-        *quantities: str,
-        rho: Literal["int"] | CoordinateSpec | None = "int",
-        theta: Literal["int"] | CoordinateSpec | None = "int",
-        zeta: Literal["int"] | CoordinateSpec | None = "int",
-        sfl: Literal["boozer", "pest"] = "boozer",
-        **boozer_kwargs,
-    ):
-        from gvec.core.compute import evaluate_sfl
-
-        return evaluate_sfl(
-            self, *quantities, rho=rho, theta=theta, zeta=zeta, sfl=sfl, **boozer_kwargs
-        )
+    # def evaluate(...) -> injected in gvec.core.compute
+    # def evaluate_sfl(...) -> injected in gvec.core.compute
 
 
 # === Functions === #

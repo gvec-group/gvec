@@ -180,10 +180,12 @@ include:
   - local: CI_templates/env.yml
     inputs:
       env: .ubuntu-22
+      rules: .rules_minimal
 
   - local: CI_templates/env.yml
     inputs:
       env: .ubuntu-24
+      rules: .rules_minimal
 
   - local: CI_templates/env.yml
     inputs:
@@ -433,6 +435,7 @@ include:
       vars: .vars_matrix_py
       script-postfix: _py
       build-postfix: _py
+      rules: .rules_minimal
 
   - local: CI_templates/build.yml
     inputs:
@@ -440,6 +443,7 @@ include:
       vars: .vars_matrix_py
       script-postfix: _py
       build-postfix: _py
+      rules: .rules_minimal
 
   - local: CI_templates/build.yml
     inputs:
@@ -945,10 +949,12 @@ include:
   - local: CI_templates/unit.yml
     inputs:
       env: .ubuntu-22
+      rules: .rules_minimal
 
   - local: CI_templates/unit.yml
     inputs:
       env: .ubuntu-24
+      rules: .rules_minimal
 
   - local: CI_templates/unit.yml
     inputs:
@@ -1221,7 +1227,7 @@ include:
 
   - local: CI_templates/pypi.yml
     inputs:
-      env: .mpcdfci_ifx-latest
+      env: .ubuntu-22
       rules: .rules_pypi
 
 # =================================================================================================================================

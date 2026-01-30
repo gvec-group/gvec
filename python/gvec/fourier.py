@@ -51,7 +51,7 @@ def fft1d(x: Iterable, angle0=0.0):
 
 
 def shift_1d(y: np.ndarray, x0, axis, newshape=None):
-    """
+    r"""
     shift periodic data along one given axis (and upsample):
     from
     $y(x_i)$ with $x_i=x_0+2\pi i/N$, $i=0,..N-1,$ `N=len(y)`
