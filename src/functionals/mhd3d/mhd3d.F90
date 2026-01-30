@@ -14,7 +14,7 @@
 MODULE MODgvec_MHD3D
 ! MODULES
   USE MODgvec_Globals, ONLY:wp,abort,UNIT_stdOut,fmt_sep,MPIRoot,enter_subregion,exit_subregion
-  USE MODgvec_c_functional,   ONLY: t_functional
+  USE MODgvec_MHD3D_minimize, ONLY: t_minimizer_mhd3d
   IMPLICIT NONE
 
   PRIVATE
@@ -24,9 +24,10 @@ MODULE MODgvec_MHD3D
 ! TYPES
 !-----------------------------------------------------------------------------------------------------------------------------------
 
-  TYPE,EXTENDS(t_functional) :: t_functional_mhd3d
+  TYPE :: t_functional_mhd3d
     !-------------------------------------------------------------------------------------------------------------------------------
     LOGICAL :: initialized
+    TYPE(t_minimizer_mhd3d), ALLOCATABLE :: minimizer
     !-------------------------------------------------------------------------------------------------------------------------------
     CONTAINS
       PROCEDURE :: init         => InitMHD3D
@@ -60,6 +61,7 @@ SUBROUTINE InitMHD3D(sf)
   USE MODgvec_ReadInTools    , ONLY: GETSTR,GETLOGICAL,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY, GETREALARRAY
   USE MODgvec_MPI            , ONLY: par_BCast,par_barrier
   USE MODgvec_rProfile_poly  , ONLY: t_rProfile_poly
+  USE MODgvec_MHD3D_minimize , ONLY: new_minimizer
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -68,7 +70,7 @@ SUBROUTINE InitMHD3D(sf)
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER          :: i,iMode,nElems,n_sgrid_rho
+  INTEGER          :: iMode,nElems,n_sgrid_rho
   INTEGER          :: grid_type
   REAL(wp),ALLOCATABLE :: sgrid_rho(:)
   INTEGER          :: X1X2_deg,X1X2_cont
@@ -87,6 +89,7 @@ SUBROUTINE InitMHD3D(sf)
   REAL(wp)         :: scale_minor_radius
   CHARACTER(LEN=255) ::boundary_filename
   CHARACTER(LEN=8) :: boundary_perturb_type_str !! readin variable for boundary_perturb_type: legacy, cosm
+  INTEGER          :: varsize_for_dofs(6)
 !===================================================================================================================================
   CALL enter_subregion("init-MHD3D")
   CALL par_Barrier(beforeScreenOut='INIT MHD3D ...')
@@ -455,25 +458,16 @@ SUBROUTINE InitMHD3D(sf)
     END ASSOCIATE
   END IF
   CALL exit_subregion("boundary")
-  ! ALLOCATE DATA
-  ALLOCATE(U(-3:1))
-  CALL U(1)%init((/X1_base%s%nbase,X2_base%s%nbase,LA_base%s%nBase,  &
-                   X1_base%f%modes,X2_base%f%modes,LA_base%f%modes/)  )
-  DO i=-3,0
-    CALL U(i)%copy(U(1))
-  END DO
-  ALLOCATE(F(-1:0))
-  DO i=-1,0
-    CALL F(i)%copy(U(1))
-  END DO
-  ALLOCATE(V(-1:1))
-  DO i=-1,1
-    CALL V(i)%copy(U(1))
-  END DO
-  ALLOCATE(P(-1:1))
-  DO i=-1,1
-    CALL P(i)%copy(U(1))
-  END DO
+  CALL enter_subregion("initialize minimizer")
+  varsize_for_dofs = (/X1_base%s%nbase,X2_base%s%nbase,LA_base%s%nBase,&
+    X1_base%f%modes,X2_base%f%modes,LA_base%f%modes/)
+  CALL new_minimizer(&
+    sf=sf%minimizer,varsize_in = varsize_for_dofs, &
+    dt_initial=start_dt, MinType_in=MinimizerType, dW_allowed_in=dW_allowed,& ! Minimizer
+    DoCheckDistance=DoCheckDistance, DoCheckAxis=DoCheckAxis,& !what to log
+    outputIter=outputIter, nlogScreen=nlogScreen, logIter=logIter& !when to log
+  )
+  CALL exit_subregion("initialize minimizer")
 
   CALL InitializeMHD3D_EvalFunc()
   CALL exit_subregion("init-MHD3D")
@@ -595,7 +589,7 @@ END SUBROUTINE InitProfile
 !===================================================================================================================================
 SUBROUTINE InitSolutionMHD3D(sf)
 ! MODULES
-  USE MODgvec_MHD3D_Vars     , ONLY: which_init,U,F,init_LA,boundary_perturb,boundary_perturb_depth,boundary_perturb_type
+  USE MODgvec_MHD3D_Vars     , ONLY: which_init,init_LA,boundary_perturb,boundary_perturb_depth,boundary_perturb_type
   USE MODgvec_Restart_vars   , ONLY: doRestart,RestartFile
   USE MODgvec_Restart        , ONLY: RestartFromState
   USE MODgvec_Restart        , ONLY: WriteState
@@ -615,48 +609,49 @@ SUBROUTINE InitSolutionMHD3D(sf)
 !===================================================================================================================================
   CALL par_barrier(beforeScreenOut="    INITIALIZE SOLUTION...",afterScreenOut="                           ...")
   CALL enter_subregion("init-solution")
-  IF(MPIroot) THEN
-    IF(doRestart)THEN
-      WRITE(UNIT_stdOut,'(4X,A)')'... restarting from file ... '
-      CALL RestartFromState(RestartFile,U(0))
-      CALL InitSolution(U(0),-1) ! (re-)apply BC and init LA (if init_LA is true)
+  ASSOCIATE(vars=>sf%minimizer%vars)
+    IF(MPIroot) THEN
+      IF(doRestart)THEN
+        WRITE(UNIT_stdOut,'(4X,A)')'... restarting from file ... '
+        CALL RestartFromState(RestartFile,vars%dofs(0))
+        CALL InitSolution(vars%dofs(0),-1) ! (re-)apply BC and init LA (if init_LA is true)
+      ELSE
+        CALL InitSolution(vars%dofs(0),which_init)
+      END IF
+      IF(boundary_perturb)THEN
+        CALL AddBoundaryPerturbation(vars%dofs(0),boundary_perturb_depth,boundary_perturb_type)
+      END IF !boundary_perturb
+    END IF !MPIroot
+    CALL par_Bcast(vars%dofs(0)%X1,0)
+    CALL par_Bcast(vars%dofs(0)%X2,0)
+    CALL exit_subregion("init-solution")
+
+    IF(init_LA) THEN
+      CALL Init_LA_From_Solution(vars%dofs(0))  !BCast inside
     ELSE
-      CALL InitSolution(U(0),which_init)
+      CALL par_Bcast(vars%dofs(0)%LA,0)
     END IF
-    IF(boundary_perturb)THEN
-      CALL AddBoundaryPerturbation(U(0),boundary_perturb_depth,boundary_perturb_type)
-    END IF !boundary_perturb
-  END IF !MPIroot
-  CALL par_Bcast(U(0)%X1,0)
-  CALL par_Bcast(U(0)%X2,0)
-  CALL exit_subregion("init-solution")
 
-  IF(init_LA) THEN
-    CALL Init_LA_From_Solution(U(0))  !BCast inside
-  ELSE
-    CALL par_Bcast(U(0)%LA,0)
-  END IF
+    CALL vars%dofs(-1)%set_to(vars%dofs(0))
 
-  CALL U(-1)%set_to(U(0))
+    JacCheck=2
+    CALL InitProfilesGP() !evaluate profiles once at Gauss Points (on MPIroot + BCast)
 
-  JacCheck=2
-  CALL InitProfilesGP() !evaluate profiles once at Gauss Points (on MPIroot + BCast)
-
-  CALL enter_subregion("check-solution")
-  U(0)%W_MHD3D=EvalEnergy(U(0),.TRUE.,JacCheck)
-  IF(JacCheck.EQ.-1)THEN
-    CALL Analyze(0)
-    CALL abort(__STAMP__,&
-        "NEGATIVE JACOBIAN FOUND AFTER INITIALIZATION!",TypeInfo="InitializationError")
-  END IF
-  CALL WriteState(U(0),0)
-  CALL EvalForce(U(0),.FALSE.,JacCheck, F(0))
-  SWRITE(UNIT_stdOut,'(8x,A,3E11.4)')'|Force|= ',SQRT(F(0)%norm_2())
-  CALL Analyze(0)
+    CALL enter_subregion("check-solution")
+    vars%dofs(0)%W_MHD3D=EvalEnergy(vars%dofs(0),.TRUE.,JacCheck)
+    IF(JacCheck.EQ.-1)THEN
+      CALL Analyze(0, vars%dofs(0), vars%force(0))
+      CALL abort(__STAMP__,&
+          "NEGATIVE JACOBIAN FOUND AFTER INITIALIZATION!",TypeInfo="InitializationError")
+    END IF
+    CALL WriteState(vars%dofs(0),0)
+    CALL EvalForce(vars%dofs(0),.FALSE.,JacCheck, vars%force(0))
+    SWRITE(UNIT_stdOut,'(8x,A,3E11.4)')'|Force|= ',SQRT(vars%force(0)%norm_2())
+    CALL Analyze(0, vars%dofs(0), vars%force(0))
+  END ASSOCIATE !vars
   CALL exit_subregion("check-solution")
   CALL par_barrier(afterScreenOut="    ...DONE")
   SWRITE(UNIT_stdOut,fmt_sep)
-
 END SUBROUTINE InitSolutionMHD3D
 
 
@@ -1107,6 +1102,7 @@ SUBROUTINE AddBoundaryPerturbation(U_init, depth, blend_type)
   ASSOCIATE(s_IP         =>X1_base%s%s_IP, &
             modes        =>X1_base%f%modes )
   DO imode=1,modes
+
     X1_b(iMode)=X1_b(iMode)+X1pert_b(iMode)
     X1pert_gIP(:)=blend(s_IP, depth, X1_base%f%Xmn(1, iMode))*X1pert_b(iMode)
     U_init%X1(:,iMode)=U_init%X1(:,iMode) + X1_base%s%initDOF( X1pert_gIP(:) )
@@ -1182,10 +1178,13 @@ END SUBROUTINE AddBoundaryPerturbation
 !> Compute Equilibrium, iteratively
 !!
 !===================================================================================================================================
-SUBROUTINE MinimizeMHD3D(sf)
+
+SUBROUTINE MinimizeMHD3D(sf, dt_in)
 ! MODULES
-  USE MODgvec_MHD3D_vars, ONLY: MinimizerType
+  USE MODgvec_MHD3D_vars, ONLY: maxIter, minimize_tol, MinimizerType
+  USE MODgvec_MHD3D_minimize, ONLY: t_minimizer_mhd3d, new_minimizer
   IMPLICIT NONE
+  REAL(wp), OPTIONAL, INTENT(IN) :: dt_in
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
@@ -1193,363 +1192,15 @@ SUBROUTINE MinimizeMHD3D(sf)
 ! LOCAL VARIABLES
 !===================================================================================================================================
   __PERFON('minimizer')
-  CALL enter_subregion("minimize")
-  SELECT CASE(MinimizerType)
-  CASE(0,10)
-    CALL MinimizeMHD3D_descent(sf)
-  CASE DEFAULT
-    CALL abort(__STAMP__,&
-        "requested MinimizeType does not exist, expecting 0 or 10",intinfo=MinimizerType,&
-        TypeInfo="InvalidParameterError")
-  END SELECT
-  CALL exit_subregion("minimize")
+  CALL enter_subregion("Minimization")
+  IF (PRESENT(dt_in)) THEN
+      sf%minimizer%vars%dt = dt_in
+  ENDIF
+  CALL sf%minimizer%minimize(minimize_tol, maxIter)
+  CALL exit_subregion("Minimization")
   __PERFOFF('minimizer')
 END SUBROUTINE MinimizeMHD3D
 
-!===================================================================================================================================
-!> Compute Equilibrium, iteratively
-!!
-!===================================================================================================================================
-SUBROUTINE MinimizeMHD3D_descent(sf)
-! MODULES
-  USE MODgvec_MHD3D_Vars
-  USE MODgvec_MHD3D_EvalFunc
-  USE MODgvec_Analyze, ONLY:analyze
-  USE MODgvec_Restart, ONLY:WriteState
-  USE MODgvec_MHD3D_visu, ONLY:WriteSFLoutfile
-  IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-  INTEGER   :: iter,nStepDecreased,nSkip_Jac,nSkip_dw
-  INTEGER   :: JacCheck,lastoutputIter,StartTimeArray(8)
-  REAL(wp)  :: dt,deltaW,absTol
-  INTEGER,PARAMETER   :: ndamp=10
-  REAL(wp)  :: tau(1:ndamp), tau_bar
-  REAL(wp)  :: min_dt_out,max_dt_out,min_dw_out,max_dw_out,sum_dW_out,t_pseudo,Fnorm(3),Vnorm(3),Fnorm0(3),Fnorm_old(3),W_MHD3D_0
-  INTEGER   :: logUnit !globally needed for logging
-  INTEGER   :: logiter_ramp,logscreen
-  LOGICAL   :: restart_iter
-  LOGICAL   :: first_iter
-!===================================================================================================================================
-  SWRITE(UNIT_stdOut,'(A)') "MINIMIZE MHD3D FUNCTIONAL..."
-
-
-  abstol=minimize_tol
-
-
-  dt=start_dt
-  nstepDecreased=0
-  nSkip_Jac=0
-  t_pseudo=0
-  lastOutputIter=0
-  iter=0
-  Vnorm=0.0_wp
-  logiter_ramp=1
-  logscreen=1
-
-  first_iter=.TRUE.
-  restart_iter=.FALSE.
-
-  CALL U(-3)%set_to(U(0)) !initial state, should remain unchanged
-
-  DO WHILE(iter.LT.maxIter)
-    IF((first_iter).OR.(restart_iter))THEN
-      JacCheck=1 !abort if detJ<0
-      CALL EvalAux(           U(0),JacCheck)
-      U(0)%W_MHD3D=EvalEnergy(U(0),.FALSE.,JacCheck)
-      W_MHD3D_0 = U(0)%W_MHD3D
-      CALL EvalForce(         U(0),.FALSE.,JacCheck,F(0))
-      Fnorm0=SQRT(F(0)%norm_2())
-      Fnorm=Fnorm0
-      Fnorm_old=1.1_wp*Fnorm0
-      CALL U(-1)%set_to(U(0)) !last state
-      CALL U(-2)%set_to(U(0)) !state at last logging interval
-      !for hirshman method
-      IF(MinimizerType.EQ.10)THEN
-        CALL V(-1)%set_to(0.0_wp)
-        CALL V( 0)%set_to(0.0_wp)
-        tau(1:ndamp)=0.15_wp/dt
-        tau_bar = 0.075_wp
-      END IF
-      min_dt_out=1.0e+30_wp
-      max_dt_out=0.0_wp
-      min_dW_out=1.0e+30_wp
-      max_dW_out=-1.0e+30_wp
-      sum_dW_out=0.0_wp
-      nSkip_dW =0
-      IF(restart_iter) restart_iter=.FALSE.
-      IF(first_iter)THEN
-        CALL StartLogging()
-        first_iter=.FALSE.
-      END IF
-    END IF !before first iteration or after restart Jac<0
-
-    !COMPUTE NEW SOLUTION P(1) as a prediction
-
-    SELECT CASE(MinimizerType)
-    CASE(0) !gradient descent, previously used for minimizerType=0
-      CALL P(1)%AXBY(1.0_wp,U(0),dt,F(0)) !overwrites P(1), predicts solution U(1)
-    CASE(10) !hirshman method
-      !tau is damping parameter
-      tau(1:ndamp-1) = tau(2:ndamp) !save old
-      tau(ndamp)  = MIN(0.15_wp,ABS(LOG(SUM(Fnorm**2)/SUM(Fnorm_old**2))))/dt  !ln(|F_n|^2/|F_{n-1}|^2), Fnorm=|F_X1|,|F_X2|,|F_LA|
-      tau_bar = 0.5_wp*dt*SUM(tau)/REAL(ndamp,wp)   !=1/2 * tauavg
-      CALL V(1)%AXBY(((1.0_wp-tau_bar)/(1.0_wp+tau_bar)),V(0),(dt/(1.0_wp+tau_bar)),F(0)) !velocity V(1)
-      CALL P(1)%AXBY(1.0_wp,U(0),dt,V(1)) !overwrites P(1), predicst solution U(1)
-      Vnorm=SQRT(V(1)%norm_2())
-    END SELECT
-
-
-    JacCheck=2 !no abort,if detJ<0, JacCheck=-1
-    P(1)%W_MHD3D=EvalEnergy(P(1),.TRUE.,JacCheck)
-    IF(JacCheck.EQ.-1)THEN
-      dt=0.9_wp*dt
-      nstepDecreased=nStepDecreased+1
-      nSkip_Jac=nSkip_Jac+1
-      restart_iter=.TRUE.
-      CALL U(0)%set_to(U(-3)) !reset to initial state
-      SWRITE(UNIT_stdOut,'(8X,I8,A,E11.4,A)')iter,'...detJac<0, decrease stepsize to dt=',dt,  ' and RESTART simulation!!!!!!!'
-    ELSE
-      !detJ>0
-      deltaW=P(1)%W_MHD3D-U(0)%W_MHD3D!should be <=0,
-      IF(deltaW.LE.dW_allowed*W_MHD3D_0)THEN !valid step /hirshman method accept W increase!
-
-        IF(ALL(Fnorm.LE.abstol))THEN
-          CALL Logging(.FALSE.)
-          SWRITE(UNIT_stdOut,'(4x,A)')'==>Iteration finished, |force| in relative tolerance'
-          EXIT !DO LOOP
-        END IF
-        iter=iter+1
-        t_pseudo=t_pseudo+dt
-        ! for simple gradient & hirshman
-        CALL U(-1)%set_to(U(0))
-        CALL U(0)%set_to(P(1))
-        ! for hirshman method
-        IF(MinimizerType.EQ.10)THEN
-          CALL V(-1)%set_to(V(0))
-          CALL V(0)%set_to(V(1))
-        END IF
-
-        CALL EvalForce(P(1),.FALSE.,JacCheck,F(0)) !evalAux was already called on P(1)=U(0), so that its set false here.
-        Fnorm_old=Fnorm
-        Fnorm=SQRT(F(0)%norm_2())
-
-        nstepDecreased=0
-        min_dt_out=MIN(min_dt_out,dt)
-        max_dt_out=MAX(max_dt_out,dt)
-        min_dW_out=MIN(min_dW_out,deltaW)
-        max_dW_out=MAX(max_dW_out,deltaW)
-        sum_dW_out=sum_dW_out+deltaW
-        IF(MOD(iter,logIter_ramp).EQ.0)THEN
-
-          CALL Logging(.NOT.((logIter_ramp.GE.logIter).AND.(MOD(logscreen,nLogScreen).EQ.0)))
-          IF(.NOT.(logIter_ramp.LT.logIter))THEN !only reset for logIter
-            logscreen=logscreen+1
-            min_dt_out=1.0e+30_wp
-            max_dt_out=0.0_wp
-            min_dW_out=1.0e+30_wp
-            max_dW_out=-1.0e+30_wp
-            sum_dW_out=0.0_wp
-            nSkip_dW =0
-          END IF
-          logIter_ramp=MIN(logIter,logIter_ramp*2)
-        END IF
-
-      ELSE !not a valid step, decrease timestep and skip P(1)
-        dt=0.9_wp*dt
-        nstepDecreased=nStepDecreased+1
-        nSkip_dW=nSkip_dW+1
-        !CALL U(0)%set_to(U(-2))
-        restart_iter=.TRUE.
-        SWRITE(UNIT_stdOut,'(8X,I8,A,E8.1,A,E11.4)')iter,'...deltaW>',dW_allowed,'*W_MHD3D_0, skip step and decrease stepsize to dt=',dt
-      END IF
-    END IF !JacCheck
-
-    IF(nStepDecreased.GT.130) THEN ! 0.9^130 ~10^-6
-      SWRITE(UNIT_stdOut,'(A,E21.11)')'Iteration stopped since timestep has been decreased by 0.9^130: ', dt
-      SWRITE(UNIT_stdOut,fmt_sep)
-      RETURN
-    END IF
-    IF((MOD(iter,outputIter).EQ.0).AND.(lastoutputIter.NE.iter))THEN
-      __PERFON('output')
-      SWRITE(UNIT_stdOut,'(A)')'##########################  OUTPUT ##################################'
-      CALL Analyze(iter)
-      CALL WriteState(U(0),iter)
-      SWRITE(UNIT_stdOut,'(A)')'#####################################################################'
-      lastOutputIter=iter
-      __PERFOFF('output')
-    END IF
-  END DO !iter
-  IF(iter.GE.MaxIter)THEN
-    SWRITE(UNIT_stdOut,'(A,E21.11)')"maximum iteration count exceeded"
-  END IF
-  SWRITE(UNIT_stdOut,'(A)') "... DONE."
-  SWRITE(UNIT_stdOut,fmt_sep)
-  IF(lastoutputIter.NE.iter)THEN
-    CALL Analyze(MIN(iter,MaxIter))
-    CALL WriteState(U(0),MIN(iter,MaxIter))
-  END IF
-  CALL FinishLogging()
-  CALL writeSFLoutfile(U(0),MIN(iter,MaxIter))
-
-
-CONTAINS
-
-  !=================================================================================================================================
-  !> all screen and logfile tasks, can use all variables from subroutine above
-  !!
-  !=================================================================================================================================
-  SUBROUTINE StartLogging()
-  USE MODgvec_Globals,     ONLY: GETFREEUNIT
-  USE MODgvec_Output_Vars, ONLY: ProjectName,outputLevel
-  USE MODgvec_MHD3D_visu,  ONLY: checkAxis
-  IMPLICIT NONE
-  !---------------------------------------------------------------------------------------------------------------------------------
-  CHARACTER(LEN=255)  :: fileString
-  INTEGER             :: TimeArray(8),iLogDat
-  REAL(wp)            :: AxisPos(2,2),W_MHD3D
-  INTEGER,PARAMETER   :: nLogDat=21
-  REAL(wp)            :: LogDat(1:nLogDat)
-  !=================================================================================================================================
-  IF(.NOT.MPIroot) RETURN
-  __PERFON('log_output')
-  W_MHD3D=U(0)%W_MHD3D
-  CALL DATE_AND_TIME(values=TimeArray) ! get System time
-  WRITE(UNIT_stdOut,'(A,E11.4,A)')'%%%%%%%%%%  START ITERATION, dt= ',dt, '  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'
-  WRITE(UNIT_stdOut,'(A,I4.2,"-",I2.2,"-",I2.2,1X,I2.2,":",I2.2,":",I2.2)') &
-                 '%%% Sys date : ',timeArray(1:3),timeArray(5:7)
-  WRITE(UNIT_stdOut,'(A,3E21.14)') &
-          '%%% dU = |Force|= ',Fnorm(1:3)
-  IF(MinimizerType.EQ.10) THEN
-    WRITE(UNIT_stdOut,'(A,E11.4,A,3E11.4)') &
-          '%%% accel.GD: tau= ',tau_bar,' |vel|= ',Vnorm(1:3)
-  END IF
-
-  WRITE(UNIT_stdOut,'(40(" -"))')
-  !------------------------------------
-  StartTimeArray=TimeArray !save first time stamp
-
-  logUnit=GETFREEUNIT()
-  WRITE(FileString,'("logMinimizer_",A,"_",I4.4,".csv")')TRIM(ProjectName),outputLevel
-  OPEN(UNIT     = logUnit       ,&
-     FILE     = TRIM(FileString) ,&
-     STATUS   = 'REPLACE'   ,&
-     ACCESS   = 'SEQUENTIAL' )
-  !header
-  iLogDat=0
-  WRITE(logUnit,'(A)',ADVANCE="NO")'"#iterations","runtime(s)","min_dt","max_dt"'
-  WRITE(logUnit,'(A)',ADVANCE="NO")',"W_MHD3D","min_dW","max_dW","sum_dW"'
-  WRITE(logUnit,'(A)',ADVANCE="NO")',"normF_X1","normF_X2","normF_LA"'
-  LogDat(ilogDat+1:iLogDat+11)=(/0.0_wp,0.0_wp,dt,dt,W_MHD3D,0.0_wp,0.0_wp,0.0_wp,Fnorm(1:3)/)
-  iLogDat=11
-  IF(MinimizerType.EQ.10) THEN
-    WRITE(logUnit,'(A)',ADVANCE="NO")',"tau","normV_X1","normV_X2","normV_LA"'
-    LogDat(ilogDat+1:iLogDat+4)=(/tau_bar,Vnorm(1:3)/)
-    iLogDat=iLogDat+4
-  END IF
-  IF(doCheckDistance) THEN
-    WRITE(logUnit,'(A)',ADVANCE="NO")',"max_Dist","avg_Dist"'
-    LogDat(iLogDat+1:iLogDat+2)=(/0.0_wp,0.0_wp/)
-    iLogDat=iLogDat+2
-  END IF!doCheckDistance
-  IF(doCheckAxis) THEN
-    WRITE(logUnit,'(A)',ADVANCE="NO")',"X1_axis_0","X2_axis_0","X1_axis_1","X2_axis_1"'
-    CALL CheckAxis(U(0),2,AxisPos)
-    LogDat(iLogDat+1:iLogDat+4)=RESHAPE(AxisPos,(/4/))
-    iLogDat=iLogDat+4
-  END IF!doCheckAxis
-  WRITE(logUnit,'(A)')' '
-  !first data line
-  WRITE(logUnit,'(*(e23.15,:,","))') logDat(1:iLogDat)
-  __PERFOFF('log_output')
-  END SUBROUTINE StartLogging
-
-  !=================================================================================================================================
-  !> all screen and logfile tasks, can use all variables from subroutine above
-  !!
-  !=================================================================================================================================
-  SUBROUTINE Logging(quiet)
-  USE MODgvec_MHD3D_visu, ONLY: checkDistance
-  USE MODgvec_MHD3D_visu, ONLY: checkAxis
-  IMPLICIT NONE
-  LOGICAL, INTENT(IN) :: quiet !! True: no screen output
-  !---------------------------------------------------------------------------------------------------------------------------------
-  INTEGER             :: TimeArray(8),runtime_ms,iLogDat
-  REAL(wp)            :: AxisPos(2,2),maxDist,avgDist,W_MHD3D
-  INTEGER,PARAMETER   :: nLogDat=21
-  REAL(wp)            :: LogDat(1:nLogDat)
-  !=================================================================================================================================
-  IF(.NOT.MPIroot) RETURN
-  __PERFON('log_output')
-  CALL DATE_AND_TIME(values=TimeArray) ! get System time
-  W_MHD3D=U(0)%W_MHD3D
-  IF(.NOT.quiet)THEN
-    WRITE(UNIT_stdOut,'(80("%"))')
-    WRITE(UNIT_stdOut,'(A,I4.2,"-",I2.2,"-",I2.2,1X,I2.2,":",I2.2,":",I2.2)') &
-                      '%%% Sys date : ',timeArray(1:3),timeArray(5:7)
-    WRITE(UNIT_stdOut,'(A,I8,A,2I8,A,E11.4,A,2E11.4,A,E21.14,A,3E12.4)') &
-                      '%%% #ITERATIONS= ',iter,', #skippedIter (Jac/dW)= ',nSkip_Jac,nSkip_dW, &
-              '\n%%% t_pseudo= ',t_pseudo,', min/max dt= ',min_dt_out,max_dt_out, &
-              '\n%%% W_MHD3D= ',W_MHD3D,', min/max/sum deltaW= ' , min_dW_out,max_dW_out,sum_dW_out
-    WRITE(UNIT_stdOut,'(A,3E21.14)') &
-                '%%% dU = |Force|= ',Fnorm(1:3)
-    !------------------------------------
-  END IF!.NOT.quiet
-  iLogDat=0
-  runtime_ms=MAX(0,SUM((timeArray(5:8)-StartTimearray(5:8))*(/360000,6000,100,1/)))
-  LogDat(ilogDat+1:iLogDat+11)=(/REAL(iter,wp),REAL(runtime_ms,wp)/100.0_wp, &
-                                min_dt_out,max_dt_out,W_MHD3D,min_dW_out,max_dW_out,sum_dW_out, &
-                                Fnorm(1:3)/)
-  iLogDat=11
-  IF(MinimizerType.EQ.10) THEN
-    IF(.NOT.quiet)THEN
-      WRITE(UNIT_stdOut,'(A,E11.4,A,3E11.4)') &
-            '%%% accel.GD: tau= ',tau_bar,' |vel|= ',Vnorm(1:3)
-    END IF!.NOT.quiet
-    LogDat(ilogDat+1:iLogDat+4)=(/tau_bar,Vnorm(1:3)/)
-    iLogDat=iLogDat+4
-  END IF
-  IF(doCheckDistance) THEN
-    CALL CheckDistance(U(0),U(-2),maxDist,avgDist)
-    CALL U(-2)%set_to(U(0))
-    IF(.NOT.quiet)THEN
-      WRITE(UNIT_stdOut,'(A,2E11.4)') &
-      '               %%% Dist to last log (max/avg) : ',maxDist,avgDist
-    END IF!.NOT.quiet
-    LogDat(iLogDat+1:iLogDat+2)=(/maxDist,avgDist/)
-    iLogDat=iLogDat+2
-  END IF!doCheckDistance
-  IF(doCheckAxis) THEN
-    CALL CheckAxis(U(0),2,AxisPos)
-    IF(.NOT.quiet)THEN
-      WRITE(UNIT_stdOut,'(2(A,2E22.14))') &
-        '%%% axis position (X1,X2,zeta=0     ): ',AxisPos(1:2,1), &
-      '\n%%% axis position (X1,X2,zeta=pi/nfp): ',AxisPos(1:2,2)
-    END IF!.NOT.quiet
-    LogDat(iLogDat+1:iLogDat+4)=RESHAPE(AxisPos,(/4/))
-    iLogDat=iLogDat+4
-  END IF !doCheckAxis
-  IF(.NOT.quiet)THEN
-    WRITE(UNIT_stdOut,'(40(" -"))')
-  END IF!.NOT.quiet
-  WRITE(logUnit,'(*(e23.15,:,","))') logDat(1:iLogDat)
-  __PERFOFF('log_output')
-  END SUBROUTINE Logging
-
-  !=================================================================================================================================
-  !>
-  !!
-  !=================================================================================================================================
-  SUBROUTINE FinishLogging()
-  IMPLICIT NONE
-  !---------------------------------------------------------------------------------------------------------------------------------
-  CLOSE(logUnit)
-  END SUBROUTINE FinishLogging
-
-END SUBROUTINE MinimizeMHD3D_descent
 
 
 !===================================================================================================================================
@@ -1567,31 +1218,20 @@ SUBROUTINE FinalizeMHD3D(sf)
   CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER :: i
 !===================================================================================================================================
   CALL enter_subregion("finalize-MHD3D")
   IF(ALLOCATED(X1_base)) CALL X1_base%free()
   IF(ALLOCATED(X2_base)) CALL X2_base%free()
   IF(ALLOCATED(LA_base)) CALL LA_base%free()
 
-  DO i=-1,1
-    IF(ALLOCATED(U)) CALL U(i)%free()
-    IF(ALLOCATED(P)) CALL P(i)%free()
-    IF(ALLOCATED(V)) CALL V(i)%free()
-  END DO
-  DO i=-1,0
-    IF(ALLOCATED(F)) CALL F(i)%free()
-  END DO
   CALL sgrid%free()
   IF(ALLOCATED(BFF)) THEN
     CALL BFF%free()
     DEALLOCATE(BFF)
   END IF
 
-  SDEALLOCATE(U)
-  SDEALLOCATE(P)
-  SDEALLOCATE(V)
-  SDEALLOCATE(F)
+  IF(ALLOCATED(sf%minimizer)) CALL sf%minimizer%free()
+
   SDEALLOCATE(X1_BC_type)
   SDEALLOCATE(X2_BC_type)
   SDEALLOCATE(LA_BC_type)

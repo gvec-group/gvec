@@ -77,7 +77,7 @@ END SUBROUTINE InitRestart
 !> write an input solution (X1,X2,LA) to an ascii .dat file
 !!
 !===================================================================================================================================
-SUBROUTINE WriteStateToASCII(Uin,fileID)
+SUBROUTINE WriteStateToASCII(dofs_in,fileID)
 ! MODULES
 USE MODgvec_Globals,ONLY:Unit_stdOut,PI,TWOPI,GETFREEUNIT
 USE MODgvec_Output_Vars, ONLY:ProjectName,OutputLevel
@@ -89,7 +89,7 @@ USE MODgvec_MHD3D_evalFunc, ONLY: EvalTotals
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: Uin
+  CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: dofs_in
   INTEGER               , INTENT(IN   ) :: fileID
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -103,7 +103,7 @@ IMPLICIT NONE
   SWRITE(FileString,'(A,"_State_",I4.4,"_",I8.8,".dat")')TRIM(ProjectName),outputLevel,fileID
   SWRITE(UNIT_stdOut,'(A)',ADVANCE='NO')'   WRITE SOLUTION VARIABLE TO FILE    "'//TRIM(FileString)//'" ...'
   !compute volume& poloidal surface average -> pi*aMinor^2=surfavg, surfavg*2*Pi*RMajor=volume
-  CALL EvalTotals(Uin,vol,surfAvg)
+  CALL EvalTotals(dofs_in,vol,surfAvg)
   IF(MPIroot)THEN
     a_Minor = SQRT(surfAvg/PI)
     r_Major = vol/(TWOPI*surfAvg)
@@ -135,15 +135,15 @@ IMPLICIT NONE
                       ,MERGE(1,0,LA_base%f%exclude_mn_zero)
     WRITE(ioUnit,'(A)')'## X1: m,n,X1(1:nbase,iMode) ##############################################################################'
     DO iMode=1,X1_base%f%modes
-      WRITE(ioUnit,'(2(I8,","),*(E23.15,:,","))')X1_base%f%Xmn(:,iMode),Uin%X1(:,iMode)
+      WRITE(ioUnit,'(2(I8,","),*(E23.15,:,","))')X1_base%f%Xmn(:,iMode),dofs_in%X1(:,iMode)
     END DO
     WRITE(ioUnit,'(A)')'## X2: m,n,X2(1:nbase,iMode) ##############################################################################'
     DO iMode=1,X2_base%f%modes
-      WRITE(ioUnit,'(2(I8,","),*(E23.15,:,","))')X2_base%f%Xmn(:,iMode),Uin%X2(:,iMode)
+      WRITE(ioUnit,'(2(I8,","),*(E23.15,:,","))')X2_base%f%Xmn(:,iMode),dofs_in%X2(:,iMode)
     END DO
     WRITE(ioUnit,'(A)')'## LA: m,n,LA(1:nbase,iMode) ##############################################################################'
     DO iMode=1,LA_base%f%modes
-      WRITE(ioUnit,'(2(I8,","),*(E23.15,:,","))')LA_base%f%Xmn(:,iMode),Uin%LA(:,iMode)
+      WRITE(ioUnit,'(2(I8,","),*(E23.15,:,","))')LA_base%f%Xmn(:,iMode),dofs_in%LA(:,iMode)
     END DO
     WRITE(ioUnit,'(A)')'## at X1_base IP point positions (size nBase): spos,phi,chi,iota,pressure  ################################'
     ASSOCIATE(s_IP         => X1_base%s%s_IP, &
@@ -168,12 +168,12 @@ END SUBROUTINE WriteStateToASCII
 
 
 !===================================================================================================================================
-!> read an input solution and initialize U(0) (X1,X2,LA) of size X1/X2/LA_base , from an ascii .dat file
+!> read an input solution and initialize dofs(0) (X1,X2,LA) of size X1/X2/LA_base , from an ascii .dat file
 !! if size of grid/X1/X2/LA  not equal X1/X2/X3_base
-!! interpolate readin solution to the current base of Uin
+!! interpolate readin solution to the current base of dofs_in
 !!
 !===================================================================================================================================
-SUBROUTINE RestartFromState(fileString,U_r)
+SUBROUTINE RestartFromState(fileString,dofs_r)
 ! MODULES
 USE MODgvec_Globals,ONLY:Unit_stdOut,GETFREEUNIT
 USE MODgvec_Output_Vars, ONLY:OutputLevel
@@ -189,7 +189,7 @@ IMPLICIT NONE
   CHARACTER(LEN=255)    , INTENT(IN   ) :: fileString
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: U_r
+  CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: dofs_r
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   LOGICAL              :: sameGrid
@@ -215,9 +215,9 @@ IMPLICIT NONE
   ELSE
     WRITE(UNIT_stdOut,'(A)') '     ... restart from same configuration ... '
   END IF
-  CALL X1_base%change_base(X1_base_r,X1_r,U_r%X1)
-  CALL X2_base%change_base(X2_base_r,X2_r,U_r%X2)
-  CALL LA_base%change_base(LA_base_r,LA_r,U_r%LA)
+  CALL X1_base%change_base(X1_base_r,X1_r,dofs_r%X1)
+  CALL X2_base%change_base(X2_base_r,X2_r,dofs_r%X2)
+  CALL LA_base%change_base(LA_base_r,LA_r,dofs_r%LA)
 
   CALL Finalize_ReadState()
   CALL exit_subregion("restart-from-state")

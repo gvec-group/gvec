@@ -27,17 +27,19 @@ CONTAINS
 !>
 !!
 !===================================================================================================================================
-SUBROUTINE visu_BC_face(mn_IP ,minmax,fileID)
+SUBROUTINE visu_BC_face(dofs_in, mn_IP ,minmax,fileID)
 ! MODULES
 USE MODgvec_Globals,    ONLY: TWOPI
-USE MODgvec_MHD3D_vars, ONLY: X1_base,X2_base,LA_base,hmap,U
+USE MODgvec_MHD3D_vars, ONLY: X1_base,X2_base,LA_base,hmap
 USE MODgvec_output_vtk, ONLY: WriteDataToVTK
 USE MODgvec_output_netcdf,  ONLY: WriteDataToNETCDF
 USE MODgvec_Output_vars,ONLY: Projectname,OutputLevel
 USE MODgvec_Analyze_Vars,ONLY: outfileType
+USE MODgvec_sol_var_MHD3D, ONLY: t_sol_var_MHD3D
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
+  CLASS(t_sol_var_MHD3D), INTENT(IN) :: dofs_in
   INTEGER       , INTENT(IN   ) :: mn_IP(2) !! muber of points in theta,zeta direction
   REAL(wp)      , INTENT(IN   ) :: minmax(2:3,0:1) !! min/max of theta,zeta [0,1]
   INTEGER       , INTENT(IN   ) :: fileID          !! added to file name before the ending
@@ -96,13 +98,13 @@ IMPLICIT NONE
   END IF!hmap not cylinder
   rhopos=0.99999999_wp
   DO iMode=1,X1_base%f%modes
-    X1_s( iMode)= X1_base%s%evalDOF_s(rhopos,      0,U(0)%X1(:,iMode))
+    X1_s( iMode)= X1_base%s%evalDOF_s(rhopos,      0,dofs_in%X1(:,iMode))
   END DO
   DO iMode=1,X2_base%f%modes
-    X2_s(iMode) = X2_base%s%evalDOF_s(rhopos,      0,U(0)%X2(:,iMode))
+    X2_s(iMode) = X2_base%s%evalDOF_s(rhopos,      0,dofs_in%X2(:,iMode))
   END DO
   DO iMode=1,LA_base%f%modes
-    LA_s(iMode) = LA_base%s%evalDOF_s(rhopos,      0,U(0)%LA(:,iMode))
+    LA_s(iMode) = LA_base%s%evalDOF_s(rhopos,      0,dofs_in%LA(:,iMode))
   END DO
   DO i_n=1,mn_IP(2)
     xIP(2)  = zeta(i_n)
@@ -144,10 +146,10 @@ END SUBROUTINE visu_BC_face
 !> visualize the mapping and additional variables in 3D, either on zeta=const planes or fully 3D
 !!
 !===================================================================================================================================
-SUBROUTINE visu_3D(np_in,minmax,only_planes,fileID )
+SUBROUTINE visu_3D(dofs_in, force_in, np_in,minmax,only_planes,fileID )
 ! MODULES
 USE MODgvec_Globals,        ONLY: TWOPI,CROSS
-USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,hmap,sgrid,U,F
+USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,hmap,sgrid
 USE MODgvec_MHD3D_vars,     ONLY: Phi_profile, iota_profile, pres_profile
 USE MODgvec_output_vtk,     ONLY: WriteDataToVTK
 USE MODgvec_output_netcdf,  ONLY: WriteDataToNETCDF
@@ -155,9 +157,11 @@ USE MODgvec_Output_CSV,     ONLY: WriteDataToCSV
 USE MODgvec_Output_vars,    ONLY: Projectname,OutputLevel
 USE MODgvec_Analyze_Vars,   ONLY: outfileType
 USE MODgvec_hmap,           ONLY: hmap_new_auxvar,PP_T_HMAP_AUXVAR
+USE MODgvec_sol_var_MHD3D,  ONLY: t_sol_var_MHD3D
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
+  CLASS(t_sol_var_MHD3D), INTENT(IN) :: dofs_in, force_in
   INTEGER       , INTENT(IN   ) :: np_in(3)     !! (1) #points in s & theta per element,(2:3) #elements in  theta,zeta
   REAL(wp)      , INTENT(IN   ) :: minmax(3,0:1)  !! minimum /maximum range in s,theta,zeta [0,1]
   LOGICAL       , INTENT(IN   ) :: only_planes  !! true: visualize only planes, false:  full 3D
@@ -368,22 +372,22 @@ IMPLICIT NONE
 !      rhopos=MAX(1.0e-04,sgrid%sp(iElem-1)+1e-08+(REAL(i_s-1,wp))/(REAL(n_s-1,wp))*(sgrid%ds(iElem)-2*1e-8)) !for discont. data
       rhopos=MAX(1.0e-04,sgrid%sp(iElem-1)+(REAL(i_s-1,wp))/(REAL(n_s-1,wp))*(sgrid%ds(iElem)))
 
-      X1_s(:)   = X1_base%s%evalDOF2D_s(rhopos,X1_base%f%modes,      0,U(0)%X1(:,:))
-      dX1ds(:)  = X1_base%s%evalDOF2D_s(rhopos,X1_base%f%modes,DERIV_S,U(0)%X1(:,:))
-      F_X1_s(:) = X1_base%s%evalDOF2D_s(rhopos,X1_base%f%modes,      0,F(0)%X1(:,:))
-      X2_s(:)   = X2_base%s%evalDOF2D_s(rhopos,X2_base%f%modes,      0,U(0)%X2(:,:))
-      dX2ds(:)  = X2_base%s%evalDOF2D_s(rhopos,X2_base%f%modes,DERIV_S,U(0)%X2(:,:))
-      F_X2_s(:) = X2_base%s%evalDOF2D_s(rhopos,X2_base%f%modes,      0,F(0)%X2(:,:))
-      LA_s(:)   = LA_base%s%evalDOF2D_s(rhopos,LA_base%f%modes,      0,U(0)%LA(:,:))
-      F_LA_s(:) = LA_base%s%evalDOF2D_s(rhopos,LA_base%f%modes,      0,F(0)%LA(:,:))
+      X1_s(:)   = X1_base%s%evalDOF2D_s(rhopos,X1_base%f%modes,      0,dofs_in%X1(:,:))
+      dX1ds(:)  = X1_base%s%evalDOF2D_s(rhopos,X1_base%f%modes,DERIV_S,dofs_in%X1(:,:))
+      F_X1_s(:) = X1_base%s%evalDOF2D_s(rhopos,X1_base%f%modes,      0,force_in%X1(:,:))
+      X2_s(:)   = X2_base%s%evalDOF2D_s(rhopos,X2_base%f%modes,      0,dofs_in%X2(:,:))
+      dX2ds(:)  = X2_base%s%evalDOF2D_s(rhopos,X2_base%f%modes,DERIV_S,dofs_in%X2(:,:))
+      F_X2_s(:) = X2_base%s%evalDOF2D_s(rhopos,X2_base%f%modes,      0,force_in%X2(:,:))
+      LA_s(:)   = LA_base%s%evalDOF2D_s(rhopos,LA_base%f%modes,      0,dofs_in%LA(:,:))
+      F_LA_s(:) = LA_base%s%evalDOF2D_s(rhopos,LA_base%f%modes,      0,force_in%LA(:,:))
 
       iota_s=iota_profile%eval_at_rho(rhopos)
       pres_s=pres_profile%eval_at_rho(rhopos)
       phiPrime_s=Phi_profile%eval_at_rho(rhopos,deriv=1)
 #ifdef VISU_J_EXACT
-      dX1ds_dr(:)  = X1_base%s%evalDOF2D_s(rhopos,X1_base%f%modes,DERIV_S_S,U(0)%X1(:,:))
-      dX2ds_dr(:)  = X2_base%s%evalDOF2D_s(rhopos,X2_base%f%modes,DERIV_S_S,U(0)%X2(:,:))
-      dLAds(:)     = LA_base%s%evalDOF2D_s(rhopos,LA_base%f%modes,DERIV_S  ,U(0)%LA(:,:))
+      dX1ds_dr(:)  = X1_base%s%evalDOF2D_s(rhopos,X1_base%f%modes,DERIV_S_S,dofs_in%X1(:,:))
+      dX2ds_dr(:)  = X2_base%s%evalDOF2D_s(rhopos,X2_base%f%modes,DERIV_S_S,dofs_in%X2(:,:))
+      dLAds(:)     = LA_base%s%evalDOF2D_s(rhopos,LA_base%f%modes,DERIV_S  ,dofs_in%LA(:,:))
       iota_dr=iota_profile%eval_at_rho(rhopos,deriv=1)
       phiPrime_dr=Phi_profile%eval_at_rho(rhopos,deriv=2)
 #endif
@@ -402,11 +406,11 @@ IMPLICIT NONE
         sgn = -1
       endif
       delta_s=sgn*eps_s*sgrid%ds(iElem)
-      X1_s_eps(:)   = X1_base%s%evalDOF2D_s(rhopos+delta_s,X1_base%f%modes,      0,U(0)%X1(:,:))
-      dX1ds_eps(:)  = X1_base%s%evalDOF2D_s(rhopos+delta_s,X1_base%f%modes,DERIV_S,U(0)%X1(:,:))
-      X2_s_eps(:)   = X2_base%s%evalDOF2D_s(rhopos+delta_s,X2_base%f%modes,      0,U(0)%X2(:,:))
-      dX2ds_eps(:)  = X2_base%s%evalDOF2D_s(rhopos+delta_s,X2_base%f%modes,DERIV_S,U(0)%X2(:,:))
-      LA_s_eps(:)   = LA_base%s%evalDOF2D_s(rhopos+delta_s,LA_base%f%modes,      0,U(0)%LA(:,:))
+      X1_s_eps(:)   = X1_base%s%evalDOF2D_s(rhopos+delta_s,X1_base%f%modes,      0,dofs_in%X1(:,:))
+      dX1ds_eps(:)  = X1_base%s%evalDOF2D_s(rhopos+delta_s,X1_base%f%modes,DERIV_S,dofs_in%X1(:,:))
+      X2_s_eps(:)   = X2_base%s%evalDOF2D_s(rhopos+delta_s,X2_base%f%modes,      0,dofs_in%X2(:,:))
+      dX2ds_eps(:)  = X2_base%s%evalDOF2D_s(rhopos+delta_s,X2_base%f%modes,DERIV_S,dofs_in%X2(:,:))
+      LA_s_eps(:)   = LA_base%s%evalDOF2D_s(rhopos+delta_s,LA_base%f%modes,      0,dofs_in%LA(:,:))
       iota_s_eps    = iota_profile%eval_at_rho(rhopos+delta_s)
       pres_s_eps    = pres_profile%eval_at_rho(rhopos+delta_s)
       phiPrime_s_eps= Phi_profile%eval_at_rho(rhopos+delta_s,deriv=1)
@@ -937,11 +941,11 @@ END SUBROUTINE visu_3D
 
 
 !===================================================================================================================================
-!> convert solution Uin to straight-field line coordinates, and then write to visualization/netcdf file.
+!> convert solution dofs_in to straight-field line coordinates, and then write to visualization/netcdf file.
 !! evaluation at given SFLout_radialpos. Passed to a grid, then a deg=1 spline is used, which is interpolatory at the grid points.
 !!
 !===================================================================================================================================
-SUBROUTINE WriteSFLoutfile(Uin,fileID)
+SUBROUTINE WriteSFLoutfile(dofs_in,fileID)
 ! MODULES
   USE MODgvec_MHD3D_Vars,     ONLY: hmap,X1_base,X2_base,LA_base
   USE MODgvec_MHD3D_vars,     ONLY: Phi_profile, iota_profile
@@ -959,7 +963,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
   IMPLICIT NONE
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
-  CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: Uin      !! input solution
+  CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: dofs_in      !! input solution
   INTEGER , INTENT(IN   ) :: fileID          !! added to file name before the ending
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! LOCAL VARIABLES
@@ -1121,11 +1125,11 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
                           sin_cos_map(LA_base%f%sin_cos),hmap, &
                           SFLout_nrp,rho_pos,iota_prof,phiPrime_prof,&
                           relambda_in=SFLout_relambda)
-      CALL sfl_booz%get_boozer(X1_base,X2_base,LA_base,Uin%X1,Uin%X2,Uin%LA)
+      CALL sfl_booz%get_boozer(X1_base,X2_base,LA_base,dofs_in%X1,dofs_in%X2,dofs_in%LA)
     ELSE
       ALLOCATE(LA_s(LA_base%f%modes,SFLout_nrp))
       DO i_rp=1,SFLout_nrp
-        LA_s(:,i_rp)=LA_base%s%evalDOF2D_s(rho_pos(i_rp),LA_base%f%modes,0,Uin%LA)
+        LA_s(:,i_rp)=LA_base%s%evalDOF2D_s(rho_pos(i_rp),LA_base%f%modes,0,dofs_in%LA)
       END DO
     END IF
     ALLOCATE(tz_pos(2,nthet_out,nzeta_out,SFLout_nrp))
@@ -1164,11 +1168,11 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
         var_out(VP_iota,:,:,i_rp)=iota_int
 
         !interpolate radially
-        X1_s(   :) = X1_base%s%evalDOF2D_s(rho_pos(i_rp),X1_base%f%modes,       0,Uin%X1(:,:))
-        dX1ds_s(:) = X1_base%s%evalDOF2D_s(rho_pos(i_rp),X1_base%f%modes, DERIV_S,Uin%X1(:,:))
+        X1_s(   :) = X1_base%s%evalDOF2D_s(rho_pos(i_rp),X1_base%f%modes,       0,dofs_in%X1(:,:))
+        dX1ds_s(:) = X1_base%s%evalDOF2D_s(rho_pos(i_rp),X1_base%f%modes, DERIV_S,dofs_in%X1(:,:))
 
-        X2_s(   :) = X2_base%s%evalDOF2D_s(rho_pos(i_rp),X2_base%f%modes,       0,Uin%X2(:,:))
-        dX2ds_s(:) = X2_base%s%evalDOF2D_s(rho_pos(i_rp),X2_base%f%modes, DERIV_S,Uin%X2(:,:))
+        X2_s(   :) = X2_base%s%evalDOF2D_s(rho_pos(i_rp),X2_base%f%modes,       0,dofs_in%X2(:,:))
+        dX2ds_s(:) = X2_base%s%evalDOF2D_s(rho_pos(i_rp),X2_base%f%modes, DERIV_S,dofs_in%X2(:,:))
         var_out(VP_thetastar,:,:,i_rp)=tz_star_pos(1,:,:)
         var_out(VP_zetastar ,:,:,i_rp)=tz_star_pos(2,:,:)
 !$OMP PARALLEL DO COLLAPSE(2) &
@@ -1464,9 +1468,11 @@ END SUBROUTINE CheckDistance
 !===================================================================================================================================
 !> check distance between two solutions, via sampling X1,X2 at theta*=theta+lambda, and comparing the distance of
 !> the sampled x,y,z coordinates
+!> Compute position of set of  n_zeta points along zeta=0...2pi/NFP, with theta=0 and s=spos (s=0: axis, s=1: edge)
+!> the sampled x,y,z coordinates
 !!
 !===================================================================================================================================
-SUBROUTINE CheckAxis(U,n_zeta,Axirhopos)
+SUBROUTINE CheckPos(U,spos,n_zeta,Pos)
 ! MODULES
   USE MODgvec_Globals,        ONLY: TWOPI
   USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base
@@ -1475,10 +1481,11 @@ SUBROUTINE CheckAxis(U,n_zeta,Axirhopos)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_sol_var_MHD3D), INTENT(IN) :: U !U
+  REAL(wp)              , INTENT(IN) :: spos    !! radial position (s=0: axis, s=1:edge)
   INTEGER               , INTENT(IN) :: n_zeta  !! number of points checked along axis
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp),INTENT(OUT)    :: Axirhopos(1:2,n_zeta)
+  REAL(wp),INTENT(OUT)    :: Pos(1:2,n_zeta)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER  :: i_n
@@ -1486,28 +1493,30 @@ SUBROUTINE CheckAxis(U,n_zeta,Axirhopos)
 !===================================================================================================================================
   IF(.NOT.MPIroot) CALL abort(__STAMP__, &
                         "checkAxis should only be called by MPIroot")
-  UX1_s(:) = X1_base%s%evalDOF2D_s(0.0_wp,X1_base%f%modes,0,U%X1(:,:))
-  UX2_s(:) = X2_base%s%evalDOF2D_s(0.0_wp,X2_base%f%modes,0,U%X2(:,:))
+  UX1_s(:) = X1_base%s%evalDOF2D_s(spos,X1_base%f%modes,0,U%X1(:,:))
+  UX2_s(:) = X2_base%s%evalDOF2D_s(spos,X2_base%f%modes,0,U%X2(:,:))
 
   DO i_n=1,n_zeta
     zeta = TWOPI*REAL(i_n-1,wp)/REAL(n_zeta*X1_base%f%nfp,wp) !do not include periodic point
-    Axirhopos(1,i_n) = X1_base%f%evalDOF_x((/0.0_wp,zeta/),0,UX1_s(:) )
-    Axirhopos(2,i_n) = X2_base%f%evalDOF_x((/0.0_wp,zeta/),0,UX2_s(:) )
+    Pos(1,i_n) = X1_base%f%evalDOF_x((/0.0_wp,zeta/),0,UX1_s(:) )
+    Pos(2,i_n) = X2_base%f%evalDOF_x((/0.0_wp,zeta/),0,UX2_s(:) )
   END DO !i_n
-END SUBROUTINE CheckAxis
+END SUBROUTINE CheckPos
 
 !===================================================================================================================================
 !> Visualize
 !!
 !===================================================================================================================================
-SUBROUTINE visu_1d_modes(n_s,fileID)
+SUBROUTINE visu_1d_modes(dofs_in,n_s,fileID)
 ! MODULES
 USE MODgvec_Analyze_Vars,  ONLY: visu1D
-USE MODgvec_MHD3D_Vars,    ONLY: U,X1_base,X2_base,LA_base
+USE MODgvec_MHD3D_Vars,    ONLY: X1_base,X2_base,LA_base
 USE MODgvec_Output_vars,   ONLY: outputLevel
+USE MODgvec_sol_var_MHD3D, ONLY: t_sol_var_MHD3D
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
+  CLASS(t_sol_var_MHD3D), INTENT(IN) :: dofs_in
   INTEGER, INTENT(IN   ) :: n_s    !! number of visualization points per element
   INTEGER, INTENT(IN   ) :: fileID !! added to file name before the ending
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -1541,61 +1550,61 @@ IMPLICIT NONE
     WRITE(*,*)'1.2) Visualize gvec modes in 1D: R,Z,lambda interpolated...'
     vname="X1"
     WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
-    CALL writeDataMN_visu(n_s,fname,vname,0,X1_base,U(0)%X1)
+    CALL writeDataMN_visu(n_s,fname,vname,0,X1_base,dofs_in%X1)
     vname="X2"
     WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
-    CALL writeDataMN_visu(n_s,fname,vname,0,X2_base,U(0)%X2)
+    CALL writeDataMN_visu(n_s,fname,vname,0,X2_base,dofs_in%X2)
     vname="LA"
     WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
-    CALL writeDataMN_visu(n_s,fname,vname,0,LA_base,U(0)%LA)
+    CALL writeDataMN_visu(n_s,fname,vname,0,LA_base,dofs_in%LA)
   END IF
   IF(vcase(2))THEN
     WRITE(*,*)'2) Visualize gvec modes in 1D: dX1rho,dX2rho,dLAdrho interpolated...'
     vname="dX1ds"
     WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
-    CALL writeDataMN_visu(n_s,fname,vname,DERIV_S,X1_base,U(0)%X1)
+    CALL writeDataMN_visu(n_s,fname,vname,DERIV_S,X1_base,dofs_in%X1)
     vname="dX2ds"
     WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
-    CALL writeDataMN_visu(n_s,fname,vname,DERIV_S,X2_base,U(0)%X2)
+    CALL writeDataMN_visu(n_s,fname,vname,DERIV_S,X2_base,dofs_in%X2)
     vname="dLAds"
     WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
-    CALL writeDataMN_visu(n_s,fname,vname,DERIV_S,LA_base,U(0)%LA)
+    CALL writeDataMN_visu(n_s,fname,vname,DERIV_S,LA_base,dofs_in%LA)
   END IF
   IF(vcase(3))THEN
     WRITE(*,*)'3) Visualize gvec modes in 1D: (d/drho)^2 X1/X2/LA interpolated...'
     vname="dX1dss"
     WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
-    CALL writeDataMN_visu(n_s,fname,vname,2,X1_base,U(0)%X1)
+    CALL writeDataMN_visu(n_s,fname,vname,2,X1_base,dofs_in%X1)
     vname="dX2dss"
     WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
-    CALL writeDataMN_visu(n_s,fname,vname,2,X2_base,U(0)%X2)
+    CALL writeDataMN_visu(n_s,fname,vname,2,X2_base,dofs_in%X2)
     vname="dLAdss"
     WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
-    CALL writeDataMN_visu(n_s,fname,vname,2,LA_base,U(0)%LA)
+    CALL writeDataMN_visu(n_s,fname,vname,2,LA_base,dofs_in%LA)
   END IF
   IF(vcase(4))THEN
     WRITE(*,*)'4) Visualize gvec modes in 1D:  |X1|/|X2|/|LA| interpolated...'
     vname="absX1"
     WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
-    CALL writeDataMN_visu(n_s,fname,vname,-4,X1_base,U(0)%X1)
+    CALL writeDataMN_visu(n_s,fname,vname,-4,X1_base,dofs_in%X1)
     vname="absX2"
     WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
-    CALL writeDataMN_visu(n_s,fname,vname,-4,X2_base,U(0)%X2)
+    CALL writeDataMN_visu(n_s,fname,vname,-4,X2_base,dofs_in%X2)
     vname="absLA"
     WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
-    CALL writeDataMN_visu(n_s,fname,vname,-4,LA_base,U(0)%LA)
+    CALL writeDataMN_visu(n_s,fname,vname,-4,LA_base,dofs_in%LA)
   END IF
   IF(vcase(5))THEN
     WRITE(*,*)'5) Visualize gvec modes in 1D:  |X1|/|X2|/|LA| / rho^m interpolated...'
     vname="absX1orhom"
     WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
-    CALL writeDataMN_visu(n_s,fname,vname,-5,X1_base,U(0)%X1)
+    CALL writeDataMN_visu(n_s,fname,vname,-5,X1_base,dofs_in%X1)
     vname="absX2orhom"
     WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
-    CALL writeDataMN_visu(n_s,fname,vname,-5,X2_base,U(0)%X2)
+    CALL writeDataMN_visu(n_s,fname,vname,-5,X2_base,dofs_in%X2)
     vname="absLAorhom"
     WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
-    CALL writeDataMN_visu(n_s,fname,vname,-5,LA_base,U(0)%LA)
+    CALL writeDataMN_visu(n_s,fname,vname,-5,LA_base,dofs_in%LA)
   END IF
 
   !

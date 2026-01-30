@@ -6,14 +6,14 @@
 
 MODULE MODgvec_py_state
 
-USE MODgvec_c_functional, ONLY: t_functional
+USE MODgvec_MHD3D,        ONLY: t_functional_mhd3d
 USE MODgvec_base,         ONLY: t_base
-USE MODgvec_Globals,      ONLY: enter_subregion,exit_subregion,reset_subregion
+USE MODgvec_Globals,      ONLY: enter_subregion,exit_subregion,reset_subregion,Unit_stdOut,MPIroot,nRanks,abort,wp
 
 IMPLICIT NONE
 PUBLIC
 
-CLASS(t_functional), ALLOCATABLE :: functional
+CLASS(t_functional_mhd3d), ALLOCATABLE :: functional
 LOGICAL :: initialized = .FALSE.
 INTEGER :: nfp = 0
 
@@ -22,19 +22,17 @@ CONTAINS
 !================================================================================================================================!
 SUBROUTINE Init(parameterfile)
   ! MODULES
-  USE MODgvec_Globals,        ONLY: Unit_stdOut,MPIroot,nRanks,abort,fmt_sep
+  USE MODgvec_Globals,        ONLY: fmt_sep
   USE MODgvec_MHD3D_vars,     ONLY: X1_base
   USE MODgvec_Analyze,        ONLY: InitAnalyze
   USE MODgvec_Output,         ONLY: InitOutput
   USE MODgvec_Restart,        ONLY: InitRestart
   USE MODgvec_ReadInTools,    ONLY: FillStrings,GETLOGICAL,GETINT,IgnoredStrings
 !$ USE omp_lib
-  USE MODgvec_Functional,     ONLY: InitFunctional
-  USE MODgvec_MPI    ,ONLY  : par_Init
+  USE MODgvec_MPI    ,ONLY: par_Init
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   CHARACTER(LEN=*) :: parameterfile
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  INTEGER :: which_functional
   ! CODE ========================================================================================================================!
   CALL reset_subregion()
   CALL enter_subregion("startup")
@@ -62,8 +60,8 @@ SUBROUTINE Init(parameterfile)
   CALL InitAnalyze()
 
   ! initialize the functional
-  which_functional = GETINT('which_functional',Proposal=1)
-  CALL InitFunctional(functional,which_functional)
+  ALLOCATE(t_functional_mhd3d :: functional)
+  CALL functional%init()
 
   ! print the ignored parameters
   CALL IgnoredStrings()
@@ -77,7 +75,9 @@ END SUBROUTINE Init
 !================================================================================================================================!
 SUBROUTINE InitSolution()
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  CALL enter_subregion("initialize solution")
   CALL functional%InitSolution()
+  CALL exit_subregion("initialize solution")
 END SUBROUTINE InitSolution
 
 !================================================================================================================================!
@@ -86,22 +86,39 @@ SUBROUTINE ReadState(statefile)
   USE MODgvec_Output_Vars,    ONLY: outputLevel,ProjectName
   USE MODgvec_ReadState_Vars, ONLY: outputLevel_r
   USE MODgvec_Restart,        ONLY: RestartFromState
-  USE MODgvec_MHD3D_Vars,     ONLY: U
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   CHARACTER(LEN=255) :: statefile
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  CALL enter_subregion("read statefile")
   ProjectName='POST_'//TRIM(StateFile(1:INDEX(StateFile,'_State_')-1))
-  CALL RestartFromState(StateFile,U(0))
+  CALL RestartFromState(StateFile,functional%minimizer%vars%dofs(0))
   outputLevel=outputLevel_r
+  CALL exit_subregion("read statefile")
 END SUBROUTINE ReadState
+
+!================================================================================================================================!
+SUBROUTINE minimize(dt_in)
+  ! MODULES
+  USE MODgvec_Globals,    ONLY: GetTime
+  USE MODgvec_MHD3D_Vars, ONLY: maxIter
+  REAL(wp), OPTIONAL, INTENT(IN) :: dt_in
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  REAL(wp) :: StartTime, EndTime
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  StartTime=GetTime()
+  CALL functional%minimize(dt_in)
+  EndTime=GetTime()
+  SWRITE(Unit_stdOut,'(A,2(F8.2,A))') ' FUNCTIONAL MINIMISATION FINISHED! [',EndTime-StartTime,' sec ], corresponding to [', &
+        (EndTime-StartTime)/REAL(MaxIter,wp)*1.e3_wp,' msec/iteration ]'
+END SUBROUTINE minimize
+
 
 !================================================================================================================================!
 !> Handle the selection of the base, based on the selection string
 !================================================================================================================================!
 SUBROUTINE select_base_dofs(var, base, dofs)
   ! MODULES
-  USE MODgvec_Globals,        ONLY: abort
-  USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,U
+  USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base
   USE MODgvec_base,           ONLY: t_base
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   CHARACTER(LEN=2), INTENT(IN) :: var          !! selection string: which variable to evaluate
@@ -111,13 +128,13 @@ SUBROUTINE select_base_dofs(var, base, dofs)
   SELECT CASE(var)
     CASE('X1')
       base => X1_base
-      dofs => U(0)%X1
+      dofs => functional%minimizer%vars%dofs(0)%X1
     CASE('X2')
       base => X2_base
-      dofs => U(0)%X2
+      dofs => functional%minimizer%vars%dofs(0)%X2
     CASE('LA')
       base => LA_base
-      dofs => U(0)%LA
+      dofs => functional%minimizer%vars%dofs(0)%LA
     CASE DEFAULT
       CALL abort(__STAMP__, &
       'ERROR: variable "'//TRIM(var)//'" not recognized')
@@ -129,7 +146,6 @@ END SUBROUTINE select_base_dofs
 !================================================================================================================================!
 SUBROUTINE select_base(var, base)
   ! MODULES
-  USE MODgvec_Globals,        ONLY: abort
   USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base
   USE MODgvec_base,           ONLY: t_base
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
@@ -191,7 +207,6 @@ END SUBROUTINE evaluate_base_select
 !================================================================================================================================!
 SUBROUTINE get_integration_points_num(var, n_s, n_t, n_z)
   ! MODULES
-  USE MODgvec_Globals,        ONLY: abort
   USE MODgvec_base,           ONLY: t_base
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   CHARACTER(LEN=2), INTENT(IN) :: var           !! selection string: which variable to evaluate
@@ -503,7 +518,6 @@ END SUBROUTINE evaluate_base_tens_all
 !================================================================================================================================!
 SUBROUTINE evaluate_hmap_pw(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dthet, dX2_dthet, dX1_dzeta, dX2_dzeta, coord, e_s, e_thet, e_zeta)
   ! MODULES
-  USE MODgvec_Globals,    ONLY: wp
   USE MODgvec_MHD3D_vars, ONLY: hmap
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   INTEGER, INTENT(IN) :: n                                                      !! number of evaluation points
@@ -530,7 +544,6 @@ END SUBROUTINE
 !================================================================================================================================!
 SUBROUTINE evaluate_hmap(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dthet, dX2_dthet, dX1_dzeta, dX2_dzeta, coord, e_s, e_thet, e_zeta)
   ! MODULES
-  USE MODgvec_Globals,    ONLY: wp
   USE MODgvec_MHD3D_vars, ONLY: hmap
   USE MODgvec_hmap,       ONLY: hmap_new_auxvar,PP_T_HMAP_AUXVAR
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
@@ -566,7 +579,6 @@ END SUBROUTINE
 !================================================================================================================================!
 SUBROUTINE evaluate_hmap_only_pw(n, X1, X2, zeta, pos, dx_dq1, dx_dq2, dx_dq3)
   ! MODULES
-  USE MODgvec_Globals,    ONLY: wp
   USE MODgvec_MHD3D_vars, ONLY: hmap
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   INTEGER, INTENT(IN) :: n                                      !! number of evaluation points
@@ -588,7 +600,6 @@ END SUBROUTINE
 !================================================================================================================================!
 SUBROUTINE evaluate_hmap_only(n, X1, X2, zeta, pos, dx_dq1, dx_dq2, dx_dq3)
   ! MODULES
-  USE MODgvec_Globals,    ONLY: wp
   USE MODgvec_MHD3D_vars, ONLY: hmap
   USE MODgvec_hmap,       ONLY: hmap_new_auxvar,PP_T_HMAP_AUXVAR
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
@@ -624,7 +635,6 @@ SUBROUTINE evaluate_metric_derivs(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_d
                            dg_ss_dt, dg_st_dt, dg_sz_dt, dg_tt_dt, dg_tz_dt, dg_zz_dt, &
                            dg_ss_dz, dg_st_dz, dg_sz_dz, dg_tt_dz, dg_tz_dz, dg_zz_dz)
   ! MODULES
-  USE MODgvec_Globals,    ONLY: wp
   USE MODgvec_MHD3D_vars, ONLY: hmap
   USE MODgvec_hmap,       ONLY: hmap_new_auxvar,PP_T_HMAP_AUXVAR
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
@@ -744,7 +754,6 @@ END SUBROUTINE
 !================================================================================================================================!
 SUBROUTINE evaluate_hmap_derivs(n, X1, X2, zeta, k_11, k_12, k_13, k_22, k_23, k_33)
   ! MODULES
-  USE MODgvec_Globals,    ONLY: wp
   USE MODgvec_MHD3D_vars, ONLY: hmap
   USE MODgvec_hmap,       ONLY: hmap_new_auxvar,PP_T_HMAP_AUXVAR
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
@@ -774,7 +783,6 @@ END SUBROUTINE
 !================================================================================================================================!
 SUBROUTINE evaluate_jac_h_derivs_pw(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_dz, dX2_dz,  dJh_ds, dJh_dt, dJh_dz)
   ! MODULES
-  USE MODgvec_Globals,    ONLY: wp
   USE MODgvec_MHD3D_vars, ONLY: hmap
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   INTEGER, INTENT(IN) :: n                                                                        !! number of evaluation points
@@ -798,7 +806,6 @@ END SUBROUTINE
 !================================================================================================================================!
 SUBROUTINE evaluate_jac_h_derivs(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_dz, dX2_dz, dJh_ds, dJh_dt, dJh_dz)
   ! MODULES
-  USE MODgvec_Globals,    ONLY: wp
   USE MODgvec_MHD3D_vars, ONLY: hmap
   USE MODgvec_hmap,       ONLY: hmap_new_auxvar,PP_T_HMAP_AUXVAR
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
@@ -831,7 +838,6 @@ END SUBROUTINE
 !================================================================================================================================!
 SUBROUTINE evaluate_rho2_profile(n_s, rho2, deriv, var, result)
   ! MODULES
-  USE MODgvec_Globals,        ONLY: abort
   USE MODgvec_rProfile_base,  ONLY: c_rProfile
   USE MODgvec_MHD3D_Vars,     ONLY: iota_profile, pres_profile, chi_profile, Phi_profile
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
@@ -868,7 +874,6 @@ END SUBROUTINE evaluate_rho2_profile
 !================================================================================================================================!
 SUBROUTINE evaluate_profile(n_s, s, deriv, var, result)
   ! MODULES
-  USE MODgvec_Globals,        ONLY: abort
   USE MODgvec_rProfile_base,  ONLY: c_rProfile
   USE MODgvec_MHD3D_Vars,     ONLY: iota_profile, pres_profile, Phi_profile, chi_profile
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
@@ -941,12 +946,13 @@ END FUNCTION init_boozer
 SUBROUTINE get_boozer(sfl_boozer)
   ! MODULES
   USE MODgvec_SFL_Boozer,   ONLY: t_sfl_boozer
-  USE MODgvec_MHD3D_vars,     ONLY: X1_base, X2_base, LA_base, U
+  USE MODgvec_MHD3D_vars,     ONLY: X1_base, X2_base, LA_base
   USE MODgvec_base,           ONLY: t_base
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   TYPE(t_sfl_boozer), INTENT(INOUT) :: sfl_boozer  ! SFL-Boozer object
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
-  CALL sfl_boozer%get_boozer(X1_base, X2_base, LA_base, U(0)%X1, U(0)%X2, U(0)%LA)
+  CALL sfl_boozer%get_boozer(X1_base, X2_base, LA_base,&
+  functional%minimizer%vars%dofs(0)%X1, functional%minimizer%vars%dofs(0)%X2, functional%minimizer%vars%dofs(0)%LA)
 END SUBROUTINE get_boozer
 
 
@@ -955,7 +961,7 @@ END SUBROUTINE get_boozer
 !================================================================================================================================!
 SUBROUTINE find_pest_angles_2D(n_s, s, n_tz, tz_pest, tz_out)
   ! MODULES
-  USE MODgvec_MHD3D_vars,     ONLY: LA_base, U
+  USE MODgvec_MHD3D_vars,     ONLY: LA_base
   USE MODgvec_Transform_SFL,  ONLY: find_pest_angles
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   INTEGER, INTENT(IN) :: n_s, n_tz
@@ -970,7 +976,7 @@ SUBROUTINE find_pest_angles_2D(n_s, s, n_tz, tz_pest, tz_out)
   !$OMP PRIVATE(i_s)
   DO i_s=1,n_s
     ! evaluate spline to get the fourier dofs
-    LA(:, i_s) = LA_base%s%evalDOF2D_s(s(i_s), LA_base%f%modes, 0, U(0)%LA)
+    LA(:, i_s) = LA_base%s%evalDOF2D_s(s(i_s), LA_base%f%modes, 0, functional%minimizer%vars%dofs(0)%LA)
   END DO
   !$OMP END PARALLEL DO
   CALL find_pest_angles(n_s, LA_base%f, LA, n_tz, tz_pest, tz_out)
@@ -984,7 +990,6 @@ END SUBROUTINE find_pest_angles_2D
 SUBROUTINE evaluate_boozer_list_tz_all(sfl_boozer, n_s, n_tz, irho, thetazeta, Qsel, Q, dQ_dthet, dQ_dzeta, &
                                        dQ_dtt, dQ_dtz, dQ_dzz)
   ! MODULES
-  USE MODgvec_Globals,      ONLY: abort
   USE MODgvec_fbase,        ONLY: t_fbase
   USE MODgvec_SFL_Boozer,   ONLY: t_sfl_boozer
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
@@ -1028,17 +1033,15 @@ END SUBROUTINE evaluate_boozer_list_tz_all
 !================================================================================================================================!
 SUBROUTINE Finalize()
   ! MODULES
-  USE MODgvec_Globals,        ONLY: Unit_stdOut,MPIroot
   USE MODgvec_Analyze,        ONLY: FinalizeAnalyze
   USE MODgvec_Output,         ONLY: FinalizeOutput
   USE MODgvec_Restart,        ONLY: FinalizeRestart
-  USE MODgvec_Functional,     ONLY: FinalizeFunctional
   USE MODgvec_ReadInTools,    ONLY: FinalizeReadIn
   USE MODgvec_MPI,            ONLY: par_Finalize
   ! CODE ========================================================================================================================!
 
   IF(ALLOCATED(functional)) THEN
-    CALL FinalizeFunctional(functional)
+    CALL functional%free()
     DEALLOCATE(functional)
   END IF
   CALL FinalizeAnalyze()
@@ -1053,5 +1056,6 @@ SUBROUTINE Finalize()
   SWRITE(Unit_stdOut,'(132("="))')
   FLUSH(Unit_stdOut)
 END SUBROUTINE Finalize
+
 
 END MODULE MODgvec_py_state
