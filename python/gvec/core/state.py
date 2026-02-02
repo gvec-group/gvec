@@ -291,6 +291,24 @@ class State:
         """The name of the configuration / `ProjectName` in the parameter file."""
         return self.parameters.get("ProjectName", "GVEC")
 
+    # === Minimization for free-boundary === #
+    @with_binding
+    def _minimize(self, dt=None, logfinaliter=True):
+        """Minimize the MHD functional for the current state."""
+        logger.debug("Minimizing MHD functional.")
+        with gvec.util.chdir(self.rundir):
+            _state.minimize(dt, logfinaliter)
+
+    @with_binding
+    def set_Bext_squared(self, B2):
+        logger.debug("Updating exterior field")
+        _state.set_bext_squared(B2)
+
+    @with_binding
+    def update_iota_for_current_constraint(self, rho2, iota):
+        logger.debug("Updating iota")
+        _state.update_iota_for_current_constraint(rho2, iota)
+
     # === Evaluation Methods === #
 
     @property

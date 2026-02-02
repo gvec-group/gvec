@@ -20,7 +20,7 @@ MODULE MODgvec_MHD3D_evalFunc
 
   PRIVATE
   PUBLIC::InitializeMHD3D_EvalFunc, InitProfilesGP, &
-          EvalEnergy, EvalForce, EvalAux, EvalTotals, FinalizeMHD3D_EvalFunc
+          EvalEnergy, EvalForce, EvalAux, EvalTotals, FinalizeMHD3D_EvalFunc, chiPrime_GP
 
   !evaluations at radial gauss points, size(base%s%nGP_str:base%s%nGP_end)
   REAL(wp),ALLOCATABLE :: pres_GP(:)      !! mass profile
@@ -500,7 +500,7 @@ SUBROUTINE EvalForce(dofs_in,callEvalAux,JacCheck,F_MHD3D,noBC)
 ! MODULES
   USE MODgvec_Globals,       ONLY : nRanks
   USE MODgvec_MPI,           ONLY : par_IReduce,par_IBcast,par_Wait,req1,req2,req3,par_Barrier,par_BCast
-  USE MODgvec_MHD3D_Vars,    ONLY : X1_base,X2_base,LA_base,hmap,mu_0,PrecondType
+  USE MODgvec_MHD3D_Vars,    ONLY : X1_base,X2_base,LA_base,hmap,mu_0,PrecondType, FreeBoundary
   USE MODgvec_MHD3D_Vars,    ONLY : X1_BC_type,X2_BC_type,LA_BC_type
   USE MODgvec_sol_var_MHD3D, ONLY : t_sol_var_MHD3D
   IMPLICIT NONE
@@ -526,6 +526,8 @@ SUBROUTINE EvalForce(dofs_in,callEvalAux,JacCheck,F_MHD3D,noBC)
   REAL(wp)  ::    dW(1:mn_IP,nGP_str:nGP_end)        != p+1/2*B^2=p(s)+|Phi'(s)|^2 (b^alpha *g_{alpha,beta} *b^beta)/(2 *detJ^2)
   REAL(wp),DIMENSION(1:mn_IP,nGP_str:nGP_end)  :: btt_sJ,btz_sJ,bzz_sJ,  & != b^theta*b^theta/detJ, b^theta*b^zeta/detJ,b^zeta*b^zeta/detJ
                                                   coefY,coefY_thet,coefY_zeta,coefY_s
+  REAL(wp)  :: F_b_X1(1:X1_base%f%modes)
+  REAL(wp)  :: F_b_X2(1:X2_base%f%modes)
 !===================================================================================================================================
 !  SWRITE(UNIT_stdOut,'(4X,A)',ADVANCE='NO')'COMPUTE FORCE...'
 #if MPIDEBUG==1
@@ -809,6 +811,12 @@ SUBROUTINE EvalForce(dofs_in,callEvalAux,JacCheck,F_MHD3D,noBC)
 #endif
   __PERFOFF('reduce_solution_X1')
 
+  IF(MPIroot.AND.(FreeBoundary))THEN
+    CALL EvalBoundaryForce(dofs_in,F_b_X1,F_b_X2)
+    F_MHD3D%X1(X1_base%s%nBase,:)=F_MHD3D%X1(X1_base%s%nBase,:)+F_b_X1(:)
+    F_MHD3D%X2(X2_base%s%nBase,:)=F_MHD3D%X2(X2_base%s%nBase,:)+F_b_X2(:)
+  END IF
+
   __PERFON('apply_precond')
 !$OMP PARALLEL DO &
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE) SHARED(modes_str,modes_end,F_MHD3D,X1_BC_type,X1_base) PRIVATE(iMode)
@@ -1049,6 +1057,7 @@ SUBROUTINE BuildPrecond()
   USE MODgvec_MPI,        ONLY : par_AllReduce
   USE MODgvec_MHD3D_Vars, ONLY : X1_base,X2_base,LA_base
   USE MODgvec_MHD3D_Vars, ONLY : X1_BC_Type,X2_BC_Type,LA_BC_type
+  USE MODgvec_MHD3D_Vars, ONLY : FreeBoundary, Bext_squared
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -1147,6 +1156,14 @@ SUBROUTINE BuildPrecond()
 !$OMP END PARALLEL DO
   __PERFOFF('loop_1')
 
+  IF(FreeBoundary) THEN
+    ! NOTE: This is experimental!
+    ! Includes one part of the radial preconditioner for the free boundary term:
+    ! <B_ext/2 * dJh/dq1>Y_1*Y_1 + <B_ext/2 * dJh/dq2>Y_2*Y_2
+    DX1(nGP_end) = DX1(nGP_end) - smn_IP*w_GP(nGP_end)*SUM(0.5*Bext_squared*Jh_dq1(:,nGP_end))
+    DX2(nGP_end) = DX2(nGP_end) - smn_IP*w_GP(nGP_end)*SUM(0.5*Bext_squared*Jh_dq2(:,nGP_end))
+  END IF
+
   __PERFON('par_Reduce_D_buf')
   !gather all D** (already stored contiguously in D_buf)
   !THIS SHOULD BE A ALLGATHERV of (nGP_str:nGP_end,:)<=>(1:nGP,:) , NOT A ALLREDUCE (BUT CHEAP ANYWAYS)!
@@ -1211,8 +1228,16 @@ SUBROUTINE BuildPrecond()
           CALL Precond_X1(iMode)%set_element( i,j,P_BCaxis(i,j))
         END DO; END DO !j,i
       END IF !nDOF_BCaxis>0
-      tBC = X1_BC_Type(BC_EDGE,iMode)
-      nD  = X1_base%s%nDOF_BC(tBC)
+
+      IF(FreeBoundary)THEN
+        !!! HACK , ALWAYS DIRICHLET for X1 edge BC
+        tBC = BC_TYPE_DIRICHLET
+        nD  = 1
+      ELSE
+        tBC = X1_BC_Type(BC_EDGE,iMode)
+        nD  = X1_base%s%nDOF_BC(tBC)
+      END IF
+
       IF(nD.GT.0)THEN
         !save nBase-deg:nBase rows
         DO i=nBase-deg,nBase; DO j=MAX(1,i-deg),nBase
@@ -1288,8 +1313,16 @@ SUBROUTINE BuildPrecond()
           CALL Precond_X2(iMode)%set_element( i,j,P_BCaxis(i,j))
         END DO; END DO !j,i
       END IF !nDOF_BCaxis>0
-      tBC = X2_BC_Type(BC_EDGE,iMode)
-      nD  = X2_base%s%nDOF_BC(tBC)
+
+      IF(FreeBoundary)THEN
+        !!! HACK , ALWAYS DIRICHLET for X2 edge BC
+        tBC = BC_TYPE_DIRICHLET
+        nD  = 1
+      ELSE
+        tBC = X2_BC_Type(BC_EDGE,iMode)
+        nD  = X2_base%s%nDOF_BC(tBC)
+      END IF
+
       IF(nD.GT.0)THEN
         !save nBase-deg:nBase rows
         DO i=nBase-deg,nBase; DO j=MAX(1,i-deg),nBase
@@ -1449,6 +1482,57 @@ SUBROUTINE ApplyPrecond(nBase,precond,F_inout)
   CALL precond%solve_inplace(1,F_inout(1:nBase))
 END SUBROUTINE ApplyPrecond
 
+
+!===================================================================================================================================
+!>   TEST: Free-boundary term at s=1.
+!!
+!!   Compute the "force" on the free-moving boundary from the external vacuum field.
+!!     int_thet int_zeta 1/2|Bvac|^2 (Y^2 X^1_thet -Y^1 X^2_thet) J_h dthet dzeta
+!!   Remark:In strong form, the boundary term would be a jump in B^2...
+!!          however, the gradient of the energy functional is a force from the weak form,
+!!          so the inner contribution (1/2B^2 + mu0*p) is already in the force computed above (and is set to zero for fixed boundary)
+!!
+!!  Makes use of the fact that spline coefficient at position nBase (s=1)  is interpolatory!
+!===================================================================================================================================
+SUBROUTINE EvalBoundaryForce(dofs_in,F_b_X1,F_b_X2)
+! MODULES
+  USE MODgvec_MHD3D_Vars, ONLY: X1_base,X2_base,LA_base,hmap,Phi_profile,chi_profile, Bext_squared
+  USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: dofs_in         !! input solution
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp),INTENT(OUT)  :: F_b_X1(1:X1_base%f%modes) !! force on X1 at the boundary from the exterior
+  REAL(wp),INTENT(OUT)  :: F_b_X2(1:X2_base%f%modes) !! force on X2 at the  boundary from the exterior
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER   :: i_mn
+  REAL(wp)  :: qloc(3)
+  REAL(wp)  :: XYZ_at_boundary(3,1:mn_IP)
+  REAL(wp),DIMENSION(1:mn_IP)  :: X1_IP_at_boundary,dX1_dthet_at_boundary &
+                                 ,X2_IP_at_boundary,dX2_dthet_at_boundary &
+                                 ,J_h_at_boundary,coefY
+!===================================================================================================================================
+  X1_IP_at_boundary     = X1_base%f%evalDOF_IP(         0,dofs_in%X1(X1_Base%s%nBase,:))  !NEEDED FOR FREE-BOUND
+  dX1_dthet_at_boundary = X1_base%f%evalDOF_IP(DERIV_THET,dofs_in%X1(X1_Base%s%nBase,:))  !NEEDED FOR FREE-BOUND
+  X2_IP_at_boundary     = X2_base%f%evalDOF_IP(         0,dofs_in%X2(X2_Base%s%nBase,:))  !NEEDED FOR FREE-BOUND
+  dX2_dthet_at_boundary = X2_base%f%evalDOF_IP(DERIV_THET,dofs_in%X2(X2_Base%s%nBase,:))  !NEEDED FOR FREE-BOUND
+  DO i_mn=1,mn_IP
+
+    qloc(  1:3) = (/ X1_IP_at_boundary(i_mn), X2_IP_at_boundary(i_mn),zeta_IP(i_mn)/) !NEEDED FOR FREE-BOUND
+
+    XYZ_at_boundary(1:3,i_mn)=hmap%eval(qloc)  !CARTESIAN COORDINATES OF THE BOUNDARY
+
+    J_h_at_boundary( i_mn) = hmap%eval_Jh(qloc)                              !NEEDED FOR FREE-BOUND
+  END DO
+
+  coefY(:) = -0.5*Bext_squared(:)*J_h_at_boundary(:)*dX2_dthet_at_boundary(:)
+  CALL X1_base%f%projectIPtoDOF(.FALSE.,dthet_dzeta,   0,coefY(     :),F_b_X1(:))
+  coefY(:) =  0.5*Bext_squared(:)*J_h_at_boundary(:)*dX1_dthet_at_boundary(:)
+  CALL X2_base%f%projectIPtoDOF(.FALSE.,dthet_dzeta,   0,coefY(     :),F_b_X2(:))
+END SUBROUTINE EvalBoundaryForce
 
 !===================================================================================================================================
 !> Finalize Module

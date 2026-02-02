@@ -96,6 +96,10 @@ CLASS(c_rProfile), ALLOCATABLE   :: iota_profile
 CLASS(c_rProfile), ALLOCATABLE   :: pres_profile
 CLASS(c_rProfile), ALLOCATABLE   :: Phi_profile
 CLASS(c_rProfile), ALLOCATABLE   :: chi_profile
+
+! FREE_BOUNDARY
+REAL(wp), ALLOCATABLE :: Bext_squared(:) ! external magnetic field
+LOGICAL               :: FreeBoundary
 !===================================================================================================================================
 
 END MODULE MODgvec_MHD3D_Vars

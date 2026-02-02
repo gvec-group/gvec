@@ -111,6 +111,7 @@ SUBROUTINE InitMHD3D(sf)
   doCheckDistance=GETLOGICAL("doCheckDistance",Proposal=.FALSE.)
   doCheckAxis=GETLOGICAL("doCheckAxis",Proposal=.TRUE.)
   !-----------
+  FreeBoundary = GETLOGICAL("FreeBoundary", Proposal=.TRUE.)
 
   fac_nyq = GETINT( "fac_nyq",Proposal=4)
 
@@ -305,7 +306,11 @@ SUBROUTINE InitMHD3D(sf)
   !boundary conditions (used in force, in init slightly changed)
   ASSOCIATE(modes        =>X1_base%f%modes, zero_odd_even=>X1_base%f%zero_odd_even)
   ALLOCATE(X1_BC_type(1:2,modes))
-  X1_BC_type(BC_EDGE,:)=BC_TYPE_DIRICHLET
+  IF(FreeBoundary)THEN
+    X1_BC_type(BC_EDGE,:)=BC_TYPE_OPEN
+  ELSE
+    X1_BC_type(BC_EDGE,:)=BC_TYPE_DIRICHLET
+  END IF
   DO imode=1,modes
     X1_BC_type(BC_AXIS,iMode)=X1X2_BCtype_axis(zero_odd_even(iMode))
     IF(X1_BC_type(BC_AXIS,iMode).EQ.0)THEN !AUTOMATIC, m-dependent BC, for m>deg, switch off all DOF up to deg+1
@@ -321,7 +326,11 @@ SUBROUTINE InitMHD3D(sf)
 
   ASSOCIATE(modes        =>X2_base%f%modes, zero_odd_even=>X2_base%f%zero_odd_even)
   ALLOCATE(X2_BC_type(1:2,modes))
-  X2_BC_type(BC_EDGE,:)=BC_TYPE_DIRICHLET
+  IF(FreeBoundary)THEN
+    X2_BC_type(BC_EDGE,:)=BC_TYPE_OPEN
+  ELSE
+    X2_BC_type(BC_EDGE,:)=BC_TYPE_DIRICHLET
+  END IF
   DO imode=1,modes
     X2_BC_type(BC_AXIS,iMode)=X1X2_BCtype_axis(zero_odd_even(iMode))
     IF(X2_BC_type(BC_AXIS,iMode).EQ.0)THEN ! AUTOMATIC, m-dependent BC, for m>deg, switch off all DOF up to deg+1
@@ -372,6 +381,11 @@ SUBROUTINE InitMHD3D(sf)
     LA_b=0.0_wp
     X1_a=0.0_wp
     X2_a=0.0_wp
+
+    IF(FreeBoundary) THEN
+      ALLOCATE(Bext_squared(1:X1_base%f%mn_IP))
+      Bext_squared = 0.0_wp
+    END IF
 
     IF((init_BC.EQ.0).OR.(init_BC.EQ.2))THEN !READ axis values from input file
       WRITE(UNIT_stdOut,'(4X,A)')'... read axis data for X1:'
@@ -1179,12 +1193,13 @@ END SUBROUTINE AddBoundaryPerturbation
 !!
 !===================================================================================================================================
 
-SUBROUTINE MinimizeMHD3D(sf, dt_in)
+SUBROUTINE MinimizeMHD3D(sf, dt_in, logfinaliter_in)
 ! MODULES
   USE MODgvec_MHD3D_vars, ONLY: maxIter, minimize_tol, MinimizerType
   USE MODgvec_MHD3D_minimize, ONLY: t_minimizer_mhd3d, new_minimizer
   IMPLICIT NONE
   REAL(wp), OPTIONAL, INTENT(IN) :: dt_in
+  LOGICAL, OPTIONAL, INTENT(IN) :: logfinaliter_in
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
@@ -1196,7 +1211,7 @@ SUBROUTINE MinimizeMHD3D(sf, dt_in)
   IF (PRESENT(dt_in)) THEN
       sf%minimizer%vars%dt = dt_in
   ENDIF
-  CALL sf%minimizer%minimize(minimize_tol, maxIter)
+  CALL sf%minimizer%minimize(minimize_tol, maxIter, logfinaliter_in = logfinaliter_in)
   CALL exit_subregion("Minimization")
   __PERFOFF('minimizer')
 END SUBROUTINE MinimizeMHD3D
@@ -1257,6 +1272,8 @@ SUBROUTINE FinalizeMHD3D(sf)
   SDEALLOCATE(X1_base)
   SDEALLOCATE(X2_base)
   SDEALLOCATE(LA_base)
+
+  SDEALLOCATE(Bext_squared)
   CALL exit_subregion("finalize-MHD3D")
 END SUBROUTINE FinalizeMHD3D
 

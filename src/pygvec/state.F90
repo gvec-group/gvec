@@ -96,21 +96,87 @@ SUBROUTINE ReadState(statefile)
   CALL exit_subregion("read statefile")
 END SUBROUTINE ReadState
 
-!================================================================================================================================!
-SUBROUTINE minimize(dt_in)
+!===================================================================================================================================
+!> Perform minimization with the current state.
+!!
+!! This method should is intended as a first step towards in-memory restart. Used by free boundary GVEC.
+!===================================================================================================================================
+SUBROUTINE minimize(dt_in, logfinaliter)
   ! MODULES
   USE MODgvec_Globals,    ONLY: GetTime
   USE MODgvec_MHD3D_Vars, ONLY: maxIter
   REAL(wp), OPTIONAL, INTENT(IN) :: dt_in
+  LOGICAL, OPTIONAL, INTENT(IN) :: logfinaliter
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   REAL(wp) :: StartTime, EndTime
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   StartTime=GetTime()
-  CALL functional%minimize(dt_in)
+  CALL functional%minimize(dt_in, logfinaliter)
   EndTime=GetTime()
   SWRITE(Unit_stdOut,'(A,2(F8.2,A))') ' FUNCTIONAL MINIMISATION FINISHED! [',EndTime-StartTime,' sec ], corresponding to [', &
         (EndTime-StartTime)/REAL(MaxIter,wp)*1.e3_wp,' msec/iteration ]'
 END SUBROUTINE minimize
+
+
+!===================================================================================================================================
+!> Wrapper to update the exterior magnetic field (B_ext)²
+!!
+!===================================================================================================================================
+SUBROUTINE set_Bext_squared(Bext_squared_in)
+  USE MODgvec_Globals,    ONLY: wp
+  USE MODgvec_MHD3D_Vars, ONLY: Bext_squared
+  REAL(wp), INTENT(IN) :: Bext_squared_in(:) !! B_ext^2 at s=1 of size mn_IP
+
+  Bext_squared= Bext_squared_in
+END SUBROUTINE set_Bext_squared
+
+!===================================================================================================================================
+!> Wrapper to update the iota-profile via bspl-interpolation
+!!
+!! Used for current constraint with free-boundary. Updates iota_profile, chi_profile and chiPrime_GP
+!===================================================================================================================================
+SUBROUTINE update_iota_for_current_constraint(rho2, vals)
+  USE MODgvec_cubic_spline   , ONLY: interpolate_cubic_spline
+  USE MODgvec_MHD3D_evalFunc , ONLY: chiPrime_GP
+  USE MODgvec_MHD3D_Vars     , ONLY: iota_profile, chi_profile, X1_base
+  USE MODgvec_rProfile_bspl  , ONLY: t_rProfile_bspl
+  USE MODgvec_rProfile_base  , ONLY: c_rProfile
+
+  REAL(wp), INTENT(IN) :: rho2(:) !! interpolation points
+  REAL(wp), INTENT(IN) :: vals(:) !! profile values at the interpolation points
+
+  REAL(wp), ALLOCATABLE :: knots(:), coefs(:)
+  REAL(wp), ALLOCATABLE :: s_GP(:)
+  INTEGER :: n_rho2, n_vals, iGP, nGP
+
+  n_rho2 = SIZE(rho2)
+  n_vals =  SIZE(vals)
+
+  IF(ABS(rho2(1)).GT.1.0d-12) CALL abort(__STAMP__,&
+    "First rho2 position must be =0 for interpolation of iota profile!",&
+      TypeInfo="InvalidParameterError")
+  IF(ABS(rho2(n_rho2)-1.0_wp).GT.1.0d-12) CALL abort(__STAMP__,&
+    "Last rho2 position must be =1 for interpolation of iota profile!",&
+      TypeInfo="InvalidParameterError")
+  IF (n_vals .NE. n_rho2) THEN
+    CALL abort(__STAMP__,&
+    'Size of iota_rho2 and iota_vals must be equal!',&
+      TypeInfo="InvalidParameterError")
+  END IF
+
+  ! HACK: hardcode not-a-knot BC vals
+  CALL interpolate_cubic_spline(rho2,vals, coefs, knots, (/0,0/))
+
+  iota_profile = t_rProfile_bspl(knots, coefs)
+  chi_profile = iota_profile%antiderivative()
+  nGP     = X1_base%s%nGP
+  ALLOCATE(s_GP(nGP))
+  s_GP    = X1_base%s%s_GP(1:nGP)
+  DO iGP=1,nGP
+    chiPrime_GP( iGP) = chi_profile%eval_at_rho(s_GP(iGP),deriv=1)
+  END DO !iGP
+  DEALLOCATE(s_GP)
+END SUBROUTINE update_iota_for_current_constraint
 
 
 !================================================================================================================================!
