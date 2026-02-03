@@ -741,6 +741,18 @@ def construct_gframe_from_surface(
 
     X1c, X1s = fourier.fft2d(x1_cut.T)
     X2c, X2s = fourier.fft2d(x2_cut.T)
+
+    X1c_minimal = fourier.scale_modes2d(X1c, Mmax, Nmax)
+    X1s_minimal = fourier.scale_modes2d(X1s, Mmax, Nmax)
+    X2c_minimal = fourier.scale_modes2d(X2c, Mmax, Nmax)
+    X2s_minimal = fourier.scale_modes2d(X2s, Mmax, Nmax)
+    t, z = np.meshgrid(theta, zetafull[0:nz], indexing="ij")
+    X1_minimal = fourier.eval2d(X1c_minimal, X1s_minimal, t, z, nfp=nfp).T
+    X2_minimal = fourier.eval2d(X2c_minimal, X2s_minimal, t, z, nfp=nfp).T
+    logger.info(
+        f"- with maximum distance in the poloidal plane: {np.amax(np.sqrt((x1_cut - X1_minimal) ** 2 + (x2_cut - X2_minimal) ** 2)):.1e}"
+    )
+
     lasym = not (
         np.amax(np.abs(X1s)) < 1e-12 * np.amax(np.abs(X1c))
         and np.amax(np.abs(X2c)) < 1e-12 * np.amax(np.abs(X2s))
