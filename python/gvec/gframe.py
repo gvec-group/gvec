@@ -325,7 +325,7 @@ def cut_surf(xyz, nfp, xyz0_in, N_in, B_in):
     --------
         x1_cut,x2_cut:
             coordinates of the intersection points for cutting planes in one field period.
-            shape is ``(nzeta_surface,ntheta)``.
+            shape is ``(nzeta,ntheta)``.
 
     """
     assert xyz.shape[2] == 3, "xyz must have shape (nzeta,ntheta,3)"
