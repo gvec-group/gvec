@@ -21,7 +21,7 @@ quantities
 /tutorials/notebooks/030_stages
 /tutorials/notebooks/040_current
 /tutorials/notebooks/050_pygvec
-/tutorials/notebooks/022_gframe
+/tutorials/notebooks/052_gframe
 ```
 
 ```{toctree}

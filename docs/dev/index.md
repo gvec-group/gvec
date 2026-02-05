@@ -121,6 +121,7 @@ gvec.fourier </api/fourier>
 gvec.surface </api/surface>
 gvec.util </api/util>
 gvec.vtk </api/vtk>
+gvec.gframe </api/gframe>
 gvec.scripts.main </api/scripts-main>
 gvec.scripts.run </api/scripts-run>
 gvec.scripts.cas3d </api/scripts-cas3d>

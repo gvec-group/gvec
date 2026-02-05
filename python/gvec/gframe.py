@@ -305,15 +305,18 @@ def get_xyz_cut(zeta_start, origins, normals, xyz_in, dft_dict, nfp):
 
 
 def cut_surf(xyz, nfp, xyz0_in, N_in, B_in):
-    """
-    Given a surface $\bm x(\zeta,\vartheta)$ on the full torus, find intersection point of lines of $\vartheta=$const with all cutting planes defined by an origin curve ``xyz0`` and two base vectors ``N_in`` and ``B_in`` (normal of the cutting plane is then $N \times B$). The intersection points are projected on the base vectors, yielding the $X^1,X^2$ coordinates in all cutting planes. Cutting planes must be given on the full torus and must be a multiple of the number of field periods.
+    r"""
+    Given a surface :math:`\mathbf{x}(\zeta,\theta)` on the full torus, find intersection point of lines of :math:`\theta=` const with all cutting planes defined by an origin curve ``xyz0`` and two base vectors ``N_in`` and ``B_in`` (normal of the cutting plane is then :math:`N \times B`). The intersection points are projected on the base vectors, yielding the :math:`X^1,X^2` coordinates in all cutting planes. Cutting planes must be given on the full torus and must be a multiple of the number of field periods.
 
-    The input surface is assumed to have the same number of field periods, and must be given on the full torus. It is described by an array of cartesian point positions $\bm x(\zeta_i,\vartheta_j)$, assumed to be evaluated at a meshgrid of a toroidal and poloidal parameterization ($\zeta,\vartheta$), excluding the periodic endpoints:
-    $\zeta_i=2\pi \frac{i}{n_\zeta n_{FP}},i=0\dots,(n_\zeta n_{FP})-1,\quad \vartheta_j=2\pi\frac{j}{n_\theta},j=0,\dots,n_\theta-1$
+    The input surface is assumed to have the same number of field periods, and must be given on the full torus. It is described by an array of cartesian point positions :math:`\mathbf{x}(\zeta_i,\vartheta_j)`, assumed to be evaluated at a meshgrid of a toroidal and poloidal parameterization :math:`(\zeta,\theta)`, excluding the periodic endpoints:
+
+    :math:`\zeta_i=2\pi \frac{i}{n_\zeta n_{FP}},i=0\dots,(n_\zeta n_{FP})-1,\quad \theta_j=2\pi\frac{j}{n_\theta},j=0,\dots,n_\theta-1`
+
     The surface can thus be evaluated using a Fourier transform.
+
     Note: If the number of cutting planes does not match the number of toroidal points of the surface, the cutting planes are resampled to match the number of toroidal points, before cutting.
 
-    Parameters:
+    Parameters
     ----------
         xyz :  cartesian coordinates of the surface on the full torus, excluding the periodic endpoints: shape is ``(nzeta,ntheta,3)``
         nfp : number of field periods
@@ -321,12 +324,11 @@ def cut_surf(xyz, nfp, xyz0_in, N_in, B_in):
         N_in : first base vector to span the cutting plane, shape is ``(nzeta_cut*nfp,3)``
         B_in : second base vector to span the cutting plane, shape is ``(nzeta_cut*nfp,3)``.
 
-    Returns:
-    --------
+    Returns
+    -------
         x1_cut,x2_cut:
             coordinates of the intersection points for cutting planes in one field period.
             shape is ``(nzeta,ntheta)``.
-
     """
     assert xyz.shape[2] == 3, "xyz must have shape (nzeta,ntheta,3)"
     nz = xyz.shape[0]
@@ -385,14 +387,18 @@ def write_Gframe_ncfile(filename: str | Path, dict_in):
         name of the file to be written, should include ``.nc`` ending, overwrites existing file
     dict_in : dict
         dictionary containing
+
         - ``nfp``: number of field periods
         - ``axis``: dictionary for the G-Frame data:
+
             - ``nzeta``: number of zeta positions for one field-period
             - ``zetafull``: equidistant positions along the curve parameter zeta, without endpoint, length is ``nfp*nzeta``
             - ``xyz``: cartesian positions along the curve, shape is ``(3,nfp*nzeta)``
             - ``Nxyz``: cartesian components of the 'normal' vector, shape is ``(3,nfp*nzeta)``
             - ``Bxyz``: cartesian components of the 'bi-normal' vector, shape is ``(3,nfp*nzeta)``
+
         - ``boundary``: dictionary for the boundary data (written to file if exists):
+
             - ``nzeta``: number of (toroidal ) zeta positions for one field-period
             - ``zeta``: zeta positions where boundary was sampled, length is ``nzeta``
             - ``n_max: maximum toroidal mode number ``>=(nzeta-1)//2``
@@ -446,8 +452,7 @@ def write_Gframe_ncfile(filename: str | Path, dict_in):
         )
         ncvars[vecvar + "_var"][:, :] = dict_in["axis"][vecval]
 
-    boundary_exists = "boundary" in dict_in
-    if boundary_exists:
+    if "boundary" in dict_in:
         for ivar in ["ntheta", "nzeta", "m_max", "n_max", "lasym"]:
             ncvars["boundary/" + ivar + "_var"] = ncfile.createVariable(
                 "boundary/" + ivar, "i8"
@@ -508,7 +513,7 @@ def write_Gframe_ncfile(filename: str | Path, dict_in):
     hdr += "\n                     xyz[:,j+fp*nzeta]=axis(zeta[j]+fp*2pi/NFP), for j=0,..nzeta-1 and  fp=0,...,NFP-1"
     hdr += "\n  * 'axis/Nxyz(::)': cartesian components of the normal vector of the axis frame, 2D array of size (3, NFP* nzeta), evaluated analogously to the axis"
     hdr += "\n  * 'axis/Bxyz(::)': cartesian components of the bi-normal vector of the axis frame, 2D array of size (3, NFP*nzeta), evaluated analogously to the axis"
-    if boundary_exists:
+    if "boundary" in dict_in:
         hdr += "\n- 'boundary' data group:"
         hdr += "\n  * 'boundary/m_max'    : maximum mode number in theta "
         hdr += "\n  * 'boundary/n_max'    : maximum mode number in zeta (in one field period)"
@@ -951,6 +956,7 @@ def to_surface(dict_in: dict, nzeta: int = 81, ntheta: int = 81, tolerance: floa
     -------
     dict
         dictionary with:
+
         - ``xyz`` : boundary surface in cartesian coordinates, with shape ``(nzeta*nfp,ntheta,3)``
         - ``X1``, ``X2`` : boundary in G-Frame, shape ``(ntheta,nzeta)``
         - ``zetafull`` : zeta values of the boundary surface
@@ -959,6 +965,8 @@ def to_surface(dict_in: dict, nzeta: int = 81, ntheta: int = 81, tolerance: floa
         - ``nfp`` : number of field periods
         - ``Mmax``, ``Nmax`` : maximum mode numbers needed for the given tolerance
         - ``X1c``, ``X1s``, ``X2c``, ``X2s`` : boundary modes in G-Frame, up to ``Mmax``, ``Nmax``
+        - ``m_modes``: poloidal mode numbers (m) in first dimension of ``Rc, Rs,Zc, Zs``
+        - ``n_modes``: toroidal mode numbers (n) in second dimension of ``Rc, Rs,Zc, Zs``
     """
     nfp = dict_in["nfp"]
     theta_out = np.linspace(0, 2 * np.pi, ntheta, endpoint=False)
@@ -984,6 +992,7 @@ def to_surface(dict_in: dict, nzeta: int = 81, ntheta: int = 81, tolerance: floa
     X1s = fourier.scale_modes2d(X1s, Mmax, Nmax)
     X2c = fourier.scale_modes2d(X2c, Mmax, Nmax)
     X2s = fourier.scale_modes2d(X2s, Mmax, Nmax)
+    mn_modes = fourier.fft2d_modes(Mmax, Nmax)
     lasym = not (
         np.amax(np.abs(X1s)) < 1e-12 * np.amax(np.abs(X1c))
         and np.amax(np.abs(X2c)) < 1e-12 * np.amax(np.abs(X2s))
@@ -1002,6 +1011,8 @@ def to_surface(dict_in: dict, nzeta: int = 81, ntheta: int = 81, tolerance: floa
         "X1s": X1s,
         "X2c": X2c,
         "X2s": X2s,
+        "m_modes": mn_modes[0],
+        "n_modes": mn_modes[1],
         "tolerance": tolerance,
     }
 
@@ -1039,6 +1050,7 @@ def to_RZ(
     -------
     dict
         Dictionary with:
+
         - ``zeta`` : zeta positions on one field period, length ``nzeta``
         - ``theta`` : theta positions, length ``ntheta``
         - ``R`` : R positions on one field period, with shape ``(ntheta,nzeta)``
@@ -1046,7 +1058,9 @@ def to_RZ(
         - ``nfp`` : number of field periods
         - ``lasym`` : logical for asymmetry, ``=False`` if stellarator symmetry is found
         - ``Mmax``,``Nmax`` : maximum mode numbers needed for the given tolerance
-        - ``Rc``,``Rs``,``Zc``,``Zs`` : R and Z cosine and sine Fourier mode coefficients, respecting ``Mmax``,``Nmax``
+        - ``Rc``,``Rs``,``Zc``,``Zs`` : R and Z cosine and sine Fourier mode coefficients,  shape is ``(Mmax+1,2*Nmax+1)``
+        - ``m_modes``: poloidal mode numbers (m) in first dimension of ``Rc, Rs,Zc, Zs``
+        - ``n_modes``: toroidal mode numbers (n) in second dimension of ``Rc, Rs,Zc, Zs``
     """
     assert xyz.shape[2] == 3, "xyz must have shape [nzeta*nfp, ntheta, 3]"
     nzetafull_in, ntheta_in = xyz.shape[0], xyz.shape[1]
@@ -1090,6 +1104,7 @@ def to_RZ(
     Rs = fourier.scale_modes2d(Rs, Mmax, Nmax)
     Zc = fourier.scale_modes2d(Zc, Mmax, Nmax)
     Zs = fourier.scale_modes2d(Zs, Mmax, Nmax)
+    mn_modes = fourier.fft2d_modes(Mmax, Nmax)
     lasym = not (
         np.amax(np.abs(Rs)) < 1e-12 * np.amax(np.abs(Rc))
         and np.amax(np.abs(Zc)) < 1e-12 * np.amax(np.abs(Zs))
@@ -1107,6 +1122,8 @@ def to_RZ(
         "Rs": Rs,
         "Zc": Zc,
         "Zs": Zs,
+        "m_modes": mn_modes[0],
+        "n_modes": mn_modes[1],
         "tolerance": tolerance,
     }
 
