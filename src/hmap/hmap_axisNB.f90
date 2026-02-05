@@ -61,7 +61,7 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
   REAL(wp),ALLOCATABLE :: Nxyz_hat_modes(:,:)   !! 1d fourier modes of Nxyz, one field period
   REAL(wp),ALLOCATABLE :: Bxyz_hat_modes(:,:)   !! 1d fourier modes of Bxyz, one field period
 
-  CHARACTER(LEN=100)   :: ncfile=" " !! name of netcdf file with axis information
+  CHARACTER(LEN=1024)   :: ncfile=" " !! name of netcdf file with axis information
   !---------------------------------------------------------------------------------------------------------------------------------
   TYPE(t_fbase),ALLOCATABLE   :: fb_hat  !! container for 1d fourier base of xhat
   CLASS(t_ncfile),ALLOCATABLE  :: nc  !! container for netcdf-file
