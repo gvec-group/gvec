@@ -641,7 +641,6 @@ def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
     except AttributeError:
         pass
 
-    M, N = nml.get("mpol", 2) - 1, nml.get("ntor", 0)
     stellsym = not nml.get("lasym", False)  # stellarator symmetry
     params = CaseInsensitiveDict(
         ProjectName=name,
@@ -700,6 +699,7 @@ def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
         logger.warning("No iota or current profile defined.")
 
     # --- boundary --- #
+    M, N = nml.get("mpol", 2) - 1, nml.get("ntor", 0)
     for vmec_key, gvec_key in [
         ("rbc", "X1_b_cos"),
         ("rbs", "X1_b_sin"),
@@ -709,10 +709,15 @@ def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
         if vmec_key not in nml:
             continue
         values = np.array(nml[vmec_key], dtype=float)
+        m0, n0 = 0, -N
         if "_start_index" in nml and vmec_key in nml["_start_index"]:
             n0, m0 = nml["_start_index"][vmec_key]
-            M = max(M, values.shape[0] - 1 + m0)
-            N = max(N, abs(n0), values.shape[1] - 1 + max(0, n0))
+            if "mpol" not in nml:
+                M = max(M, values.shape[0] - 1 + m0)  # m in [0 ... M]
+                logger.debug(f"Setting M={M} from shape of '{vmec_key}' and start index {m0}")
+            if "ntor" not in nml:
+                N = max(N, -n0, values.shape[1] - 1 + n0)  # n in [-N ... N]
+                logger.debug(f"Setting N={N} from shape of '{vmec_key}' and start index {n0}")
         else:
             raise ValueError(
                 f"VMEC namelist array '{vmec_key}' has shape {values.shape} that does not match the expected shape {(M + 1, 2 * N + 1)=} and no '_start_index' is given in the namelist."
