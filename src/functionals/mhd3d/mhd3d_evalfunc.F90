@@ -68,6 +68,13 @@ MODULE MODgvec_MHD3D_evalFunc
   REAL(wp),ALLOCATABLE :: Gh11(:,:)     !! hmap  G_{11}
   REAL(wp),ALLOCATABLE :: Gh22(:,:)     !! hmap  G_{22}
 
+  ! Free boundary  vars
+  REAL(wp), ALLOCATABLE :: X1_boundary(:)
+  REAL(wp), ALLOCATABLE :: X2_boundary(:)
+  REAL(wp), ALLOCATABLE :: dX1_dthet_boundary(:)
+  REAL(wp), ALLOCATABLE :: dX2_dthet_boundary(:)
+
+
   INTEGER                         :: nGP
   INTEGER                         :: nGP_str, nGP_end !< for MPI
   INTEGER                         :: mn_IP
@@ -98,7 +105,7 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE InitializeMHD3D_evalFunc()
 ! MODULES
-  USE MODgvec_MHD3D_Vars,ONLY:X1_base,X2_base,LA_base,PrecondType
+  USE MODgvec_MHD3D_Vars,ONLY:X1_base,X2_base,LA_base,PrecondType, FreeBoundary
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -138,6 +145,11 @@ SUBROUTINE InitializeMHD3D_evalFunc()
            g_tt,g_tz,g_zz,g_t1,g_t2,g_z1,g_z2, &
            Jh_dq1,Jh_dq2,gtt_dq1,gtt_dq2,gtz_dq1,gtz_dq2,gzz_dq1,gzz_dq2, &
            Gh11,Gh22, mold=J_h)
+
+  IF(FreeBoundary)THEN
+    ALLOCATE(X1_boundary(1:mn_IP))
+    ALLOCATE(X2_boundary, dX1_dthet_boundary, dX2_dthet_boundary, mold=X1_boundary)
+  END IF
 
   IF(PrecondType.GT.0)THEN
     !WHEN CHANGED TO ALLGATHERV COMM IN BUILDPRECOND, THIS ALLOCATE WILL BE THE SAME.
@@ -230,7 +242,7 @@ SUBROUTINE EvalAux(dofs_in,JacCheck)
 ! MODULES
   USE MODgvec_MPI             , ONLY: par_AllReduce
   USE MODgvec_Globals         , ONLY: n_warnings_occured,myRank
-  USE MODgvec_MHD3D_vars      , ONLY: X1_base,X2_base,LA_base,hmap,hmap_auxvar
+  USE MODgvec_MHD3D_vars      , ONLY: X1_base,X2_base,LA_base,hmap,hmap_auxvar, FreeBoundary
   USE MODgvec_sol_var_MHD3D   , ONLY: t_sol_var_MHD3D
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -269,6 +281,13 @@ SUBROUTINE EvalAux(dofs_in,JacCheck)
                                   dy_dthet_IP_GP=dX2_dthet, &
                                    dy_dzeta_IP_GP=dX2_dzeta )
   CALL X2_base%evalDOF((/DERIV_S,0/)   , dofs_in%X2, dX2_ds    )
+
+  IF(FreeBoundary) THEN
+    X1_boundary        = X1_base%f%evalDOF_IP(         0,dofs_in%X1(X1_Base%s%nBase,:))
+    dX1_dthet_boundary = X1_base%f%evalDOF_IP(DERIV_THET,dofs_in%X1(X1_Base%s%nBase,:))
+    X2_boundary        = X2_base%f%evalDOF_IP(         0,dofs_in%X2(X2_Base%s%nBase,:))
+    dX2_dthet_boundary = X2_base%f%evalDOF_IP(DERIV_THET,dofs_in%X2(X2_Base%s%nBase,:))
+  END IF
 
   __PERFOFF('EvalDOF_1')
 
@@ -1055,7 +1074,7 @@ END SUBROUTINE ApplyBC_Fstrong
 SUBROUTINE BuildPrecond()
 ! MODULES
   USE MODgvec_MPI,        ONLY : par_AllReduce
-  USE MODgvec_MHD3D_Vars, ONLY : X1_base,X2_base,LA_base
+  USE MODgvec_MHD3D_Vars, ONLY : X1_base,X2_base,LA_base, hmap
   USE MODgvec_MHD3D_Vars, ONLY : X1_BC_Type,X2_BC_Type,LA_BC_type
   USE MODgvec_MHD3D_Vars, ONLY : FreeBoundary, Bext_squared
   IMPLICIT NONE
@@ -1073,6 +1092,10 @@ SUBROUTINE BuildPrecond()
 !  REAL(wp),DIMENSION(nGP_str:nGP_end)   :: DLA_tt, DLA_tz, DLA_zz
 
   REAL(wp),ALLOCATABLE        :: D_mn(:),P_BCaxis(:,:), P_BCedge(:,:) !only needed on MPIroot
+
+  ! free boundary
+  INTEGER :: i_mn
+  REAL(wp) :: DX1_nn, DX2_nn, dJh_dq1, dJh_dq2, qloc(3)
 !===================================================================================================================================
 
 
@@ -1159,9 +1182,19 @@ SUBROUTINE BuildPrecond()
   IF(FreeBoundary) THEN
     ! NOTE: This is experimental!
     ! Includes one part of the radial preconditioner for the free boundary term:
-    ! <B_ext/2 * dJh/dq1>Y_1*Y_1 + <B_ext/2 * dJh/dq2>Y_2*Y_2
-    DX1(nGP_end) = DX1(nGP_end) - smn_IP*w_GP(nGP_end)*SUM(0.5*Bext_squared*Jh_dq1(:,nGP_end))
-    DX2(nGP_end) = DX2(nGP_end) - smn_IP*w_GP(nGP_end)*SUM(0.5*Bext_squared*Jh_dq2(:,nGP_end))
+    ! <B_ext/2 * dJh/dq1 dX2/dtheta> Y_1*Y_1 - <B_ext/2 * dJh/dq2 dX1/dtheta>Y_2*Y_2
+    DX1_nn = 0.0_wp
+    DX2_nn = 0.0_wp
+
+    DO i_mn=1,mn_IP
+      qloc(  1:3) = (/ X1_boundary(i_mn), X2_boundary(i_mn),zeta_IP(i_mn)/)
+      dJh_dq1 = hmap%eval_Jh_dq(qloc, (/1.0_wp,0.0_wp,0.0_wp/))
+      dJh_dq2 = hmap%eval_Jh_dq(qloc, (/0.0_wp,1.0_wp,0.0_wp/))
+      DX1_nn = DX1_nn + Bext_squared(i_mn)*dJh_dq1*dX2_dthet_boundary(i_mn)
+      DX2_nn = DX2_nn + Bext_squared(i_mn)*dJh_dq2*dX1_dthet_boundary(i_mn)
+    END DO
+    DX1_nn = -0.5*smn_IP*DX1_nn
+    DX2_nn =  0.5*smn_IP*DX2_nn
   END IF
 
   __PERFON('par_Reduce_D_buf')
@@ -1229,14 +1262,17 @@ SUBROUTINE BuildPrecond()
         END DO; END DO !j,i
       END IF !nDOF_BCaxis>0
 
-      IF(FreeBoundary)THEN
-        !!! HACK , ALWAYS DIRICHLET for X1 edge BC
-        tBC = BC_TYPE_DIRICHLET
-        nD  = 1
-      ELSE
-        tBC = X1_BC_Type(BC_EDGE,iMode)
-        nD  = X1_base%s%nDOF_BC(tBC)
-      END IF
+      ! IF(FreeBoundary)THEN
+      !   !!! HACK , ALWAYS DIRICHLET for X1 edge BC
+      !   tBC = BC_TYPE_DIRICHLET
+      !   nD  = 1
+      ! ELSE
+      !   tBC = X1_BC_Type(BC_EDGE,iMode)
+      !   nD  = X1_base%s%nDOF_BC(tBC)
+      ! END IF
+
+      tBC = X1_BC_Type(BC_EDGE,iMode)
+      nD  = X1_base%s%nDOF_BC(tBC)
 
       IF(nD.GT.0)THEN
         !save nBase-deg:nBase rows
@@ -1249,10 +1285,16 @@ SUBROUTINE BuildPrecond()
           CALL Precond_X1(iMode)%set_element( i,j,P_BCedge(i,j) )
         END DO; END DO !j,i
       END IF !nDOF_BCedge>0
+
+      ! Adds contribtion DX1_nn = -0.5*Bext^2*dJh/dq1 Y1 Y1
+      IF (FreeBoundary)THEN !nd=0
+        P_BCedge(nBase,nBase)=precond_X1(iMode)%get_element(nBase,nBase) + DX1_nn*norm_mn
+        CALL Precond_X1(iMode)%set_element( nBase,nBase,P_BCedge(nBase,nBase) )
+      END IF
+
     END DO !iMode
 !$OMP END PARALLEL DO
     __PERFOFF('modes_loop_1')
-
     DEALLOCATE(P_BCaxis,P_BCedge)
   END SELECT !TYPE X1
 
@@ -1314,14 +1356,17 @@ SUBROUTINE BuildPrecond()
         END DO; END DO !j,i
       END IF !nDOF_BCaxis>0
 
-      IF(FreeBoundary)THEN
-        !!! HACK , ALWAYS DIRICHLET for X2 edge BC
-        tBC = BC_TYPE_DIRICHLET
-        nD  = 1
-      ELSE
-        tBC = X2_BC_Type(BC_EDGE,iMode)
-        nD  = X2_base%s%nDOF_BC(tBC)
-      END IF
+      ! IF(FreeBoundary)THEN
+      !   !!! HACK , ALWAYS DIRICHLET for X2 edge BC
+      !   tBC = BC_TYPE_DIRICHLET
+      !   nD  = 1
+      ! ELSE
+      !   tBC = X2_BC_Type(BC_EDGE,iMode)
+      !   nD  = X2_base%s%nDOF_BC(tBC)
+      ! END IF
+
+      tBC = X2_BC_Type(BC_EDGE,iMode)
+      nD  = X2_base%s%nDOF_BC(tBC)
 
       IF(nD.GT.0)THEN
         !save nBase-deg:nBase rows
@@ -1334,6 +1379,13 @@ SUBROUTINE BuildPrecond()
           CALL Precond_X2(iMode)%set_element( i,j,P_BCedge(i,j) )
         END DO; END DO !j,i
       END IF !nDOF_BCedge>0
+
+      ! Adds contribtion DX2_nn = -0.5*Bext^2*dJh/dq2 Y2 Y2
+      IF (FreeBoundary)THEN !nd=0
+        P_BCedge(nBase,nBase)=precond_X2(iMode)%get_element(nBase,nBase) + DX2_nn*norm_mn
+        CALL Precond_X2(iMode)%set_element( nBase,nBase,P_BCedge(nBase,nBase) )
+      END IF
+
     END DO !iMode
 !$OMP END PARALLEL DO
     __PERFOFF('modes_loop_2')
@@ -1510,27 +1562,17 @@ SUBROUTINE EvalBoundaryForce(dofs_in,F_b_X1,F_b_X2)
 ! LOCAL VARIABLES
   INTEGER   :: i_mn
   REAL(wp)  :: qloc(3)
-  REAL(wp)  :: XYZ_at_boundary(3,1:mn_IP)
-  REAL(wp),DIMENSION(1:mn_IP)  :: X1_IP_at_boundary,dX1_dthet_at_boundary &
-                                 ,X2_IP_at_boundary,dX2_dthet_at_boundary &
-                                 ,J_h_at_boundary,coefY
+  REAL(wp),DIMENSION(1:mn_IP)  :: J_h_boundary,coefY
 !===================================================================================================================================
-  X1_IP_at_boundary     = X1_base%f%evalDOF_IP(         0,dofs_in%X1(X1_Base%s%nBase,:))  !NEEDED FOR FREE-BOUND
-  dX1_dthet_at_boundary = X1_base%f%evalDOF_IP(DERIV_THET,dofs_in%X1(X1_Base%s%nBase,:))  !NEEDED FOR FREE-BOUND
-  X2_IP_at_boundary     = X2_base%f%evalDOF_IP(         0,dofs_in%X2(X2_Base%s%nBase,:))  !NEEDED FOR FREE-BOUND
-  dX2_dthet_at_boundary = X2_base%f%evalDOF_IP(DERIV_THET,dofs_in%X2(X2_Base%s%nBase,:))  !NEEDED FOR FREE-BOUND
+
   DO i_mn=1,mn_IP
-
-    qloc(  1:3) = (/ X1_IP_at_boundary(i_mn), X2_IP_at_boundary(i_mn),zeta_IP(i_mn)/) !NEEDED FOR FREE-BOUND
-
-    XYZ_at_boundary(1:3,i_mn)=hmap%eval(qloc)  !CARTESIAN COORDINATES OF THE BOUNDARY
-
-    J_h_at_boundary( i_mn) = hmap%eval_Jh(qloc)                              !NEEDED FOR FREE-BOUND
+    qloc(  1:3) = (/ X1_boundary(i_mn), X2_boundary(i_mn),zeta_IP(i_mn)/)
+    J_h_boundary( i_mn) = hmap%eval_Jh(qloc)
   END DO
 
-  coefY(:) = -0.5*Bext_squared(:)*J_h_at_boundary(:)*dX2_dthet_at_boundary(:)
+  coefY(:) = -0.5*Bext_squared(:)*J_h_boundary(:)*dX2_dthet_boundary(:)
   CALL X1_base%f%projectIPtoDOF(.FALSE.,dthet_dzeta,   0,coefY(     :),F_b_X1(:))
-  coefY(:) =  0.5*Bext_squared(:)*J_h_at_boundary(:)*dX1_dthet_at_boundary(:)
+  coefY(:) =  0.5*Bext_squared(:)*J_h_boundary(:)*dX1_dthet_boundary(:)
   CALL X2_base%f%projectIPtoDOF(.FALSE.,dthet_dzeta,   0,coefY(     :),F_b_X2(:))
 END SUBROUTINE EvalBoundaryForce
 
@@ -1598,6 +1640,12 @@ SUBROUTINE FinalizeMHD3D_EvalFunc()
   SDEALLOCATE(gzz_dq2)
   SDEALLOCATE(Gh11)
   SDEALLOCATE(Gh22)
+
+  SDEALLOCATE(X1_boundary)
+  SDEALLOCATE(X2_boundary)
+  SDEALLOCATE(dX1_dthet_boundary)
+  SDEALLOCATE(dX2_dthet_boundary)
+
 
 
 

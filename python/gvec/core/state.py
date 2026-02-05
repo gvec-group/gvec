@@ -293,11 +293,11 @@ class State:
 
     # === Minimization for free-boundary === #
     @with_binding
-    def _minimize(self, dt=None, logfinaliter=True):
+    def _minimize(self, dt=None, logfinaliter=True, maxIter=None):
         """Minimize the MHD functional for the current state."""
         logger.debug("Minimizing MHD functional.")
         with gvec.util.chdir(self.rundir):
-            _state.minimize(dt, logfinaliter)
+            _state.minimize(dt, logfinaliter, maxIter)
 
     @with_binding
     def set_Bext_squared(self, B2):

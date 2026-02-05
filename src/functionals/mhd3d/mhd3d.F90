@@ -1193,25 +1193,34 @@ END SUBROUTINE AddBoundaryPerturbation
 !!
 !===================================================================================================================================
 
-SUBROUTINE MinimizeMHD3D(sf, dt_in, logfinaliter_in)
+SUBROUTINE MinimizeMHD3D(sf, dt_in, logfinaliter_in, maxIter_in)
 ! MODULES
   USE MODgvec_MHD3D_vars, ONLY: maxIter, minimize_tol, MinimizerType
   USE MODgvec_MHD3D_minimize, ONLY: t_minimizer_mhd3d, new_minimizer
   IMPLICIT NONE
   REAL(wp), OPTIONAL, INTENT(IN) :: dt_in
   LOGICAL, OPTIONAL, INTENT(IN) :: logfinaliter_in
+  INTEGER, OPTIONAL, INTENT(IN) :: maxIter_in
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+  INTEGER :: maxIter_minimize
 !===================================================================================================================================
   __PERFON('minimizer')
   CALL enter_subregion("Minimization")
   IF (PRESENT(dt_in)) THEN
       sf%minimizer%vars%dt = dt_in
   ENDIF
-  CALL sf%minimizer%minimize(minimize_tol, maxIter, logfinaliter_in = logfinaliter_in)
+
+  IF (PRESENT(maxIter_in)) THEN
+    maxIter_minimize = maxIter_in
+  ELSE
+    maxIter_minimize = maxIter
+  END IF
+
+  CALL sf%minimizer%minimize(minimize_tol, maxIter_minimize, logfinaliter_in = logfinaliter_in)
   CALL exit_subregion("Minimization")
   __PERFOFF('minimizer')
 END SUBROUTINE MinimizeMHD3D

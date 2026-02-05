@@ -101,17 +101,18 @@ END SUBROUTINE ReadState
 !!
 !! This method should is intended as a first step towards in-memory restart. Used by free boundary GVEC.
 !===================================================================================================================================
-SUBROUTINE minimize(dt_in, logfinaliter)
+SUBROUTINE minimize(dt_in, logfinaliter, maxIter_in)
   ! MODULES
   USE MODgvec_Globals,    ONLY: GetTime
   USE MODgvec_MHD3D_Vars, ONLY: maxIter
   REAL(wp), OPTIONAL, INTENT(IN) :: dt_in
   LOGICAL, OPTIONAL, INTENT(IN) :: logfinaliter
+  INTEGER, OPTIONAL, INTENT(IN) :: maxIter_in
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   REAL(wp) :: StartTime, EndTime
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   StartTime=GetTime()
-  CALL functional%minimize(dt_in, logfinaliter)
+  CALL functional%minimize(dt_in, logfinaliter, maxIter_in)
   EndTime=GetTime()
   SWRITE(Unit_stdOut,'(A,2(F8.2,A))') ' FUNCTIONAL MINIMISATION FINISHED! [',EndTime-StartTime,' sec ], corresponding to [', &
         (EndTime-StartTime)/REAL(MaxIter,wp)*1.e3_wp,' msec/iteration ]'
