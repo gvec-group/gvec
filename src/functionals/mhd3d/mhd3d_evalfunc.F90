@@ -1076,7 +1076,6 @@ SUBROUTINE BuildPrecond()
   USE MODgvec_MPI,        ONLY : par_AllReduce
   USE MODgvec_MHD3D_Vars, ONLY : X1_base,X2_base,LA_base, hmap
   USE MODgvec_MHD3D_Vars, ONLY : X1_BC_Type,X2_BC_Type,LA_BC_type
-  USE MODgvec_MHD3D_Vars, ONLY : FreeBoundary, Bext_squared
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -1179,24 +1178,6 @@ SUBROUTINE BuildPrecond()
 !$OMP END PARALLEL DO
   __PERFOFF('loop_1')
 
-  IF(FreeBoundary) THEN
-    ! NOTE: This is experimental!
-    ! Includes one part of the radial preconditioner for the free boundary term:
-    ! <B_ext/2 * dJh/dq1 dX2/dtheta> Y_1*Y_1 - <B_ext/2 * dJh/dq2 dX1/dtheta>Y_2*Y_2
-    DX1_nn = 0.0_wp
-    DX2_nn = 0.0_wp
-
-    DO i_mn=1,mn_IP
-      qloc(  1:3) = (/ X1_boundary(i_mn), X2_boundary(i_mn),zeta_IP(i_mn)/)
-      dJh_dq1 = hmap%eval_Jh_dq(qloc, (/1.0_wp,0.0_wp,0.0_wp/))
-      dJh_dq2 = hmap%eval_Jh_dq(qloc, (/0.0_wp,1.0_wp,0.0_wp/))
-      DX1_nn = DX1_nn + Bext_squared(i_mn)*dJh_dq1*dX2_dthet_boundary(i_mn)
-      DX2_nn = DX2_nn + Bext_squared(i_mn)*dJh_dq2*dX1_dthet_boundary(i_mn)
-    END DO
-    DX1_nn = -0.5*smn_IP*DX1_nn
-    DX2_nn =  0.5*smn_IP*DX2_nn
-  END IF
-
   __PERFON('par_Reduce_D_buf')
   !gather all D** (already stored contiguously in D_buf)
   !THIS SHOULD BE A ALLGATHERV of (nGP_str:nGP_end,:)<=>(1:nGP,:) , NOT A ALLREDUCE (BUT CHEAP ANYWAYS)!
@@ -1262,15 +1243,6 @@ SUBROUTINE BuildPrecond()
         END DO; END DO !j,i
       END IF !nDOF_BCaxis>0
 
-      ! IF(FreeBoundary)THEN
-      !   !!! HACK , ALWAYS DIRICHLET for X1 edge BC
-      !   tBC = BC_TYPE_DIRICHLET
-      !   nD  = 1
-      ! ELSE
-      !   tBC = X1_BC_Type(BC_EDGE,iMode)
-      !   nD  = X1_base%s%nDOF_BC(tBC)
-      ! END IF
-
       tBC = X1_BC_Type(BC_EDGE,iMode)
       nD  = X1_base%s%nDOF_BC(tBC)
 
@@ -1285,13 +1257,6 @@ SUBROUTINE BuildPrecond()
           CALL Precond_X1(iMode)%set_element( i,j,P_BCedge(i,j) )
         END DO; END DO !j,i
       END IF !nDOF_BCedge>0
-
-      ! Adds contribtion DX1_nn = -0.5*Bext^2*dJh/dq1 Y1 Y1
-      IF (FreeBoundary)THEN !nd=0
-        P_BCedge(nBase,nBase)=precond_X1(iMode)%get_element(nBase,nBase) + DX1_nn*norm_mn
-        CALL Precond_X1(iMode)%set_element( nBase,nBase,P_BCedge(nBase,nBase) )
-      END IF
-
     END DO !iMode
 !$OMP END PARALLEL DO
     __PERFOFF('modes_loop_1')
@@ -1356,15 +1321,6 @@ SUBROUTINE BuildPrecond()
         END DO; END DO !j,i
       END IF !nDOF_BCaxis>0
 
-      ! IF(FreeBoundary)THEN
-      !   !!! HACK , ALWAYS DIRICHLET for X2 edge BC
-      !   tBC = BC_TYPE_DIRICHLET
-      !   nD  = 1
-      ! ELSE
-      !   tBC = X2_BC_Type(BC_EDGE,iMode)
-      !   nD  = X2_base%s%nDOF_BC(tBC)
-      ! END IF
-
       tBC = X2_BC_Type(BC_EDGE,iMode)
       nD  = X2_base%s%nDOF_BC(tBC)
 
@@ -1379,12 +1335,6 @@ SUBROUTINE BuildPrecond()
           CALL Precond_X2(iMode)%set_element( i,j,P_BCedge(i,j) )
         END DO; END DO !j,i
       END IF !nDOF_BCedge>0
-
-      ! Adds contribtion DX2_nn = -0.5*Bext^2*dJh/dq2 Y2 Y2
-      IF (FreeBoundary)THEN !nd=0
-        P_BCedge(nBase,nBase)=precond_X2(iMode)%get_element(nBase,nBase) + DX2_nn*norm_mn
-        CALL Precond_X2(iMode)%set_element( nBase,nBase,P_BCedge(nBase,nBase) )
-      END IF
 
     END DO !iMode
 !$OMP END PARALLEL DO
