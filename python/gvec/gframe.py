@@ -564,8 +564,9 @@ def construct_gframe_from_surface(
     theta0: float = 0.0,
     zeta0: float = 0.0,
     cutoff_gframe: int = -1,
-    logger: logging.Logger | None = None,
+    boundary_coefficients: bool = False,
     writeFiles: bool = True,
+    logger: logging.Logger | None = None,
 ):
     """
     Construct a G-Frame from a surface given by its cartesian points.
@@ -597,8 +598,11 @@ def construct_gframe_from_surface(
     cutoff_gframe : int, optional
         Maximum mode number (`>=0`) to be used along the toroidal direction to
         construct the G-frame. Default `-1` means no cutoff.
+    boundary_coefficients : bool, optional
     writeFiles : bool, optional
-        If True, write the GVEC parameters to file and the G-frame data to netcdf file.
+        Write the boundary data as fourier coefficients in the parameter file instead of points in the netCDF file.
+    logger : logging.Logger, optional
+        Logger for logging messages. If None, a new logger is created.
 
     Returns
     -------
@@ -764,8 +768,7 @@ def construct_gframe_from_surface(
         logger.info(f"  max|X1_c|={np.amax(np.abs(X1c))}, max|X1_s|={np.amax(np.abs(X1s))},")
         logger.info(f"  max|X2_c|={np.amax(np.abs(X2c))}, max|X2_s|={np.amax(np.abs(X2s))}.")
     logger.info(". Exporting h-map & boundary")
-
-    dict_out = {"nfp": nfp, "axis": {}, "boundary": {}}
+    dict_out = {"nfp": nfp}
     dict_out["generatedFrom"] = "Generated from xyz surface using following parameters:"
     dict_out["generatedFrom"] += f"tolerance_output = {tolerance_output}"
     dict_out["generatedFrom"] += f", tolerance_clean_surface = {tolerance_clean_surface}"
@@ -782,6 +785,8 @@ def construct_gframe_from_surface(
         "Nxyz": N.T,
         "Bxyz": B.T,
     }
+
+    # ToDo: if not boundary_coefficients:
     dict_out["boundary"] = {
         "ntheta": nt,
         "nzeta": nz,
@@ -798,8 +803,6 @@ def construct_gframe_from_surface(
         ProjectName=name,
         which_hmap=21,
         hmap_ncfile=f"{name}-Gframe.nc",
-        getBoundaryFromFile=1,
-        boundary_filename=f"{name}-Gframe.nc",
         X1X2_deg=5,
         LA_deg=5,
         sgrid=dict(
@@ -825,6 +828,18 @@ def construct_gframe_from_surface(
         ),
         picard_current="auto",
     )
+    if boundary_coefficients:
+        if not lasym:
+            parameters["X1_b_cos"] = fourier.fft2d_to_parameters(X1c_minimal)
+            parameters["X2_b_sin"] = fourier.fft2d_to_parameters(X2s_minimal)
+        else:
+            parameters["X1_b_cos"] = fourier.fft2d_to_parameters(X1c_minimal)
+            parameters["X1_b_sin"] = fourier.fft2d_to_parameters(X1s_minimal)
+            parameters["X2_b_cos"] = fourier.fft2d_to_parameters(X2c_minimal)
+            parameters["X2_b_sin"] = fourier.fft2d_to_parameters(X2s_minimal)
+    else:
+        parameters["getBoundaryFromFile"] = 1
+        parameters["boundary_filename"] = f"{name}-Gframe.nc"
 
     if writeFiles:
         logger.info(f". Writing files: {name}-Gframe.nc , {name}-parameters.{format}")
