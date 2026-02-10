@@ -293,11 +293,11 @@ class State:
 
     # === Minimization for free-boundary === #
     @with_binding
-    def _minimize(self, dt=None, logfinaliter=True, maxIter=None):
+    def _minimize(self, dt=None, logfinaliter=True, maxIter=None, minimize_tol=None):
         """Minimize the MHD functional for the current state."""
         logger.debug("Minimizing MHD functional.")
         with gvec.util.chdir(self.rundir):
-            _state.minimize(dt, logfinaliter, maxIter)
+            _state.minimize(dt, logfinaliter, maxIter, minimize_tol)
 
     @with_binding
     def set_Bext_squared(self, B2):
@@ -308,6 +308,29 @@ class State:
     def update_iota_for_current_constraint(self, rho2, iota):
         logger.debug("Updating iota")
         _state.update_iota_for_current_constraint(rho2, iota)
+
+    @with_binding
+    def update_boundary(self, dt: float):
+        logger.debug("Stepping in free boundary direction")
+        dt = _state.update_boundary(dt)
+        return dt
+
+    @with_binding
+    def get_iterations(self):
+        logger.debug("Extracting iterations")
+        iters = _state.get_iterations()
+        return iters
+
+    @with_binding
+    def get_minimize_tol(self):
+        logger.debug("Extracting minimize tol")
+        tol = _state.get_minimize_tol()
+        return tol
+
+    @with_binding
+    def reset_descent(self):
+        logger.debug("Resetting accelerated descent")
+        _state.reset_descent()
 
     # === Evaluation Methods === #
 

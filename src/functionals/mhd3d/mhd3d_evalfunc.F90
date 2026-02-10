@@ -519,8 +519,9 @@ SUBROUTINE EvalForce(dofs_in,callEvalAux,JacCheck,F_MHD3D,noBC)
 ! MODULES
   USE MODgvec_Globals,       ONLY : nRanks
   USE MODgvec_MPI,           ONLY : par_IReduce,par_IBcast,par_Wait,req1,req2,req3,par_Barrier,par_BCast
-  USE MODgvec_MHD3D_Vars,    ONLY : X1_base,X2_base,LA_base,hmap,mu_0,PrecondType, FreeBoundary
+  USE MODgvec_MHD3D_Vars,    ONLY : X1_base,X2_base,LA_base,hmap,mu_0,PrecondType
   USE MODgvec_MHD3D_Vars,    ONLY : X1_BC_type,X2_BC_type,LA_BC_type
+  USE MODgvec_MHD3D_Vars,    ONLY : FreeBoundary, Force_b_X1, Force_b_X2 ! free boundary vars
   USE MODgvec_sol_var_MHD3D, ONLY : t_sol_var_MHD3D
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -832,8 +833,10 @@ SUBROUTINE EvalForce(dofs_in,callEvalAux,JacCheck,F_MHD3D,noBC)
 
   IF(MPIroot.AND.(FreeBoundary))THEN
     CALL EvalBoundaryForce(dofs_in,F_b_X1,F_b_X2)
-    F_MHD3D%X1(X1_base%s%nBase,:)=F_MHD3D%X1(X1_base%s%nBase,:)+F_b_X1(:)
-    F_MHD3D%X2(X2_base%s%nBase,:)=F_MHD3D%X2(X2_base%s%nBase,:)+F_b_X2(:)
+    Force_b_X1 = F_MHD3D%X1(X1_base%s%nBase,:)+F_b_X1(:)
+    Force_b_X2 = F_MHD3D%X2(X2_base%s%nBase,:)+F_b_X2(:)
+    ! F_MHD3D%X1(X1_base%s%nBase,:)=F_MHD3D%X1(X1_base%s%nBase,:)+F_b_X1(:)
+    ! F_MHD3D%X2(X2_base%s%nBase,:)=F_MHD3D%X2(X2_base%s%nBase,:)+F_b_X2(:)
   END IF
 
   __PERFON('apply_precond')

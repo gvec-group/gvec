@@ -100,6 +100,8 @@ CLASS(c_rProfile), ALLOCATABLE   :: chi_profile
 ! FREE_BOUNDARY
 REAL(wp), ALLOCATABLE :: Bext_squared(:) ! external magnetic field
 LOGICAL               :: FreeBoundary
+REAL(wp), ALLOCATABLE :: Force_b_X1(:) ! Force on X1 at the boundary
+REAL(wp), ALLOCATABLE :: Force_b_X2(:) ! Force on X2 at the boundary
 !===================================================================================================================================
 
 END MODULE MODgvec_MHD3D_Vars

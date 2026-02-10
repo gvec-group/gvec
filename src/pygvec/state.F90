@@ -101,18 +101,19 @@ END SUBROUTINE ReadState
 !!
 !! This method should is intended as a first step towards in-memory restart. Used by free boundary GVEC.
 !===================================================================================================================================
-SUBROUTINE minimize(dt_in, logfinaliter, maxIter_in)
+SUBROUTINE minimize(dt_in, logfinaliter, maxIter_in, minimize_tol)
   ! MODULES
   USE MODgvec_Globals,    ONLY: GetTime
   USE MODgvec_MHD3D_Vars, ONLY: maxIter
   REAL(wp), OPTIONAL, INTENT(IN) :: dt_in
-  LOGICAL, OPTIONAL, INTENT(IN) :: logfinaliter
-  INTEGER, OPTIONAL, INTENT(IN) :: maxIter_in
+  LOGICAL, OPTIONAL, INTENT(IN)  :: logfinaliter
+  INTEGER, OPTIONAL, INTENT(IN)  :: maxIter_in
+  REAL(wp), OPTIONAL, INTENT(IN) :: minimize_tol
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   REAL(wp) :: StartTime, EndTime
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   StartTime=GetTime()
-  CALL functional%minimize(dt_in, logfinaliter, maxIter_in)
+  CALL functional%minimize(dt_in, logfinaliter, maxIter_in, minimize_tol)
   EndTime=GetTime()
   SWRITE(Unit_stdOut,'(A,2(F8.2,A))') ' FUNCTIONAL MINIMISATION FINISHED! [',EndTime-StartTime,' sec ], corresponding to [', &
         (EndTime-StartTime)/REAL(MaxIter,wp)*1.e3_wp,' msec/iteration ]'
@@ -131,6 +132,35 @@ SUBROUTINE set_Bext_squared(Bext_squared_in)
   Bext_squared= Bext_squared_in
 END SUBROUTINE set_Bext_squared
 
+!===================================================================================================================================
+!> Wrapper to perform a free boundary update
+!!
+!===================================================================================================================================
+FUNCTION update_boundary(dt) RESULT(dt_out)
+  REAL(wp), INTENT(INOUT)  :: dt
+  REAL(wp)              :: dt_out
+  CALL functional%update_boundary(dt)
+  dt_out = dt
+END FUNCTION update_boundary
+
+FUNCTION get_iterations() RESULT(iters)
+  INTEGER :: iters
+  IF (ALLOCATED(functional%minimizer)) THEN
+    iters = functional%minimizer%vars%iter
+  ELSE
+    iters = 0
+  END IF
+END FUNCTION get_iterations
+
+SUBROUTINE reset_descent()
+  CALL functional%minimizer%reset()
+END SUBROUTINE reset_descent
+
+FUNCTION get_minimize_tol() RESULT(tol)
+  USE MODgvec_MHD3D_Vars, ONLY: minimize_tol
+  REAL(wp) :: tol
+  tol = minimize_tol
+END FUNCTION get_minimize_tol
 !===================================================================================================================================
 !> Wrapper to update the iota-profile via bspl-interpolation
 !!
