@@ -376,3 +376,28 @@ def get_B_dft(x_out, deriv, nfp, modes):
     if deriv > 0:
         modes_back *= (-1j * nfp * modes[None, :]) ** deriv
     return modes_back
+
+
+def fft2d_to_parameters(coefficients: np.ndarray) -> dict[tuple[int, int], float]:
+    """
+    Convert Fourier coefficients to a parameter vector.
+
+    Parameters
+    ----------
+    coefficients : numpy.ndarray
+        Sine or cosine coefficients of the Fourier series.
+
+    Returns
+    -------
+    params : dict[tuple[int, int], float]
+        Dictionary mapping (m, n) mode numbers to their corresponding coefficient values, excluding zero values.
+
+    """
+    M = coefficients.shape[0] - 1
+    N = coefficients.shape[1] // 2
+    mgrid, ngrid = fft2d_modes(M, N, grid=True)
+    params = {}
+    for m, n, value in zip(mgrid.ravel(), ngrid.ravel(), coefficients.ravel()):
+        if value != 0.0:
+            params[(m, n)] = value
+    return params
