@@ -18,6 +18,8 @@ parser.add_argument("--rundir", type=Path, help="GVEC run directory", default=Pa
 
 parser.add_argument("--outdir", type=Path, help="Plot output directory", default=Path("."))
 
+parser.add_argument("--dpi", type=int, help="DPI of the saved figures.", default=600)
+
 parser.add_argument(
     "-v",
     "--verbose",
@@ -49,23 +51,21 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
 
     logger.info("   radial profiles.")
     f, ax = state.plot_radial_profile()
-    f.savefig(args.outdir / "profiles.png")
+    f.savefig(args.outdir / "profiles.png", dpi=args.dpi)
 
     logger.info("   axis plots.")
     f, ax = state.plot_on_axis()
-    f.savefig(args.outdir / "modB_axis.png")
+    f.savefig(args.outdir / "modB_axis.png", dpi=args.dpi)
 
     logger.info("   poloidal cuts.")
     f, ax = state.plot_poloidal_plane()
-    f.savefig(args.outdir / "modB_poloidal_cuts.png")
+    f.savefig(args.outdir / "modB_poloidal_cuts.png", dpi=args.dpi)
 
     logger.info("   last closed flux surface.")
     f, ax = state.plot_on_flux_surface()
-    f.savefig(args.outdir / "modB_lcfs.png")
+    f.savefig(args.outdir / "modB_lcfs.png", dpi=args.dpi)
 
     logger.info("Done.")
-
-    pass
 
 
 if __name__ == "__main__":

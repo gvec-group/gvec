@@ -82,7 +82,9 @@ def plot_poloidal_plane(
     if quantity is not None:
         quantities.append(quantity)
 
-    evaluations = state.evaluate(*quantities, rho=nrho, theta=ntheta, zeta=zeta)
+    ev_contour = state.evaluate(
+        *quantities, rho=nrho, theta=np.linspace(0, 2 * np.pi, ntheta), zeta=zeta
+    )
 
     if rho_contours:
         ev_rho_contours = state.evaluate(
@@ -103,12 +105,12 @@ def plot_poloidal_plane(
                 "X1", "X2", rho=np.linspace(0, 1, nrho), theta=theta_contours, zeta=zeta
             )
 
-    zeta_eval = evaluations.zeta.data
+    zeta_eval = ev_contour.zeta.data
     if quantity is not None:
-        if np.any(np.isnan(evaluations[quantity])):
+        if np.any(np.isnan(ev_contour[quantity])):
             # Sometimes on-axis quantity cannot be computed properly, to avoid erroring out we will just set them to zero
             #   and warn the user that they should adjust if their plots look weird
-            evaluations[quantity].data[np.isnan(evaluations[quantity].data)] = 0.0
+            ev_contour[quantity].data[np.isnan(ev_contour[quantity].data)] = 0.0
             warn(
                 "NaNs detected in evaluated dataset, these have been set to 0. It is possible that on-axis quantity cannot be evaluated, a minimum rho value can be set with the min_rho input."
             )
@@ -119,34 +121,31 @@ def plot_poloidal_plane(
     fig, axs = _subplots(subplot_grid, share_axis, share_axis, **plot_kwargs)
 
     if quantity is not None:
-        is_scalar = len(evaluations[quantity].shape) == 1
         # All plots will share the same colour scale
-        # Need to make sure we use the correct function for getting the min and max
-        if is_scalar:
-            colour_scale = (
-                np.min(evaluations[quantity]),
-                np.max(evaluations[quantity]),
-            )
-        else:
-            colour_scale = (
-                np.amin(evaluations[quantity].data),
-                np.amax(evaluations[quantity].data),
-            )
+        plotting_quantity = ev_contour[quantity].broadcast_like(ev_contour.X1)
+        colour_scale = (plotting_quantity.min().item(), plotting_quantity.max().item())
+
+    # if plotting_quantity.ndim
+    # print(plotting_quantity.ndim)
+    if "xyz" in plotting_quantity.coords:
+        raise ValueError(
+            f"Plotting quantity must be a scalar field but {quantity} is a vector field."
+        )
 
     # Loop and plot all axes
     for i, ax in enumerate(np.asarray(axs).flat):
         if quantity is not None:
             # Check if the quantity is a scalar
-            if not is_scalar:  # not a scalar
-                plotting_quantity = evaluations[quantity].data[:, :, i].flatten()
-            else:
-                plotting_quantity = evaluations.X1[:, :, i] * 0.0 + evaluations[quantity]
-                plotting_quantity = plotting_quantity.data.flatten()
+            # if not is_scalar:  # not a scalar
+            # plotting_quantity = ev_contour[quantity].data[:, :, i]  # .flatten()
+            # else:
+            # plotting_quantity = ev_contour.X1[:, :, i] * 0.0 + ev_contour[quantity]
+            # plotting_quantity = plotting_quantity  # .flatten()
 
-            f_ax = ax.tricontourf(
-                evaluations.X1.data[:, :, i].flatten(),
-                evaluations.X2.data[:, :, i].flatten(),
-                plotting_quantity,
+            f_ax = ax.contourf(
+                ev_contour.X1.isel(tor=i),  # .flatten(),
+                ev_contour.X2.isel(tor=i),  # .flatten(),
+                plotting_quantity.isel(tor=i),
                 vmin=colour_scale[0],
                 vmax=colour_scale[1],
             )
@@ -207,9 +206,9 @@ def plot_poloidal_plane(
 
     if quantity is not None:
         # Adding colourbar
-        evaluations = _symbol_check(evaluations, [quantity])
+        ev_contour = _symbol_check(ev_contour, [quantity])
         fig.colorbar(
-            f_ax, ax=np.asarray(axs).ravel().tolist(), label=f"${evaluations[quantity].symbol}$"
+            f_ax, ax=np.asarray(axs).ravel().tolist(), label=f"${ev_contour[quantity].symbol}$"
         )
 
     return fig, axs
