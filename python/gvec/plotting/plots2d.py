@@ -288,6 +288,7 @@ def plot_on_flux_surface(
             "You can either plot multiple quantities on a single surface or a single quantity on multiple surfaces. Either quantities is a list or the number of rho positions is > 1."
         )
 
+    # Work out the number of plots we want so we can design the grid if `subplot_grid` is not set
     if isinstance(quantities, str):
         quantities_eval = [quantities]
         nplots = rho_len
@@ -295,6 +296,8 @@ def plot_on_flux_surface(
     elif isinstance(quantities, list):
         quantities_eval = quantities
         nplots = len(quantities)
+    else:
+        raise ValueError("quantities must be a string or a list of strings to evaluate.")
 
     if subplot_grid is None:
         subplot_grid = _design_subgrid(nplots)
@@ -303,6 +306,13 @@ def plot_on_flux_surface(
     theta = np.linspace(0.0, 2 * np.pi, ntheta)
     zeta = np.linspace(0.0, 2 * np.pi / state.nfp, nzeta)
     if sfl:
+        # Reduce some cost of the boozer computation
+        if sfl == "boozer":
+            if "MNfactor" not in boozer_kwargs:
+                boozer_kwargs["MNfactor"] = 3
+            if "radial_derivative" not in boozer_kwargs:
+                boozer_kwargs["radial_derivative"] = False
+
         evaluations = state.evaluate_sfl(
             *quantities_eval, rho=rho, theta=theta, zeta=zeta, sfl=sfl, **boozer_kwargs
         )
