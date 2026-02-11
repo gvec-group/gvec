@@ -380,12 +380,44 @@ SUBROUTINE InitMHD3D(sf)
     X2_a=0.0_wp
 
     IF(FreeBoundary) THEN
+      free_boundary_minimizer = GETINT("free_boundary_minimizer", Proposal=0)
+
       ALLOCATE(Bext_squared(1:X1_base%f%mn_IP))
       ALLOCATE(Force_b_X1(1:X1_base%f%modes))
       ALLOCATE(Force_b_X2(1:X2_base%f%modes))
+
       Bext_squared = 0.0_wp
       Force_b_X1 = 0.0_wp
       Force_b_X2 = 0.0_wp
+
+      IF (free_boundary_minimizer.EQ.1) THEN
+
+        ALLOCATE(Momentum_X1_b(1:X1_base%f%modes))
+        ALLOCATE(Momentum_X2_b(1:X2_base%f%modes))
+
+        ALLOCATE(Velocity_X1_b(1:X1_base%f%modes))
+        ALLOCATE(Velocity_X2_b(1:X2_base%f%modes))
+
+        Momentum_X1_b = 0.0_wp
+        Momentum_X2_b = 0.0_wp
+
+        Velocity_X1_b = 0.0_wp
+        Velocity_X2_b = 0.0_wp
+
+        beta1_adam = GETREAL("beta1_adam",Proposal=0.9_wp)
+        beta2_adam = GETREAL("beta2_adam",Proposal=0.999_wp)
+      ELSE IF (free_boundary_minimizer.EQ.2) THEN
+        beta2_adam = GETREAL("beta2_momentum",Proposal=0.9_wp)
+
+        ALLOCATE(Velocity_X1_b(1:X1_base%f%modes))
+        ALLOCATE(Velocity_X2_b(1:X2_base%f%modes))
+
+        Velocity_X1_b = 0.0_wp
+        Velocity_X2_b = 0.0_wp
+      END IF
+
+      free_boundary_updates = 0
+
     END IF
 
     IF((init_BC.EQ.0).OR.(init_BC.EQ.2))THEN !READ axis values from input file
@@ -1192,14 +1224,17 @@ SUBROUTINE AddBoundaryPerturbation(U_init, depth, blend_type)
 END SUBROUTINE AddBoundaryPerturbation
 
 SUBROUTINE update_boundary_MHD3D(sf, dt_in)
-  USE MODgvec_MHD3D_Vars, ONLY: X1_b, X2_b, X1_base, X2_base, X1pert_b, X2pert_b, Force_b_X1, Force_b_X2
-  USE MODgvec_sol_var_MHD3D, ONLY: t_sol_var_MHD3D
+  USE MODgvec_MHD3D_Vars, ONLY: free_boundary_minimizer
+  USE MODgvec_MHD3D_Vars, ONLY: X1_b, X2_b, X1_base, X2_base, X1pert_b, X2pert_b ! for bondary perturbation
+  USE MODgvec_MHD3D_Vars, ONLY: Force_b_X1, Force_b_X2, free_boundary_updates ! ADAM and GD
+  USE MODgvec_MHD3D_Vars, ONLY: beta1_adam, beta2_adam, Momentum_X1_b, Momentum_X2_b, Velocity_X1_b, Velocity_X2_b  ! ADAM
   USE MODgvec_MHD3D_evalFunc, ONLY : EvalForce, EvalEnergy
 
   CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
   REAL(wp), INTENT(INOUT)                  :: dt_in
 
   REAL(wp) :: dt
+  REAL(wp) :: m_hat_X1(X1_base%f%modes), m_hat_X2(X2_base%f%modes), v_hat_X1(X1_base%f%modes), v_hat_X2(X2_base%f%modes)
   INTEGER  :: step_decreases, JacCheck, max_step_decreases
   LOGICAL  :: perform_update
 
@@ -1210,16 +1245,45 @@ SUBROUTINE update_boundary_MHD3D(sf, dt_in)
   max_step_decreases = 130
   ASSOCIATE(vars => sf%minimizer%vars)
     CALL EvalForce(vars%dofs(0),.TRUE., vars%JacCheck,vars%force(0))
+
+    IF (free_boundary_minimizer.EQ.1) THEN ! ADAM
+      ! NOTE: sign of Forces is already negative thus we update with minus instead of plus!
+      Momentum_X1_b = beta1_adam*Momentum_X1_b - (1-beta1_adam)*Force_b_X1
+      Momentum_X2_b = beta1_adam*Momentum_X2_b - (1-beta1_adam)*Force_b_X2
+
+      Velocity_X1_b = beta2_adam*Velocity_X1_b + (1-beta2_adam)*Force_b_X1**2
+      Velocity_X2_b = beta2_adam*Velocity_X2_b + (1-beta2_adam)*Force_b_X2**2
+
+      ! NOTE: free_boundary_updates starts at 0, hence the +1
+      m_hat_X1 = Momentum_X1_b / (1-beta1_adam**(free_boundary_updates+1))
+      m_hat_X2 = Momentum_X2_b / (1-beta1_adam**(free_boundary_updates+1))
+
+      v_hat_X1 = Velocity_X1_b / (1-beta2_adam**(free_boundary_updates+1))
+      v_hat_X2 = Velocity_X2_b / (1-beta2_adam**(free_boundary_updates+1))
+    ELSE IF (free_boundary_minimizer.EQ.2) THEN
+      ! NOTE: sign of Forces is already negative thus we update with minus instead of plus!
+      Velocity_X1_b = beta2_adam*Velocity_X1_b - (1-beta2_adam)*Force_b_X1
+      Velocity_X2_b = beta2_adam*Velocity_X2_b - (1-beta2_adam)*Force_b_X2
+    END IF
+
     DO WHILE((perform_update.AND.(step_decreases.LE.max_step_decreases)))
       X1_b = vars%dofs(0)%X1(X1_base%s%nBase,:)
       X2_b = vars%dofs(0)%X2(X2_base%s%nBase,:)
       CALL vars%temp_dofs(1)%set_to(vars%dofs(0))
-      X1pert_b = dt*Force_b_X1
-      X2pert_b = dt*Force_b_X2
+      SELECT CASE(free_boundary_minimizer)
+      CASE(0) ! gradient descent
+        X1pert_b = dt*Force_b_X1
+        X2pert_b = dt*Force_b_X2
+      CASE(1)! ADAM
+        X1pert_b = -dt*m_hat_X1/(SQRT(v_hat_X1)+1e-12_wp)
+        X2pert_b = -dt*m_hat_X2/(SQRT(v_hat_X2)+1e-12_wp)
+      CASE(2) ! Momentum based GD
+        X1pert_b = -dt*Velocity_X1_b
+        X2pert_b = -dt*Velocity_X2_b
+      END SELECT
+
 
       CALL AddBoundaryPerturbation(vars%temp_dofs(1),0.6_wp,1) ! blend with cosine
-      ! vars%temp_dofs(1)%X1(X1_base%s%nBase,:) = X1_b + X1pert_b
-      ! vars%temp_dofs(1)%X2(X2_base%s%nBase,:) = X2_b + X2pert_b
 
       vars%temp_dofs(1)%W_MHD3D = EvalEnergy(vars%temp_dofs(1),.TRUE.,JacCheck)
       IF (JacCheck<0) THEN
@@ -1237,6 +1301,7 @@ SUBROUTINE update_boundary_MHD3D(sf, dt_in)
     END DO
     CALL vars%dofs(0)%set_to(vars%temp_dofs(1))
   END ASSOCIATE
+  free_boundary_updates = free_boundary_updates + 1
   dt_in = dt
 END SUBROUTINE update_boundary_MHD3D
 !===================================================================================================================================
@@ -1345,6 +1410,11 @@ SUBROUTINE FinalizeMHD3D(sf)
   SDEALLOCATE(Bext_squared)
   SDEALLOCATE(Force_b_X1)
   SDEALLOCATE(Force_b_X2)
+  SDEALLOCATE(Momentum_X1_b)
+  SDEALLOCATE(Momentum_X2_b)
+  SDEALLOCATE(Velocity_X1_b)
+  SDEALLOCATE(Velocity_X2_b)
+
   CALL exit_subregion("finalize-MHD3D")
 END SUBROUTINE FinalizeMHD3D
 

@@ -102,6 +102,15 @@ REAL(wp), ALLOCATABLE :: Bext_squared(:) ! external magnetic field
 LOGICAL               :: FreeBoundary
 REAL(wp), ALLOCATABLE :: Force_b_X1(:) ! Force on X1 at the boundary
 REAL(wp), ALLOCATABLE :: Force_b_X2(:) ! Force on X2 at the boundary
+REAL(wp), ALLOCATABLE :: Momentum_X1_b(:) ! Force on X2 at the boundary
+REAL(wp), ALLOCATABLE :: Momentum_X2_b(:) ! Force on X2 at the boundary
+REAL(wp), ALLOCATABLE :: Velocity_X1_b(:) ! Force on X2 at the boundary
+REAL(wp), ALLOCATABLE :: Velocity_X2_b(:) ! Force on X2 at the boundary
+REAL(wp)              :: beta1_adam ! decay rate for the free boundary update using ADAM
+REAL(wp)              :: beta2_adam ! decay rate for the free boundary update using ADAM
+INTEGER               :: free_boundary_updates ! now many updates we already performed
+INTEGER               :: free_boundary_minimizer ! 0=gradient descent, 1 = ADAM
+
 !===================================================================================================================================
 
 END MODULE MODgvec_MHD3D_Vars

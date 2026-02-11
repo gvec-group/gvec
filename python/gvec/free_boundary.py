@@ -5,7 +5,6 @@ from scipy.constants import mu_0
 from tqdm import tqdm
 from typing import Callable
 import shutil
-import warnings
 import time
 import logging
 
@@ -158,7 +157,7 @@ def _free_boundary_update(
     state: State,
     maxIter: int,
     B2: np.ndarray,
-    dt: float = 0.1,
+    dt: float = 0.001,
     current_constraint: bool = False,
     I_tor: np.ndarray | None = None,
     rho: np.ndarray | None = None,
@@ -303,7 +302,7 @@ def run_free_boundary(
     I_tor: float | Callable | None = None,
     fac: int = 1,
     iter_B_update: int = 1,
-    dt: float = 0.1,
+    dt: float = 0.001,
     **kwargs,
 ):
     if I_tor is not None:
