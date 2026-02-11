@@ -125,23 +125,15 @@ def plot_poloidal_plane(
         plotting_quantity = ev_contour[quantity].broadcast_like(ev_contour.X1)
         colour_scale = (plotting_quantity.min().item(), plotting_quantity.max().item())
 
-    # if plotting_quantity.ndim
-    # print(plotting_quantity.ndim)
-    if "xyz" in plotting_quantity.coords:
-        raise ValueError(
-            f"Plotting quantity must be a scalar field but {quantity} is a vector field."
-        )
+        # Make sure we are not trying to plot a vector field
+        if "xyz" in plotting_quantity.coords:
+            raise ValueError(
+                f"Plotting quantity must be a scalar field but {quantity} is a vector field."
+            )
 
     # Loop and plot all axes
     for i, ax in enumerate(np.asarray(axs).flat):
         if quantity is not None:
-            # Check if the quantity is a scalar
-            # if not is_scalar:  # not a scalar
-            # plotting_quantity = ev_contour[quantity].data[:, :, i]  # .flatten()
-            # else:
-            # plotting_quantity = ev_contour.X1[:, :, i] * 0.0 + ev_contour[quantity]
-            # plotting_quantity = plotting_quantity  # .flatten()
-
             f_ax = ax.contourf(
                 ev_contour.X1.isel(tor=i),  # .flatten(),
                 ev_contour.X2.isel(tor=i),  # .flatten(),
@@ -152,7 +144,7 @@ def plot_poloidal_plane(
         if share_axis:
             ax.label_outer()  # Removes any axis labels on subplots on the interior of the grid
         if rho_contours:
-            # We should plot the rho
+            # We should plot the rho contours
             ax.plot(
                 ev_rho_contours.X1[:, :, i].T,
                 ev_rho_contours.X2[:, :, i].T,
