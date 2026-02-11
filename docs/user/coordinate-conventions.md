@@ -12,8 +12,10 @@ Sketch of the GVEC logical coordinate directions $\rho,\vartheta,\zeta$ in a ste
 
 GVEC uses a flux aligned coordinate system with a radial coordinate $\rho\in[0,1]$, proportional to the square root of the normalized toroidal flux, and two angular coordinates $\vartheta,\zeta\in[0,2\pi]$. The *Boozer-straight-fieldline-angles* $\vartheta_B,\zeta_B\in[0,2\pi]$ are a different set of flux aligned coordinates.
 
-GVEC uses right-handed $(\rho,\vartheta,\zeta)$ and $(\rho,\vartheta_B,\zeta_B)$ systems with the poloidal angles $\vartheta,\vartheta_B$ increasing clockwise in the poloidal plane (of constant $\zeta$ or $\zeta_B$).
-GVEC also uses a right-handed $(X^1,X^2,\zeta)$ reference coordinate frame, e.g. a cylindrical coordinate system $(R,Z,\zeta)$. Note that this definition of the cylindrical coordinate system has the toroidal angle $\zeta$ increasing clockwise when viewing the $R,Z$-plane from above.
+GVEC uses right-handed $(\rho,\vartheta,\zeta)$ and $(\rho,\vartheta_B,\zeta_B)$ systems with the poloidal angles $\vartheta,\vartheta_B$ increasing counter-clockwise in the poloidal plane (of constant $\zeta$ or $\zeta_B$).
+GVEC also uses a right-handed $(X^1,X^2,\zeta)$ reference coordinate frame, e.g. a cylindrical coordinate system $(R,Z,\zeta)$. Note that this definition of the cylindrical coordinate system has the toroidal angle $\zeta$ increasing clockwise when viewing the $R,Z$-plane from above. For a curve-following G-Frame, $\zeta$ can increase in any direction.
+
+VMEC uses a $(R,\zeta,Z)$ reference frame with $\zeta$ increasing counter-clockwise when viewed from above. If $\vartheta$ is still increasing counter-clockwise in the poloidal plane, then the $(\rho,\vartheta,\zeta)$ coordinates in VMEC are left-handed. Some versions of VMEC also allow $\vartheta$ increasing clockwise. To compare GVEC and VMEC, care must be taken to change the direction of the toroidal angle and associated quantities. DESC similarily defines $\zeta$ increasing counter-clockwise and $\vartheta$ increasing clockwise to obtain a right-handed system.
 
 ## Different conventions
 
