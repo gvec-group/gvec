@@ -204,6 +204,13 @@ def _add_rationals_to_iota_plot(
     if limits is None:
         limits = ax.get_ylim()
 
+    # If we have negative only limits flip them before the computation then flip q/p back afterwards
+    pre_mult = 1
+    if (limits[0] < 0) & (limits[1] <= 0):
+        pre_mult = -1
+        limits = limits[::-1]
+    limits = [pre_mult * limit for limit in limits]
+
     rationals = []
 
     p = 1
@@ -222,12 +229,23 @@ def _add_rationals_to_iota_plot(
     rationals = rationals[:n_rationals]
 
     secax = ax.secondary_yaxis("right")
-    secax.set(
-        yticks=[n / m for n, m in rationals],
-        yticklabels=[f"$\\frac{{{n}}}{{{m}}}$" for n, m in rationals],
-    )
-    secax.tick_params(direction="in", pad=-10)
+    if pre_mult == 1:
+        # If iota is positive this is fine
+        secax.set(
+            yticks=[n / m for n, m in rationals],
+            yticklabels=[f"$\\frac{{{n}}}{{{m}}}$" for n, m in rationals],
+        )
+        secax.tick_params(direction="in", pad=-10)
+    elif pre_mult == -1:
+        # if not we need to flip the sign on the ticks, add the sign
+        #   and move them inside the plot further
+        secax.set(
+            yticks=[pre_mult * n / m for n, m in rationals],
+            yticklabels=[f"$-\\frac{{{n}}}{{{m}}}$" for n, m in rationals],
+        )
+        secax.tick_params(direction="in", pad=-17)
+
     for n, m in rationals:
-        ax.axhline(n / m, color="gray", linestyle="--", alpha=0.2)
+        ax.axhline(pre_mult * n / m, color="gray", linestyle="--", alpha=0.2)
 
     return rationals, secax
