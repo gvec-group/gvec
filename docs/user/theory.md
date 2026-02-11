@@ -172,8 +172,8 @@ where the variation of the magnetic energy term is
 \end{align}
 and  terms related to the variation in $X^1,X^2$ are
 \begin{align}
-    [\delta \Jac]_{Y^1} &= \Jac_h \left( - \pdv{X^2}{\thet}\pdv{Y^1}{\rho} -\pdv{X^2}{\rho}\pdv{Y^1}{\thet}  \right) + \Jac_p \left( \pdv{\Jac_h}{q^1} Y^1 \right)\,, \\
-    [\delta \Jac]_{Y^2} &= \Jac_h \left(\pdv{X^1}{\rho}\pdv{Y^2}{\thet}  - \pdv{X^1}{\thet}\pdv{Y^2}{\rho} \right) + \Jac_p \left( \pdv{\Jac_h}{q^2} Y^2 \right)\,,
+    [\delta \Jac]_{Y^1} &= \Jac_h \left(\pdv{X^2}{\thet}\pdv{Y^1}{\rho}  - \pdv{X^2}{\rho} \pdv{Y^1}{\thet} \right) + \Jac_p \left( \pdv{\Jac_h}{q^1} Y^1 \right)\,, \\
+    [\delta \Jac]_{Y^2} &= \Jac_h \left(\pdv{X^1}{\rho} \pdv{Y^2}{\thet} - \pdv{X^1}{\thet}\pdv{Y^2}{\rho}  \right) + \Jac_p \left( \pdv{\Jac_h}{q^2} Y^2 \right)\,,
 \end{align}
 and
 \begin{align}
