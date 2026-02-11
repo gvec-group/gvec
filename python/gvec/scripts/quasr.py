@@ -66,7 +66,7 @@ from gvec.coils import Coil, CoilSet, trace_fieldlines, intersection_planes_from
 parser = argparse.ArgumentParser(
     prog="pygvec-load-quasr",
     description="Load a QUASR configuration and convert it to a G-Frame and boundary for use with GVEC.",
-    usage="%(prog)s [-h] (ID | -s FILE | -f FILE) [-v | -q] [--nt NT] [--nz NZ] [--clean CLEANTOL] [--stellsym] [--cutoff=CUTOFF] [--tol=TOL] [--yaml | --toml] [--save-xyz]",
+    usage="%(prog)s [-h] (ID | -s FILE | -f FILE) [-v | -q] [<options>]",
 )
 parser.add_argument("ID", type=int, nargs="?", help="ID of the QUASR configuration")
 parser.add_argument(
@@ -138,6 +138,11 @@ parser.add_argument(
     "--save-xyz",
     action="store_true",
     help="save the boundary points to a netCDF file",
+)
+parser.add_argument(
+    "--boundary-coefficients",
+    action="store_true",
+    help="write the boundary data as fourier coefficients in the parameter file instead of points in the netCDF file",
 )
 parser.add_argument(
     "--name",
@@ -457,6 +462,7 @@ def load_quasr(
     param_type: Literal["toml", "yaml"] = "toml",
     clean: int = 0,
     stellsym: bool = False,
+    boundary_coefficients: bool = False,
     logger: logging.Logger | None = None,
 ):
     """Load a QUASR configuration and convert it to a G-Frame and boundary for use with GVEC.
@@ -492,6 +498,8 @@ def load_quasr(
         Default is 0., which means no cleaning.
     stellsym : bool, optional
         If set, imposes stellarator symmetry for the input surface. Use this with great care! By default False
+    boundary_coefficients : bool, optional
+        Write the boundary data as fourier coefficients in the parameter file instead of points in the netCDF file.
     logger : Logger | None, optional
         If None a new logger will be created.
 
@@ -559,6 +567,7 @@ def load_quasr(
         format=param_type,
         tolerance_clean_surface=clean,
         impose_stell_symmetry=stellsym,
+        boundary_coefficients=boundary_coefficients,
         cutoff_gframe=cutoff,
         logger=logger,
     )
@@ -615,6 +624,7 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         param_type=args.param_type,
         clean=args.clean,
         stellsym=args.stellsym,
+        boundary_coefficients=args.boundary_coefficients,
         logger=logger,
     )
 
