@@ -298,6 +298,7 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/
 FILE(GLOB_RECURSE mainF90 ./src/globals/*.F90
                           ./src/base/*.F90
                           ./src/profiles/*.F90
+                          ./src/free_b_minimize/*.F90
                           ./src/hmap/c_hmap.F90
                           ./src/hmap/hmap.F90
                           ./src/functionals/mhd3d/lambda_solve.F90

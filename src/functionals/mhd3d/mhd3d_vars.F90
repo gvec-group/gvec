@@ -20,6 +20,7 @@ USE MODgvec_Sol_Var_MHD3D,ONLY: t_sol_var_MHD3D
 USE MODgvec_hmap
 USE MODgvec_rProfile_base, ONLY: c_rProfile
 USE MODgvec_boundaryFromFile , ONLY: t_boundaryFromFile
+USE MODgvec_free_b_minimizer_base, ONLY: c_free_b_minimizer
 
 IMPLICIT NONE
 PUBLIC
@@ -102,14 +103,11 @@ REAL(wp), ALLOCATABLE :: Bext_squared(:) ! external magnetic field
 LOGICAL               :: FreeBoundary
 REAL(wp), ALLOCATABLE :: Force_b_X1(:) ! Force on X1 at the boundary
 REAL(wp), ALLOCATABLE :: Force_b_X2(:) ! Force on X2 at the boundary
-REAL(wp), ALLOCATABLE :: Momentum_X1_b(:) ! Force on X2 at the boundary
-REAL(wp), ALLOCATABLE :: Momentum_X2_b(:) ! Force on X2 at the boundary
-REAL(wp), ALLOCATABLE :: Velocity_X1_b(:) ! Force on X2 at the boundary
-REAL(wp), ALLOCATABLE :: Velocity_X2_b(:) ! Force on X2 at the boundary
-REAL(wp)              :: beta1_adam ! decay rate for the free boundary update using ADAM
-REAL(wp)              :: beta2_adam ! decay rate for the free boundary update using ADAM
-INTEGER               :: free_boundary_updates ! now many updates we already performed
-INTEGER               :: free_boundary_minimizer ! 0=gradient descent, 1 = ADAM
+REAL(wp)              :: beta1 ! decay rate for the free boundary update using ADAM / moment GD
+REAL(wp)              :: beta2 ! decay rate for the free boundary update using ADAM
+INTEGER               :: free_b_minimizer_type ! 0=gradient descent, 1 = ADAM
+CLASS(c_free_b_minimizer), ALLOCATABLE :: free_b_minimizer_X1
+CLASS(c_free_b_minimizer), ALLOCATABLE :: free_b_minimizer_X2
 
 !===================================================================================================================================
 
