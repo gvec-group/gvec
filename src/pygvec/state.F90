@@ -169,9 +169,8 @@ END FUNCTION get_minimize_tol
 SUBROUTINE update_iota_for_current_constraint(rho2, vals)
   USE MODgvec_cubic_spline   , ONLY: interpolate_cubic_spline
   USE MODgvec_MHD3D_evalFunc , ONLY: chiPrime_GP
-  USE MODgvec_MHD3D_Vars     , ONLY: iota_profile, chi_profile, X1_base
+  USE MODgvec_MHD3D_Vars     , ONLY: iota_profile, chi_profile, X1_base, Phi_edge
   USE MODgvec_rProfile_bspl  , ONLY: t_rProfile_bspl
-  USE MODgvec_rProfile_base  , ONLY: c_rProfile
 
   REAL(wp), INTENT(IN) :: rho2(:) !! interpolation points
   REAL(wp), INTENT(IN) :: vals(:) !! profile values at the interpolation points
@@ -196,10 +195,11 @@ SUBROUTINE update_iota_for_current_constraint(rho2, vals)
   END IF
 
   ! HACK: hardcode not-a-knot BC vals
-  CALL interpolate_cubic_spline(rho2,vals, coefs, knots, (/0,0/))
+  CALL interpolate_cubic_spline(rho2, vals, coefs, knots, (/0,0/))
 
   iota_profile = t_rProfile_bspl(knots, coefs)
   chi_profile = iota_profile%antiderivative()
+  chi_profile%coefs=chi_profile%coefs*Phi_edge
   nGP     = X1_base%s%nGP
   ALLOCATE(s_GP(nGP))
   s_GP    = X1_base%s%s_GP(1:nGP)

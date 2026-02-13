@@ -379,9 +379,6 @@ SUBROUTINE InitMHD3D(sf)
     X1_a=0.0_wp
     X2_a=0.0_wp
 
-    IF(FreeBoundary) THEN
-      CALL InitFreeBoundary(sf)
-    END IF ! free boundary
 
     IF((init_BC.EQ.0).OR.(init_BC.EQ.2))THEN !READ axis values from input file
       WRITE(UNIT_stdOut,'(4X,A)')'... read axis data for X1:'
@@ -430,6 +427,15 @@ SUBROUTINE InitMHD3D(sf)
   END IF !MPIroot
 
   boundary_perturb = GETLOGICAL('boundary_perturb', Proposal=.FALSE.)
+  IF(boundary_perturb.OR.FreeBoundary) THEN
+    ALLOCATE(X1pert_b(1:X1_base%f%modes) )
+    ALLOCATE(X2pert_b(1:X2_base%f%modes) )
+  END IF
+
+  IF(FreeBoundary) THEN
+    CALL InitFreeBoundary(sf)
+  END IF ! free boundary
+
   boundary_perturb_type_str  = GETSTR("boundary_perturb_type", proposal="legacy")
   IF (boundary_perturb_type_str .EQ. "legacy") THEN
     boundary_perturb_type = BLEND_LEGACY
@@ -442,10 +448,7 @@ SUBROUTINE InitMHD3D(sf)
     TypeInfo="InvalidParameterError")
   END IF
   boundary_perturb_depth = GETREAL('boundary_perturb_depth', proposal=0.6_wp)
-  IF(boundary_perturb.OR.FreeBoundary) THEN
-    ALLOCATE(X1pert_b(1:X1_base%f%modes) )
-    ALLOCATE(X2pert_b(1:X2_base%f%modes) )
-  END IF
+
   IF(boundary_perturb)THEN
     X1pert_b=0.0_wp
     X2pert_b=0.0_wp
@@ -495,6 +498,7 @@ SUBROUTINE InitFreeBoundary(sf)
   USE MODgvec_MHD3D_Vars, ONLY: X1_base, X2_base
   USE MODgvec_free_b_minimizer_GD, ONLY: t_free_b_minimizer_GD
   USE MODgvec_free_b_minimizer_moment_GD, ONLY: t_free_b_minimizer_moment_GD
+  USE MODgvec_free_b_minimizer_acc_GD, ONLY: t_free_b_minimizer_acc_GD
   USE MODgvec_free_b_minimizer_ADAM, ONLY: t_free_b_minimizer_ADAM
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -521,6 +525,9 @@ SUBROUTINE InitFreeBoundary(sf)
       beta1 = GETREAL("beta_moment_GD", Proposal=0.9)
       free_b_minimizer_X1 = t_free_b_minimizer_moment_GD(modes_X1, beta1)
       free_b_minimizer_X2 = t_free_b_minimizer_moment_GD(modes_X2, beta1)
+    CASE(3)
+      free_b_minimizer_X1 = t_free_b_minimizer_acc_GD(modes_X1)
+      free_b_minimizer_X2 = t_free_b_minimizer_acc_GD(modes_X2)
     CASE DEFAULT
       CALL abort(__STAMP__,&
     'unknown free_b_minimizer_type! Must be either 0 (=GD), 1 (=ADAM) or 2 (=moment GD) ')
@@ -696,6 +703,9 @@ SUBROUTINE InitSolutionMHD3D(sf)
       CALL abort(__STAMP__,&
           "NEGATIVE JACOBIAN FOUND AFTER INITIALIZATION!",TypeInfo="InitializationError")
     END IF
+
+    CALL vars%dofs(-3)%set_to(vars%dofs(0)) ! initial valid solution should remain unchanged
+
     CALL WriteState(vars%dofs(0),0)
     CALL EvalForce(vars%dofs(0),.FALSE.,JacCheck, vars%force(0))
     SWRITE(UNIT_stdOut,'(8x,A,3E11.4)')'|Force|= ',SQRT(vars%force(0)%norm_2())
@@ -1227,7 +1237,7 @@ SUBROUTINE AddBoundaryPerturbation(U_init, depth, blend_type)
 END SUBROUTINE AddBoundaryPerturbation
 
 SUBROUTINE update_boundary_MHD3D(sf, dt_in)
-  USE MODgvec_MHD3D_Vars, ONLY: free_b_minimizer_X1, free_b_minimizer_X2
+  USE MODgvec_MHD3D_Vars, ONLY: free_b_minimizer_X1, free_b_minimizer_X2, FreeBoundary
   USE MODgvec_MHD3D_Vars, ONLY: X1_b, X2_b, X1_base, X2_base, X1pert_b, X2pert_b ! for bondary perturbation
   USE MODgvec_MHD3D_Vars, ONLY: Force_b_X1, Force_b_X2
   USE MODgvec_MHD3D_evalFunc, ONLY : EvalForce, EvalEnergy
@@ -1237,9 +1247,14 @@ SUBROUTINE update_boundary_MHD3D(sf, dt_in)
 
   INTEGER  :: step_decreases, JacCheck, max_step_decreases
   LOGICAL  :: perform_update
+  REAL(wp) :: dt ! for  stepsize reduction
 
-  PRINT*, "I am here"
-  PRINT*, "free_b_minimizer_X1%dt", free_b_minimizer_X1%dt
+  IF (.NOT.FreeBoundary) THEN
+    CALL abort(__STAMP__, &
+           'FreeBoundary is .FALSE. but tried to call update_boundary! Set FreeBoundary=T to allow a boundary update.')
+  END IF
+
+  dt = dt_in
   free_b_minimizer_X1%dt = dt_in
   free_b_minimizer_X1%dt_initial = dt_in
 
@@ -1274,18 +1289,20 @@ SUBROUTINE update_boundary_MHD3D(sf, dt_in)
            ' ... during free boundary update: maximum number of step-size decreases reached !!!')
         END IF
 
+        ! this allo resets the time-step to dt_initial
         CALL free_b_minimizer_X1%reset()
         CALL free_b_minimizer_X2%reset()
 
-        free_b_minimizer_X1%dt = 0.9*free_b_minimizer_X1%dt
-        free_b_minimizer_X2%dt = 0.9*free_b_minimizer_X2%dt
+        dt = 0.9*dt
+        free_b_minimizer_X1%dt = 0.9*dt
+        free_b_minimizer_X2%dt = 0.9*dt
 
         JacCheck = 2
         SWRITE(UNIT_stdOut,'(8X,I8,A,E11.4,A)')vars%iter,' ... during free boundary update: detJac<0, decrease stepsize to dt=',free_b_minimizer_X1%dt
       ELSE
         perform_update = .FALSE.
       END IF
-    END DO
+    END DO !while for stepsize reduction
     CALL vars%dofs(0)%set_to(vars%temp_dofs(1))
   END ASSOCIATE
   dt_in = free_b_minimizer_X1%dt

@@ -220,8 +220,9 @@ def _minimize_current_constraint(
     )
 
     iters_used = state.get_iterations() - iters_used_start
-
     for minimize_tol, iota_tol in zip(minimize_tols, iota_tols):
+        logger.debug(f"minimize_tol:{minimize_tol}")
+        logger.debug(f"iota_tol:{minimize_tol}")
         logger.debug(f"iters_used_start:{iters_used_start}")
         logger.debug(f"iters_used:{iters_used}")
         logger.debug(f"maxIter:{maxIter - iters_used}")
@@ -325,6 +326,24 @@ def run_free_boundary(
     B2_history = np.empty([t_n * z_n, 2])
     iters_used = 0
     free_boundary_target = 1e30
+
+    # start with a fixed boundary equilibrium
+    tol = state.get_minimize_tol()
+    if current_constraint:
+        state = _minimize_current_constraint(
+            state=state,
+            iota_target=1e-10,
+            minimize_target=tol,
+            maxIter=max_iter_per_update,
+            dt=dt,
+            I_tor=I_tor,
+            rho=rho,
+        )
+    else:
+        # fixed iota
+        state._minimize(logfinaliter=False, maxIter=max_iter_per_update)
+    iters_used = state.get_iterations()
+
     for i in tqdm(range(fb_updates)):
         # abort if budget is used up
         if iters_used >= totalIter:
