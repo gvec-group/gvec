@@ -19,12 +19,17 @@ import gvec.fourier
 
 __all__ = [
     "table_of_quantities",
+    "register",
     "compute",
     "radial_integral",
+    "poloidal_integral",
+    "toroidal_integral",
     "fluxsurface_integral",
     "volume_integral",
     "Evaluations",
     "EvaluationsBoozer",
+    "EvaluationsBoozerCustom",
+    "EvaluationsPEST",
     "evaluate",
     "evaluate_sfl",
     "ev2ft",

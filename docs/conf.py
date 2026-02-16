@@ -144,6 +144,7 @@ mathjax3_config = {
             "modB": r"\abs{\vec{B}}",
             "dPhidr": r"\dv{\Phi}{\rho}",
             "aqty": [r"\langle{#1}\rangle", 1],
+            "bm": [r"\mathbf{#1}", 1],
         },
     },
 }
