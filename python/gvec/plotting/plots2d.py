@@ -385,6 +385,8 @@ def plot_fourier_on_surface(
     nzeta: int = 101,
     sfl: Literal["pest", "boozer"] | None = None,
     limit: float | None = 1e-15,
+    plot_kwargs: dict[str] = {},
+    **boozer_kwargs,
 ):
     """
     Diagnostic plot for plotting the Fourier modes of a given quantitity on a flux surface.
@@ -410,6 +412,11 @@ def plot_fourier_on_surface(
     limit: float, optional
         Cut-off value for the Fourier amplitudes to plot.
         Default is ``1e-15``
+    plot_kwargs: dict, optional
+        Any ``**kwargs`` to send to the ``plt.figure()`` function.
+        For example ``plot_kwargs={'figsize': (8,8)}``. See the `matplotlib documentation <https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.figure.html>`_ for a list of kwargs.
+    boozer_kwargs : optional
+        Keyword arguments for the case where ``boozer`` is used.
 
 
     Returns
@@ -423,7 +430,7 @@ def plot_fourier_on_surface(
         evaluations = state.evaluate(*quantities, rho=rho, theta=ntheta, zeta=nzeta)
     else:
         evaluations = state.evaluate_sfl(
-            *quantities, rho=rho, theta=ntheta, zeta=nzeta, sfl=sfl
+            *quantities, rho=rho, theta=ntheta, zeta=nzeta, sfl=sfl, **boozer_kwargs
         )
     evaluations = evaluations[quantities]
 
@@ -434,7 +441,7 @@ def plot_fourier_on_surface(
     levels = np.linspace(-14, 0, 8)
     symbol = evaluations[quantity].attrs.get("symbol", f"\\mathrm{{{quantity}}}")
 
-    fig, axs = _subplots([1, 2], True, True)
+    fig, axs = _subplots([1, 2], sharex=True, sharey=True, **plot_kwargs)
     for ax, suffix in zip(axs, ["mnc", "mns"]):
         c = ax.contourf(
             evft.n,
@@ -465,18 +472,19 @@ def plot_fourier_on_surface(
     if limit is not None:
         power = np.sqrt(evft[f"{quantity}_mnc"] ** 2 + evft[f"{quantity}_mns"] ** 2)
         limit_m = power.m.where((power > limit).sum(dim="n") == 0).min().item()
-        limit_m = np.nanmax([limit_m, 5])
         limit_n1 = (
             power.n.where((power > limit).sum(dim="m") == 0).where(power.n > 0).min().item()
         )
         limit_n2 = (
             power.n.where((power > limit).sum(dim="m") == 0).where(power.n < 0).max().item()
         )
-        limit_n = np.nanmax([abs(limit_n1), abs(limit_n2), 5])
-        for ax in axs:
-            ax.set(
-                xlim=(-limit_n - 1, limit_n + 1),
-                ylim=(0, limit_m + 1),
-            )
+        if not np.isnan(limit_m):
+            limit_m = np.max([limit_m, 5])
+            for ax in axs:
+                ax.set(ylim=(0, limit_m + 1))
+        if not np.isnan(limit_n1) and not np.isnan(limit_n2):
+            limit_n = np.max([abs(limit_n1), abs(limit_n2), 5])
+            for ax in axs:
+                ax.set(xlim=(-limit_n - 1, limit_n + 1))
 
     return fig, axs
