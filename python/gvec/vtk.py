@@ -192,18 +192,30 @@ def gframe_to_vtk(
     Reads a netcdf file that defines the G-Frame and possibly the boundary X1,X2 in that frame.
     The file is for example produced by the GVEC quasr script, and then used in GVEC for initialization.
     Writes vtk-visualization files from the data.
-    Input:
-        * file : netcdf file that contains axis and boundary data. Format as produced by the GVEC quasr script.
-        * prefix : prefix of the output files. Default is `visu_`.
-        * zeta_visu : 1d zeta positions of the axis and boundary surface output. If not specified, the ones from the file are used.
-        * theta_visu : 1d theta positions of the boundary surface output. If not specified, the ones from the file are used.
-        * box_axis : if =[a>0,b>0], visualize G-Frame additionally as a box of with distances +a -a in N direction and +b -b in B direction.
-        * visu_boundary : if True, visualize the boundary surface
-        * filetype : can be "vts"  (VTK) or "nc" (netcdf)
-    Output:
-        * writes `prefix_axis.filetype` : if 'axis' group exists in `file`, provides the origin curve position in 3D and N,B vectors on that curve. On full torus or on given `zeta_visu` positions
-        * writes `prefix_boundary.filetype` : if 'boundary' group exists `file`, provides the boundary surface position in 3D. On one field period, or on given `zeta_visu` positions
-        * writes `prefix_axis_box.filetype` : if box_axis=[a,b], G-Frame is visualized as a box aroud the axis.
+
+    Parameters
+    ----------
+    file : str | path
+        netcdf file that contains axis and boundary data. Format as produced by the GVEC quasr script.
+    prefix : str, optional
+        prefix of the output files. Default is ``"visu"``.
+    zeta_visu : numpy.ndarray, optional
+        1d zeta positions of the axis and boundary surface output. If not specified, the ones from the input file are used.
+    theta_visu : numpy.ndarray, optional
+        1d theta positions of the boundary surface output. If not specified, the ones from the input file are used.
+    box_axis : list, optional
+        if ``=[a,b]``, visualize G-Frame additionally as a box of with distances +a -a in N direction and +b -b in B direction.
+    visu_boundary : bool
+        if True, visualize the boundary surface
+    filetype : str
+        can be ``"vts"`` (default, VTK structured format) or ``"nc"`` (netcdf)
+
+
+    Output
+    ------
+    * writes file ``prefix_axis.filetype`` : if ``'axis'`` group exists in ``file``, provides the origin curve position in 3D and N,B vectors on that curve. On full torus or on given ``zeta_visu`` positions
+    * writes file ``prefix_boundary.filetype`` : if ``'boundary'`` group exists ``file``, provides the boundary surface position in 3D. On one field period, or on given ``zeta_visu`` positions
+    * writes file ``prefix_axis_box.filetype`` : if ``box_axis=[a,b]``, G-Frame is visualized as a box aroud the axis.
     """
     dnc = gframe.read_Gframe_ncfile(file)
     nfp = dnc["nfp"]

@@ -89,11 +89,12 @@ def register(
 
     The quantity (compute function) is registered in the QUANTITIES dictionary.
     It contains:
-        * a function pointer
-        * the name of the computed quantities (used as key in QUANTITIES)
-        * the names of required quantities (that should be computed before)
-        * the names of the integration axes required for the computation
-        * the attributes of the computed quantity (long_name, symbol, etc.)
+
+    * a function pointer
+    * the name of the computed quantities (used as key in QUANTITIES)
+    * the names of required quantities (that should be computed before)
+    * the names of the integration axes required for the computation
+    * the attributes of the computed quantity (``long_name``, ``symbol``, etc.)
     """
     if registry is None:
         registry = QUANTITIES
