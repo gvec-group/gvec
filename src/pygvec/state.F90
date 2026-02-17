@@ -176,7 +176,6 @@ SUBROUTINE update_iota_for_current_constraint(rho2, vals)
   REAL(wp), INTENT(IN) :: vals(:) !! profile values at the interpolation points
 
   REAL(wp), ALLOCATABLE :: knots(:), coefs(:)
-  REAL(wp), ALLOCATABLE :: s_GP(:)
   INTEGER :: n_rho2, n_vals, iGP, nGP
 
   n_rho2 = SIZE(rho2)
@@ -199,14 +198,14 @@ SUBROUTINE update_iota_for_current_constraint(rho2, vals)
 
   iota_profile = t_rProfile_bspl(knots, coefs)
   chi_profile = iota_profile%antiderivative()
+  !iota= (dChi/ds) / (dPhi/ds) = dchi_ds / Phi_edge  => chi = Phi_edge * int(iota ds)
   chi_profile%coefs=chi_profile%coefs*Phi_edge
   nGP     = X1_base%s%nGP
-  ALLOCATE(s_GP(nGP))
-  s_GP    = X1_base%s%s_GP(1:nGP)
-  DO iGP=1,nGP
-    chiPrime_GP( iGP) = chi_profile%eval_at_rho(s_GP(iGP),deriv=1)
-  END DO !iGP
-  DEALLOCATE(s_GP)
+  ASSOCIATE(s_GP => X1_base%s%s_GP)
+    DO iGP=1,nGP
+      chiPrime_GP( iGP) = chi_profile%eval_at_rho(s_GP(iGP),deriv=1)
+    END DO !iGP
+  END ASSOCIATE
 END SUBROUTINE update_iota_for_current_constraint
 
 

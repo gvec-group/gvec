@@ -28,7 +28,7 @@ def _get_B2_one_fp(
     fac: int = 1,
 ):
     """Setup BIEST with points corresponding to one field period and return the flattened squared exterior field for free boundary gvec.
-    One field period is used to avoid automatic copying of from inside beast which may switch directions.
+    One field period is used to avoid automatic copying of from inside BIEST which may switch directions.
 
     Parameters
     ----------
@@ -88,8 +88,8 @@ def _get_B2_one_fp(
         digits=10,
     )
     time_1 = time.time()
-    logger.debug(
-        f"time for beast:{time_1 - time_0} for {nzeta_aux * nzeta_aux * N_FP.item()} points"
+    logger.info(
+        f"time for BIEST:{time_1 - time_0} for {ntheta_aux * nzeta_aux * N_FP.item()} points"
     )
     B_external = B_plas_ext + B_coils
     B2 = np.sum(B_external**2, axis=0)
@@ -173,7 +173,7 @@ def _free_boundary_update(
     logger.debug("minimize tol:", tol)
     logger.debug("current constraint", current_constraint)
     if current_constraint:
-        state = _minimize_current_constraint(
+        state, new_iota = _minimize_current_constraint(
             state=state,
             iota_target=1e-10,
             minimize_target=tol,
@@ -185,9 +185,10 @@ def _free_boundary_update(
     else:
         # fixed iota
         state._minimize(logfinaliter=False, maxIter=maxIter)
+        new_iota = None
     if copy_stdout:
         shutil.copyfile(state._stdout.name, "stdout.txt")
-    return state, dt
+    return state, dt, new_iota
 
 
 def _minimize_current_constraint(
@@ -208,7 +209,7 @@ def _minimize_current_constraint(
     iters_used_start = state.get_iterations()
     # target iota only
     logger.debug(f"maxIter:{maxIter}")
-    state, rms_iota = _minimize_single_current_constraint(
+    state, rms_iota, new_iota = _minimize_single_current_constraint(
         state=state,
         iota_tol=iota_tols[0],
         maxIter=maxIter,
@@ -218,7 +219,6 @@ def _minimize_current_constraint(
         maxIter_per_update=10,
         dt=dt,
     )
-
     iters_used = state.get_iterations() - iters_used_start
     for minimize_tol, iota_tol in zip(minimize_tols, iota_tols):
         logger.debug(f"minimize_tol:{minimize_tol}")
@@ -226,7 +226,7 @@ def _minimize_current_constraint(
         logger.debug(f"iters_used_start:{iters_used_start}")
         logger.debug(f"iters_used:{iters_used}")
         logger.debug(f"maxIter:{maxIter - iters_used}")
-        state, rms_iota = _minimize_single_current_constraint(
+        state, rms_iota, new_iota = _minimize_single_current_constraint(
             state=state,
             iota_tol=iota_tol,
             maxIter=maxIter - iters_used,
@@ -239,7 +239,7 @@ def _minimize_current_constraint(
     logger.info(
         f"Terminated current minimization with Δiota = {rms_iota:.3e}, Δiota = {iota_tol:.3e}. Used {iters_used} / {maxIter} iterations."
     )
-    return state
+    return state, new_iota
 
 
 def _minimize_single_current_constraint(
@@ -282,15 +282,81 @@ def _minimize_single_current_constraint(
     logger.debug(
         f"Terminated current minimization after {nth_update} updates. Δiota = {rms_iota:.3e}, target Δiota = {iota_tol:.3e}. Used {iters_used} / {maxIter} iterations."
     )
-    return state, rms_iota
+    return state, rms_iota, new_iota
 
 
 def _free_boundary_target(state, B_ext_2):
-    ev_gvec = state.evaluate("B", "p", rho=1.0).sel(rho=1.0).transpose("xyz", "tor", "pol")
+    ev_gvec = (
+        state.evaluate("B", "p", "normal", rho=1.0).sel(rho=1.0).transpose("xyz", "tor", "pol")
+    )
     B_gvec_2 = (ev_gvec.B**2).sum(dim="xyz")
-    B_jump = (B_gvec_2 - B_ext_2) / 2 + mu_0 * ev_gvec.p
-    free_boundary_target = abs(fluxsurface_integral(B_jump) / fluxsurface_integral(B_gvec_2))
-    return free_boundary_target
+    force_balance = (B_gvec_2 - B_ext_2) / 2 + mu_0 * ev_gvec.p
+    free_boundary_target = fluxsurface_integral(
+        abs(force_balance)
+    )  # / fluxsurface_integral(B_gvec_2))
+    return free_boundary_target, force_balance, ev_gvec
+
+
+def _allocate_diagnostics(state, fb_updates, z_n, t_n):
+    diagnostics = state.evaluate("xyz", "theta", "zeta", rho=1.0).isel(rad=0)
+    diagnostics["force_balance"] = (
+        ("tor", "pol", "iteration"),
+        np.full(shape=(z_n, t_n, fb_updates), fill_value=np.nan),
+    )
+    diagnostics.force_balance.assign_attrs(
+        long_name="free-boundary force balance on the LCFS.", symbol=r"$F_{b}}$"
+    )
+
+    diagnostics["B_jump"] = (
+        ("xyz", "tor", "pol", "iteration"),
+        np.full(shape=(3, z_n, t_n, fb_updates), fill_value=np.nan),
+    )
+    diagnostics.B_jump.assign_attrs(
+        long_name="jump of the magnetic field on the LCFS", symbol=r"$B_{\text{jump}}$"
+    )
+
+    diagnostics["B_int"] = (
+        ("xyz", "tor", "pol", "iteration"),
+        np.full(shape=(3, z_n, t_n, fb_updates), fill_value=np.nan),
+    )
+    diagnostics.B_int.assign_attrs(
+        long_name="internal magnetic field on the LCFS", symbol=r"$B_{\text{int}}$"
+    )
+
+    diagnostics["B_ext"] = (
+        ("xyz", "tor", "pol", "iteration"),
+        np.full(shape=(3, z_n, t_n, fb_updates), fill_value=np.nan),
+    )
+    diagnostics.B_ext.assign_attrs(
+        long_name="external magnetic field on the LCFS", symbol=r"$B_{\text{ext}}$"
+    )
+
+    diagnostics["K"] = (
+        ("xyz", "tor", "pol", "iteration"),
+        np.full(shape=(3, z_n, t_n, fb_updates), fill_value=np.nan),
+    )
+    diagnostics.K.assign_attrs(long_name="surface current on the LCFS", symbol=r"$K$")
+    diagnostics["free_boundary_target"] = (
+        "iteration",
+        np.full(shape=fb_updates, fill_value=np.nan),
+    )
+    return diagnostics
+
+
+def _update_diagnostics(state, B_ext_2, B_coils, B_plas_ext, diagnostics, i):
+    free_boundary_target, force_balance, ev_gvec = _free_boundary_target(state, B_ext_2)
+    B_ext = B_coils + B_plas_ext
+    B_jump = ev_gvec.B - B_ext
+
+    # mu_0*K = n x [[B]]
+    diagnostics.K[:, :, :, i] = np.cross(ev_gvec.normal, B_jump, axis=0) / mu_0
+    diagnostics.force_balance[:, :, i] = force_balance
+    diagnostics.B_ext[:, :, :, i] = B_ext
+    diagnostics.B_jump[:, :, :, i] = B_jump.data
+    diagnostics.B_int[:, :, :, i] = ev_gvec.B.data
+    diagnostics.free_boundary_target[i] = free_boundary_target
+
+    return free_boundary_target, diagnostics
 
 
 def run_free_boundary(
@@ -320,7 +386,10 @@ def run_free_boundary(
         I_tor_at_rho = None
         I_tor_boundary = state.evaluate("I_tor", rho=1.0).I_tor.item()
 
+    # initialize diagnostics dataset for quantities at the boundary for each free-boundary update
+
     r_GP, r_w, t_n, t_w, z_n, z_w = state.get_integration_points()
+    diagnostics = _allocate_diagnostics(state, fb_updates, z_n, t_n)
 
     iter_B2_history = np.array([0, 1])
     B2_history = np.empty([t_n * z_n, 2])
@@ -330,7 +399,13 @@ def run_free_boundary(
     # start with a fixed boundary equilibrium
     tol = state.get_minimize_tol()
     if current_constraint:
-        state = _minimize_current_constraint(
+        diagnostics["iota"] = (
+            ("rho_iota", "iteration"),
+            np.full(shape=(len(rho), fb_updates), fill_value=np.nan),
+        )
+        diagnostics["rho_iota"] = rho
+
+        state, new_iota = _minimize_current_constraint(
             state=state,
             iota_target=1e-10,
             minimize_target=tol,
@@ -344,30 +419,17 @@ def run_free_boundary(
         state._minimize(logfinaliter=False, maxIter=max_iter_per_update)
     iters_used = state.get_iterations()
 
-    for i in tqdm(range(fb_updates)):
-        # abort if budget is used up
-        if iters_used >= totalIter:
-            return state, free_boundary_target
+    try:
+        for i in tqdm(range(fb_updates)):
+            # abort if budget is used up
+            if iters_used >= totalIter:
+                return state, free_boundary_target
 
-        # ensure that the maximum number of iterations is kept
-        max_iter_per_update_aux = min(totalIter - iters_used, max_iter_per_update)
+            # ensure that the maximum number of iterations is kept
+            max_iter_per_update_aux = min(totalIter - iters_used, max_iter_per_update)
 
-        # whether to interpolate the external field or not
-        if i < 2:
-            (B2, B_plas_ext, B_coils, B_ext_2) = _get_B2_one_fp(
-                state=state,
-                coil_set=coil_set,
-                ntheta=t_n,
-                nzeta=z_n,
-                fac=fac,
-                I_tor=I_tor_boundary,
-                diagnostic_output=True,
-            )
-            B2_history[:, i] = B2
-
-            free_boundary_target = _free_boundary_target(state, B_ext_2)
-        else:
-            if i % iter_B_update == 0:
+            # whether to interpolate the external field or not
+            if i < 2:
                 (B2, B_plas_ext, B_coils, B_ext_2) = _get_B2_one_fp(
                     state=state,
                     coil_set=coil_set,
@@ -377,42 +439,67 @@ def run_free_boundary(
                     I_tor=I_tor_boundary,
                     diagnostic_output=True,
                 )
-                B2_history[:, 0] = B2_history[:, 1]
-                B2_history[:, 1] = B2
-                iter_B2_history[0] = iter_B2_history[1]
-                iter_B2_history[1] = i
-                free_boundary_target = _free_boundary_target(state, B_ext_2)
-            else:
-                # linear interpolation of the last two B2 solutions along the iterations
-                B2 = B2_history[:, 0] + (i - iter_B2_history[0]) * (
-                    B2_history[:, 1] - B2_history[:, 0]
-                ) / (iter_B2_history[1] - iter_B2_history[0])
-        if free_boundary_target > free_boundary_tolerance:
-            state, dt = _free_boundary_update(
-                state=state,
-                maxIter=max_iter_per_update_aux,
-                B2=B2,
-                current_constraint=current_constraint,
-                I_tor=I_tor_at_rho,
-                rho=rho,
-                dt=dt,
-                **kwargs,
-            )
-            iters_used = state.get_iterations()
-            if not current_constraint:
-                I_tor_boundary = state.evaluate("I_tor", rho=1.0).I_tor.item()
-        else:
-            logger.info(
-                f"Reached free boundary tolerance. free-boundary target: {free_boundary_target.item():3e}, specified tol.: {free_boundary_tolerance:3e}"
-            )
-            break
-        logger.info(
-            f"free-boundary target: {free_boundary_target.item()}, free-boundary target tolerance: {free_boundary_tolerance}"
-        )
+                B2_history[:, i] = B2
 
-    state._minimize(logfinaliter=False, maxIter=(totalIter - iters_used))
+                free_boundary_target, diagnostics = _update_diagnostics(
+                    state, B_ext_2, B_coils, B_plas_ext, diagnostics, i
+                )
+
+            else:
+                if i % iter_B_update == 0:
+                    (B2, B_plas_ext, B_coils, B_ext_2) = _get_B2_one_fp(
+                        state=state,
+                        coil_set=coil_set,
+                        ntheta=t_n,
+                        nzeta=z_n,
+                        fac=fac,
+                        I_tor=I_tor_boundary,
+                        diagnostic_output=True,
+                    )
+                    B2_history[:, 0] = B2_history[:, 1]
+                    B2_history[:, 1] = B2
+                    iter_B2_history[0] = iter_B2_history[1]
+                    iter_B2_history[1] = i
+
+                    free_boundary_target, diagnostics = _update_diagnostics(
+                        state, B_ext_2, B_coils, B_plas_ext, diagnostics, i
+                    )
+                else:
+                    # linear interpolation of the last two B2 solutions along the iterations
+                    B2 = B2_history[:, 0] + (i - iter_B2_history[0]) * (
+                        B2_history[:, 1] - B2_history[:, 0]
+                    ) / (iter_B2_history[1] - iter_B2_history[0])
+
+            if free_boundary_target > free_boundary_tolerance:
+                state, dt, new_iota = _free_boundary_update(
+                    state=state,
+                    maxIter=max_iter_per_update_aux,
+                    B2=B2,
+                    current_constraint=current_constraint,
+                    I_tor=I_tor_at_rho,
+                    rho=rho,
+                    dt=dt,
+                    **kwargs,
+                )
+                iters_used = state.get_iterations()
+                if not current_constraint:
+                    I_tor_boundary = state.evaluate("I_tor", rho=1.0).I_tor.item()
+                else:
+                    diagnostics.iota[:, i] = new_iota.data
+            else:
+                logger.info(
+                    f"Reached free boundary tolerance. free-boundary target: {free_boundary_target.item():3e}, specified tol.: {free_boundary_tolerance:3e}"
+                )
+                break
+            logger.info(
+                f"free-boundary target: {free_boundary_target.item()}, free-boundary target tolerance: {free_boundary_tolerance}"
+            )
+
+        state._minimize(logfinaliter=False, maxIter=(totalIter - iters_used))
+    except KeyboardInterrupt:
+        logger.warning("Aborting free-boundary due to keyboard interrupt!")
     if free_boundary_target > free_boundary_tolerance:
         logger.warning(
-            f"Free- boundary target not reached! free-boundary target: {free_boundary_target.item():3e}, specified tol.: {free_boundary_tolerance:3e}"
+            f"Free-boundary target not reached! target: {free_boundary_target:3e}, specified tol.: {free_boundary_tolerance:3e}"
         )
-    return state, free_boundary_target
+    return state, diagnostics.dropna("iteration")
