@@ -8,6 +8,7 @@ from pathlib import Path
 import logging
 import argparse
 import datetime
+import re
 
 import numpy as np
 import xarray as xr
@@ -36,6 +37,13 @@ srho.add_argument(
     "--rho",
     type=float,
     help="position of the target flux surface (in square root of the normalized toroidal flux, 0 < rho <= 1)",
+)
+parser.add_argument(
+    "-a",
+    "--alpha",
+    type=str,
+    default="0.0",
+    help="fieldline label as float or multiple of pi (e.g. '0.0', '2pi', 'pi/2', default 0.0)",
 )
 parser.add_argument(
     "--npol",
@@ -304,6 +312,7 @@ def gvec_to_gist(
     state: gvec.State,
     filename: str | Path,
     s0: float,
+    alpha: float = 0.0,
     gridpoints: int = 128,
     n_pol: int = 1,
     flip: Literal["auto", "none", "pol", "tor", "both"] = "auto",
@@ -324,13 +333,14 @@ def gvec_to_gist(
         flip = determine_flip(state)
         logger.info(f"determined flip='{flip}' for positive fluxes")
     ev = generate_fieldline_coordinates(
-        state, s0, gridpoints, n_pol, flip, boozer_kwargs=boozer_kwargs
+        state, s0, gridpoints, n_pol, flip, alpha, boozer_kwargs=boozer_kwargs
     )
     logger.info("generated fieldline coordinates")
 
     params, data = compute_gist_quantities(ev, state, flip)
     params["gridpoints"] = gridpoints  # number of points along fieldline / parallel resolution
     params["n_pol"] = n_pol  # number of poloidal turns
+    params["!alpha"] = alpha  # fieldline label
     params["!gvec_version"] = gvec.__version__
     params["!gvec_projectname"] = state.name  # project name of the input GVEC state
     params["!gvec_datetime"] = datetime.datetime.now().isoformat(sep=" ", timespec="seconds")
@@ -376,6 +386,26 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
     else:
         s = args.rho**2
 
+    if m := re.match(
+        r"^\s*([+-]?\d*\.?\d*)?\s*\*?\s*(pi|π)?(?:\s*\/\s*(\d+\.?\d*)?)?\s*$",
+        args.alpha,
+        re.IGNORECASE,
+    ):
+        # matches patterns like "0.5", "-pi", "pi/2", "2π"
+        if m.group(1) in (None, ""):
+            alpha = 1.0
+        elif m.group(1) == "-":
+            alpha = -1.0
+        else:
+            alpha = float(m.group(1))
+        if m.group(2) not in (None, ""):
+            alpha *= np.pi
+        if m.group(3) not in (None, ""):
+            alpha /= float(m.group(3))
+        logger.debug(f"parsed alpha: '{args.alpha}' → {alpha}")
+    else:
+        raise ValueError(f"unable to parse alpha value '{args.alpha}'")
+
     if args.projectname is None:
         args.projectname = state.name
     if args.outputfile is None:
@@ -384,9 +414,10 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
     plotfile = f"{args.projectname}_s{int(s * 100):03d}.gist.png" if args.plot else None
 
     gvec_to_gist(
-        state,
-        args.outputfile,
-        s,
+        state=state,
+        filename=args.outputfile,
+        s0=s,
+        alpha=alpha,
         gridpoints=args.gridpoints,
         n_pol=args.npol,
         flip=args.flip,

@@ -95,7 +95,8 @@ gvec.util </api/util>
 gvec.vtk </api/vtk>
 gvec.scripts.main </api/scripts-main>
 gvec.scripts.run </api/scripts-run>
-gvec.scripts.cas3d </api/scripts-cas3d>
 gvec.scripts.quasr </api/scripts-quasr>
+gvec.scripts.cas3d </api/scripts-cas3d>
+gvec.scripts.gist </api/scripts-gist>
 gvec.lib </api/lib>
 ```
