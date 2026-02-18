@@ -433,7 +433,12 @@ class Run:
             r2 = ev.isel(rad=1)
             r3 = ev.isel(rad=2)
             ev = ev.isel(rad=slice(2, None))
-            ev.rho.data[0] = 0.0  # = self.rho[0]
+
+            # workaround to modify xarray coordinate & index (with pandas >=3.0)
+            rho = ev.rho.data.copy()
+            rho[0] = 0.0
+            ev = ev.assign_coords(rho=("rad", rho)).set_xindex("rho")
+
             for var in ev.data_vars:
                 ev[var].data[0] = 3 * (r1[var].data - r2[var].data) + r3[var].data
 
@@ -494,7 +499,13 @@ class Run:
                 self.diagnostics_run = diag_run
             else:
                 diag_run = diag_run.expand_dims(dict(run=[self.diagnostics_run.run.size]))
-                self.diagnostics_run = xr.concat([self.diagnostics_run, diag_run], dim="run")
+                self.diagnostics_run = xr.concat(
+                    [self.diagnostics_run, diag_run],
+                    dim="run",
+                    join="outer",
+                    coords="different",
+                    compat="equals",
+                )
             if self.diagnostics_minimizer is None:
                 diag_minimizer.force_X1.attrs = dict(
                     long_name="absolute MHD force on X1", symbol=r"|F_{X^1}|"

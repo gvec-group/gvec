@@ -349,7 +349,7 @@
     - ls dist_${BUILDNAME}/*.whl
     - pip install `ls dist_${BUILDNAME}/*.whl`
     - module list || echo "No modules available"
-    - pip install jupyter ipykernel ipympl ipywidgets matplotlib nbconvert
+    - pip install -r docs/tutorials/requirements.txt
     - pip list
     - pygvec --version
     - end_details pre
@@ -558,11 +558,12 @@
     # prepare & build
     - pip install twine build
     - python -m build --sdist
-    - ls dist/
+    - ls -alH dist/
     # check if gvec installs successfully
     - pip install dist/*.tar.gz
     - pygvec --version
     # upload to PyPI
+    - ls -alH dist/
     - python -m twine upload dist/*
   artifacts:
     expire_in: 3 days

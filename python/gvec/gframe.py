@@ -5,16 +5,16 @@ r"""pyGVEC G-frame
 This module provides functions for computing the G-Frame from a surface, cutting a surface at a given plane, change from xyz to xyz_hat coordinates and read and write the G-Frame from/to a file.
 """
 
+import logging
 from pathlib import Path
 from typing import Literal
-import logging
 
 import numpy as np
 import xarray as xr
 from scipy.optimize import root_scalar
 
-from gvec.util import logging_setup, write_parameters
 from gvec import fourier
+from gvec.util import logging_setup, write_parameters
 
 
 def check_field_periodicity(xyz: np.ndarray, nfp: int, atol=1e-12):
@@ -564,8 +564,9 @@ def construct_gframe_from_surface(
     theta0: float = 0.0,
     zeta0: float = 0.0,
     cutoff_gframe: int = -1,
-    logger: logging.Logger | None = None,
+    boundary_coefficients: bool = False,
     writeFiles: bool = True,
+    logger: logging.Logger | None = None,
 ):
     """
     Construct a G-Frame from a surface given by its cartesian points.
@@ -597,8 +598,11 @@ def construct_gframe_from_surface(
     cutoff_gframe : int, optional
         Maximum mode number (`>=0`) to be used along the toroidal direction to
         construct the G-frame. Default `-1` means no cutoff.
+    boundary_coefficients : bool, optional
     writeFiles : bool, optional
-        If True, write the GVEC parameters to file and the G-frame data to netcdf file.
+        Write the boundary data as fourier coefficients in the parameter file instead of points in the netCDF file.
+    logger : logging.Logger, optional
+        Logger for logging messages. If None, a new logger is created.
 
     Returns
     -------
@@ -741,6 +745,18 @@ def construct_gframe_from_surface(
 
     X1c, X1s = fourier.fft2d(x1_cut.T)
     X2c, X2s = fourier.fft2d(x2_cut.T)
+
+    X1c_minimal = fourier.scale_modes2d(X1c, Mmax, Nmax)
+    X1s_minimal = fourier.scale_modes2d(X1s, Mmax, Nmax)
+    X2c_minimal = fourier.scale_modes2d(X2c, Mmax, Nmax)
+    X2s_minimal = fourier.scale_modes2d(X2s, Mmax, Nmax)
+    t, z = np.meshgrid(theta, zetafull[0:nz], indexing="ij")
+    X1_minimal = fourier.eval2d(X1c_minimal, X1s_minimal, t, z, nfp=nfp).T
+    X2_minimal = fourier.eval2d(X2c_minimal, X2s_minimal, t, z, nfp=nfp).T
+    logger.info(
+        f"- with maximum distance in the poloidal plane: {np.amax(np.sqrt((x1_cut - X1_minimal) ** 2 + (x2_cut - X2_minimal) ** 2)):.1e}"
+    )
+
     lasym = not (
         np.amax(np.abs(X1s)) < 1e-12 * np.amax(np.abs(X1c))
         and np.amax(np.abs(X2c)) < 1e-12 * np.amax(np.abs(X2s))
@@ -752,8 +768,7 @@ def construct_gframe_from_surface(
         logger.info(f"  max|X1_c|={np.amax(np.abs(X1c))}, max|X1_s|={np.amax(np.abs(X1s))},")
         logger.info(f"  max|X2_c|={np.amax(np.abs(X2c))}, max|X2_s|={np.amax(np.abs(X2s))}.")
     logger.info(". Exporting h-map & boundary")
-
-    dict_out = {"nfp": nfp, "axis": {}, "boundary": {}}
+    dict_out = {"nfp": nfp}
     dict_out["generatedFrom"] = "Generated from xyz surface using following parameters:"
     dict_out["generatedFrom"] += f"tolerance_output = {tolerance_output}"
     dict_out["generatedFrom"] += f", tolerance_clean_surface = {tolerance_clean_surface}"
@@ -770,6 +785,8 @@ def construct_gframe_from_surface(
         "Nxyz": N.T,
         "Bxyz": B.T,
     }
+
+    # ToDo: if not boundary_coefficients:
     dict_out["boundary"] = {
         "ntheta": nt,
         "nzeta": nz,
@@ -786,8 +803,6 @@ def construct_gframe_from_surface(
         ProjectName=name,
         which_hmap=21,
         hmap_ncfile=f"{name}-Gframe.nc",
-        getBoundaryFromFile=1,
-        boundary_filename=f"{name}-Gframe.nc",
         X1X2_deg=5,
         LA_deg=5,
         sgrid=dict(
@@ -813,6 +828,18 @@ def construct_gframe_from_surface(
         ),
         picard_current="auto",
     )
+    if boundary_coefficients:
+        if not lasym:
+            parameters["X1_b_cos"] = fourier.fft2d_to_parameters(X1c_minimal)
+            parameters["X2_b_sin"] = fourier.fft2d_to_parameters(X2s_minimal)
+        else:
+            parameters["X1_b_cos"] = fourier.fft2d_to_parameters(X1c_minimal)
+            parameters["X1_b_sin"] = fourier.fft2d_to_parameters(X1s_minimal)
+            parameters["X2_b_cos"] = fourier.fft2d_to_parameters(X2c_minimal)
+            parameters["X2_b_sin"] = fourier.fft2d_to_parameters(X2s_minimal)
+    else:
+        parameters["getBoundaryFromFile"] = 1
+        parameters["boundary_filename"] = f"{name}-Gframe.nc"
 
     if writeFiles:
         logger.info(f". Writing files: {name}-Gframe.nc , {name}-parameters.{format}")
@@ -974,12 +1001,15 @@ def to_RZ(
         Dictionary with:
             zeta : zeta positions on one field period
             theta : theta positions
-            R : R positions on one field period, with shape [0:ntheta_out,0:nzeta_out]
-            Z : Z positions on one field period, with shape [0:ntheta_out,0:nzeta_out]
+            R : R positions on one field period, with shape ``[ntheta_out,nzeta_out]``
+            Z : Z positions on one field period, with shape ``[ntheta_out,nzeta_out]``
             nfp : number of field periods
             lasym : logical for asymmetry, =false if stellarator symmetry is found
             Mmax,Nmax : maximum mode numbers needed for the given tolerance
-            Rc,Rs,Zc,Zs : R and Z cosine and sine Fourier mode coefficients, respecting Mmax,Nmax
+            Rc,Rs,Zc,Zs : R and Z cosine and sine Fourier mode coefficients, shape is ``[Mmax+1,2*Nmax+1]``
+            m_modes: poloidal mode numbers (m) in first dimension of ``Rc, Rs, ...``
+            n_modes: toroidal mode numbers (n) in second dimension of ``Rc, Rs, ...``
+            tolerance: input ``tolerance``
     """
     assert xyz.shape[2] == 3, "xyz must have shape [nzeta*nfp, ntheta, 3]"
     nzetafull_in, ntheta_in = xyz.shape[0], xyz.shape[1]
@@ -1001,11 +1031,18 @@ def to_RZ(
     Ncirc = np.zeros((nzeta, 3))
     Bcirc = np.zeros((nzeta, 3))
     Ncirc[:, 0] = np.cos(zeta_out)
-    Ncirc[:, 1] = np.sin(zeta_out)
+    Ncirc[:, 1] = np.sin(-zeta_out)
     Bcirc[:, 2] = 1.0
+    # try to find the rotation direction of zeta from zeta[0] and zeta[1]:
+    # midpoint of zeta[0]
+    xyz_mid = np.mean(xyz[0, :, :], axis=0)
+    e_zeta = np.mean(xyz[1, :, :], axis=0) - xyz_mid
+    sign_zeta = np.sign(
+        np.cross(xyz_mid, e_zeta)[2]
+    )  # +1 if zeta is counterclockwise from above
 
     xyz_RZcut = get_xyz_cut(
-        zeta_out, origins, np.cross(Ncirc, Bcirc, axis=-1), xyz_t, zdft, nfp
+        (-sign_zeta) * zeta_out, origins, np.cross(Ncirc, Bcirc, axis=-1), xyz_t, zdft, nfp
     )
     R = np.sum((xyz_RZcut - origins[:, None, :]) * Ncirc[:, None, :], axis=-1).T
     Z = np.sum((xyz_RZcut - origins[:, None, :]) * Bcirc[:, None, :], axis=-1).T
@@ -1016,10 +1053,12 @@ def to_RZ(
     Rs = fourier.scale_modes2d(Rs, Mmax, Nmax)
     Zc = fourier.scale_modes2d(Zc, Mmax, Nmax)
     Zs = fourier.scale_modes2d(Zs, Mmax, Nmax)
+    mn_modes = fourier.fft2d_modes(Mmax, Nmax)
     lasym = not (
         np.amax(np.abs(Rs)) < 1e-12 * np.amax(np.abs(Rc))
         and np.amax(np.abs(Zc)) < 1e-12 * np.amax(np.abs(Zs))
     )
+
     return {
         "R": R,
         "Z": Z,
@@ -1033,6 +1072,8 @@ def to_RZ(
         "Rs": Rs,
         "Zc": Zc,
         "Zs": Zs,
+        "m_modes": mn_modes[0],
+        "n_modes": mn_modes[1],
         "tolerance": tolerance,
     }
 

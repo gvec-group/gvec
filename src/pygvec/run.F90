@@ -60,11 +60,10 @@ SUBROUTINE cleanup()
   USE MODgvec_Output     , ONLY: FinalizeOutput
   USE MODgvec_Restart    , ONLY: FinalizeRestart
   USE MODgvec_ReadInTools, ONLY: FinalizeReadIn
-  USE MODgvec_Functional , ONLY: t_functional, InitFunctional,FinalizeFunctional
   USE MODgvec_rungvec,     ONLY: functional
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   IF (ALLOCATED(functional)) THEN
-    CALL FinalizeFunctional(functional)
+    CALL functional%free()
     DEALLOCATE(functional)
   END IF
   CALL FinalizeAnalyze()

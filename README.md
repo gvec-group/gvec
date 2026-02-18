@@ -39,7 +39,7 @@ Outside contributions are always welcome!
 
  * [user and developer documentation](https://gvec.readthedocs.io/latest) built with *sphinx* and hosted on *readthedocs*.
    * [Installation](https://gvec.readthedocs.io/latest/user/install.html)
-   * [Getting Started](https://gvec.readthedocs.io/latest/user/getting-started.html)
+   * [Getting Started](https://gvec.readthedocs.io/latest/tutorials/getting-started.html)
    * [Theoretical considerations](https://gvec.readthedocs.io/latest/user/theory.html)
  * auto-generated [fortran code documentation](https://gvec.readthedocs.io/latest/ford/index.html) built with [FORD](https://forddocs.readthedocs.io/en/latest/)
 
@@ -50,21 +50,20 @@ GVEC is available on [PyPI](https://pypi.org/project/gvec/):
 pip install gvec
 ```
 
-For required libraries, other installation methods and more details see the documentation on [Installation](https://gvec.readthedocs.io/latest/user/install.html) and [Getting Started](https://gvec.readthedocs.io/latest/user/getting-started.html).
+For required libraries, other installation methods and more details see the documentation on [Installation](https://gvec.readthedocs.io/latest/user/install.html) and [Getting Started](https://gvec.readthedocs.io/latest/tutorials/getting-started.html).
 
 ## Reporting Bugs & Contributing to GVEC
 
 The GVEC development repository is hosted at the [MPCDF-GitLab](https://gitlab.mpcdf.mpg.de/gvec-group/gvec).
-There you can also find the [Issue tracker](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/issues), merge requests and releases.
-Contact the maintainers for a guest account if you want to contribute to GVEC.
+There you can also find the [issue tracker](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/issues), [merge requests](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/merge_requests) and [release notes](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/releases).
 
 A public mirror of GVEC is hosted on [GitHub](https://github.com/gvec-group/gvec).
-There you can also open [issues](https://github.com/gvec-group/gvec/issues) and pull requests.
+There everyone can open [issues](https://github.com/gvec-group/gvec/issues) and [pull requests](https://github.com/gvec-group/gvec/pulls).
 
-For questions, discussions and announcements you can also join the [matrix-chat channel](https://matrix.to/#/#gvec:mpg.de).
+**Contributions are always welcome!**
+More information on how to contribute can be found in the [developer documentation](https://gvec.readthedocs.io/latest/dev/index.html).
 
-Contributions are always welcome, best get into contact directly with the maintainers.
-Also see the relevant [documentation](https://gvec.readthedocs.io/latest/dev/index.html).
+If you don't know where to start, don't hesitate to contact [the maintainers](https://www.ipp.mpg.de/person/139885/5497858) directly or join the [matrix-chat channel](https://matrix.to/#/#gvec:mpg.de) for questions and discussions.
 
 ## License
 

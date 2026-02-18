@@ -302,7 +302,7 @@ def plot_gist(projectname: str, params: Mapping, data: np.ndarray):
             title=name,
             xlabel=r"$\theta$",
             xticks=np.linspace(-np.pi * n_pol, np.pi * n_pol, 5),
-            xticklabels=[f"${x:.1f}\pi$" for x in np.linspace(-n_pol, n_pol, 5)],
+            xticklabels=[f"${x:.1f}\\pi$" for x in np.linspace(-n_pol, n_pol, 5)],
         )
     fig.suptitle(f"GENE-GIST output for {projectname} at $s={s:.2f}$")
     return fig

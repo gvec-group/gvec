@@ -111,14 +111,16 @@ END SUBROUTINE InitAnalyze
 !>
 !!
 !===================================================================================================================================
-SUBROUTINE Analyze(fileID_in)
+SUBROUTINE Analyze(fileID_in, dofs_in, force_in)
 ! MODULES
+USE MODgvec_sol_var_MHD3D, ONLY: t_sol_var_MHD3D
 USE MODgvec_Analyze_Vars
 USE MODgvec_MHD3D_Vars, ONLY:which_init
 USE MODgvec_mhd3d_visu
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
+CLASS(t_sol_var_MHD3D), INTENT(IN) :: dofs_in, force_in
 INTEGER, INTENT(IN), OPTIONAL :: fileID_in
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -143,7 +145,7 @@ INTEGER            :: FileID
     END IF
   END IF !iAnalyze==0
   IF(visu1D.GT.0)THEN
-    CALL visu_1d_modes(np_1d,FileID)
+    CALL visu_1d_modes(dofs_in,np_1d,FileID)
     !
   END IF !visu1D
   IF(visu2D.GT.0)THEN
@@ -154,10 +156,10 @@ INTEGER            :: FileID
     IF(INDEX(vstr,'3').NE.0) vcase(3)=.TRUE.
     IF(INDEX(vstr,'4').NE.0) vcase(4)=.TRUE.
     IF(vcase(1))THEN
-      IF(iAnalyze.EQ.0) CALL visu_BC_face(np_visu_BC(1:2),visu_BC_minmax(:,:),FileID)
+      IF(iAnalyze.EQ.0) CALL visu_BC_face(dofs_in, np_visu_BC(1:2),visu_BC_minmax(:,:),FileID)
     END IF
     IF(vcase(2))THEN
-      CALL visu_3D(np_visu_planes,visu_planes_minmax,.TRUE.,FileID) !only planes
+      CALL visu_3D(dofs_in, force_in, np_visu_planes,visu_planes_minmax,.TRUE.,FileID) !only planes
     END IF
   END IF !visu2d
   IF(visu3D.GT.0)THEN
@@ -168,7 +170,7 @@ INTEGER            :: FileID
     IF(INDEX(vstr,'3').NE.0) vcase(3)=.TRUE.
     IF(INDEX(vstr,'4').NE.0) vcase(4)=.TRUE.
     IF(vcase(1))THEN
-      CALL visu_3D(np_visu_3D,visu_3D_minmax,.FALSE.,FileID) !full 3D
+      CALL visu_3D(dofs_in, force_in, np_visu_3D,visu_3D_minmax,.FALSE.,FileID) !full 3D
     END IF
   END IF !visu2d
 

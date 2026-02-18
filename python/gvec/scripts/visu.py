@@ -1,0 +1,72 @@
+# Copyright (c) 2025 GVEC Contributors, Max Planck Institute for Plasma Physics
+# License: MIT
+"""visu.py - Save some default plots from a given GVEC output file."""
+
+import argparse
+import logging
+from collections.abc import Sequence
+from pathlib import Path
+
+from gvec import State, find_state
+from gvec.util import logging_setup
+
+parser = argparse.ArgumentParser(
+    prog="pygvec-plots", description="Output some default plots for diagnostics."
+)
+
+parser.add_argument("--rundir", type=Path, help="GVEC run directory", default=Path("."))
+
+parser.add_argument("--outdir", type=Path, help="Plot output directory", default=Path("."))
+
+parser.add_argument("--dpi", type=int, help="DPI of the saved figures.", default=600)
+
+parser.add_argument(
+    "-v",
+    "--verbose",
+    action="count",
+    default=0,
+    help="verbosity level: -v for info, -vv for debug",
+)
+
+
+def main(args: Sequence[str] | argparse.Namespace | None = None):
+    if isinstance(args, argparse.Namespace):
+        pass
+    else:
+        args = parser.parse_args(args)
+
+    logging_setup()
+    logger = logging.getLogger(__name__)
+    if args.verbose == 0:
+        logging.disable()
+    if args.verbose >= 2:
+        logger.setLevel(logging.DEBUG)
+    elif args.verbose == 1:
+        logger.setLevel(logging.INFO)
+    logger.debug(f"parsed args: {args}")
+
+    state = find_state(args.rundir)
+
+    logger.info("Generating:")
+
+    logger.info("   radial profiles.")
+    f, ax = state.plot_radial_profile()
+    f.savefig(args.outdir / "profiles.png", dpi=args.dpi)
+
+    logger.info("   axis plots.")
+    f, ax = state.plot_on_axis()
+    f.savefig(args.outdir / "modB_axis.png", dpi=args.dpi)
+
+    logger.info("   poloidal cuts.")
+    f, ax = state.plot_poloidal_plane()
+    f.savefig(args.outdir / "modB_poloidal_cuts.png", dpi=args.dpi)
+
+    logger.info("   last closed flux surface.")
+    f, ax = state.plot_on_flux_surface()
+    f.savefig(args.outdir / "modB_lcfs.png", dpi=args.dpi)
+
+    logger.info("Done.")
+
+
+if __name__ == "__main__":
+    main()
