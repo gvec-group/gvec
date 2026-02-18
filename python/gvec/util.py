@@ -83,14 +83,22 @@ class CaseInsensitiveDict(MutableMapping):
     The structure remembers the case of the last used key, and
     ``iter(instance)``, ``keys()``, ``items()``, ``iterkeys()``, and ``iteritems()``
     will contain case-sensitive keys. However, querying and contains
-    testing is case insensitive:
-    ::
-        cid = CaseInsensitiveDict()
-        cid['param'] = 'value'
-        cid['Param'] == 'value' # True
+    testing is case insensitive.
 
-    If the constructor, ``.update``, or equality comparison
-    operations are given keys that have equal ``.lower()``, a ``ValueError`` is raised.
+    Raises
+    ------
+    ValueError
+        If the constructor, ``.update``, or equality comparison
+        operations are given keys that have equal ``.lower()`` representations.
+        This is to avoid ambiguity in lookups and ensure consistent behavior.
+
+    Examples
+    --------
+
+    >>> cid = CaseInsensitiveDict()
+    >>> cid['param'] = 'value'
+    >>> cid['Param'] == 'value'
+    True
     """
 
     def __init__(self, data=(), /, **kwargs):
@@ -978,8 +986,8 @@ def compute_FD(f: np.ndarray, pos, coefs, axis=0):
     """
     1D Finite difference of a function f on equispaced n-dimnesional grid, using FD coefficients coefficients ``coefs`` and relative integer positions to the central evaluation point ``pos``, along one given axis.
 
-    WARNING
-    -------
+    Warnings
+    --------
     - if data is periodic, meaning that endpoints of periodic interval are excluded, result can be on all points.
     - If data is not periodic, the result at the **boundaries is WRONG**, for the points ``|min(pos)|`` on the left and ``max(pos)`` on the right along the given axis.
 

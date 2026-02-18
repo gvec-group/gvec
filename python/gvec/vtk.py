@@ -193,6 +193,10 @@ def gframe_to_vtk(
     The file is for example produced by the GVEC quasr script, and then used in GVEC for initialization.
     Writes vtk-visualization files from the data.
 
+    * writes file ``prefix_axis.filetype`` : if ``'axis'`` group exists in ``file``, provides the origin curve position in 3D and N,B vectors on that curve. On full torus or on given ``zeta_visu`` positions
+    * writes file ``prefix_boundary.filetype`` : if ``'boundary'`` group exists ``file``, provides the boundary surface position in 3D. On one field period, or on given ``zeta_visu`` positions
+    * writes file ``prefix_axis_box.filetype`` : if ``box_axis=[a,b]``, G-Frame is visualized as a box aroud the axis.
+
     Parameters
     ----------
     file : str | path
@@ -209,13 +213,6 @@ def gframe_to_vtk(
         if True, visualize the boundary surface
     filetype : str
         can be ``"vts"`` (default, VTK structured format) or ``"nc"`` (netcdf)
-
-
-    Output
-    ------
-    * writes file ``prefix_axis.filetype`` : if ``'axis'`` group exists in ``file``, provides the origin curve position in 3D and N,B vectors on that curve. On full torus or on given ``zeta_visu`` positions
-    * writes file ``prefix_boundary.filetype`` : if ``'boundary'`` group exists ``file``, provides the boundary surface position in 3D. On one field period, or on given ``zeta_visu`` positions
-    * writes file ``prefix_axis_box.filetype`` : if ``box_axis=[a,b]``, G-Frame is visualized as a box aroud the axis.
     """
     dnc = gframe.read_Gframe_ncfile(file)
     nfp = dnc["nfp"]
