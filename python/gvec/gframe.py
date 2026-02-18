@@ -44,7 +44,7 @@ def check_field_periodicity(xyz: np.ndarray, nfp: int, atol=1e-12):
         sign_rot = -1
     else:
         raise ValueError(
-            f"the first point of the surface [0,0] is not rotationally symmetric with the next field period. nfp={nfp}, absolute distance={np.amax([dist_pos, dist_neg])} not within tolerance {atol}!"
+            f"the first point of the surface [0,0] is not rotationally symmetric with the next field period. nfp={nfp}, absolute distance={np.amin([dist_pos, dist_neg])} not within tolerance {atol}!"
         )
 
     # rotate first fp and compare with next
@@ -638,6 +638,7 @@ def construct_gframe_from_surface(
     cutoff_gframe: int = -1,
     logger: logging.Logger | None = None,
     writeFiles: bool = True,
+    atol_field_periodicity: float = 1e-12,
 ):
     """
     Construct a G-Frame from a surface given by its cartesian points.
@@ -671,6 +672,8 @@ def construct_gframe_from_surface(
         construct the G-frame. Default `-1` means no cutoff.
     writeFiles : bool, optional
         If True, write the GVEC parameters to file and the G-frame data to netcdf file.
+    atol_field_periodicity: float, optional
+        Absolute tolerance for field-periodicity check. Default is 1e-12
 
     Returns
     -------
@@ -702,7 +705,7 @@ def construct_gframe_from_surface(
     theta = np.linspace(0, 2 * np.pi, nt, endpoint=False)
     # check field periodicity
     logger.info(". check field periodicity")
-    sign_rot = check_field_periodicity(xyz_surf, nfp)
+    sign_rot = check_field_periodicity(xyz_surf, nfp, atol_field_periodicity)
 
     # analyze input surface
     logger.info(". analyze input surface")
@@ -718,7 +721,9 @@ def construct_gframe_from_surface(
             f"  - Finding minimal mode numbers for input surface with (M={Min}, N={Nin}), with tolerance {tolerance_clean_surface:.1e}"
         )
         Mmax, Nmax = minimal_modes(xhat.T, yhat.T, Z=zhat.T, tolerance=tolerance_clean_surface)
-        logger.info(f"     Found minimal (M={Mmax}, N={Nmax}) for one field period.")
+        logger.info(
+            f"     Found minimal (M={Mmax}, N={Nmax}) for (xhat,yhat,zhat) in one field period."
+        )
 
         xhat_c = fourier.scale_modes2d(xhat_c, Mmax, Nmax)
         xhat_s = fourier.scale_modes2d(xhat_s, Mmax, Nmax)
@@ -743,9 +748,13 @@ def construct_gframe_from_surface(
         and np.amax(np.abs(zhat_c)) < 1e-12 * norm
     )
     if not lasym:
-        logger.info("  - input surface is stellarator-symmetric")
+        logger.info(
+            "  - input surface is stellarator-symmetric (symmetric if xhat~cos,yhat~sin,zhat~sin)"
+        )
     else:
-        logger.info("  - input surface is NOT stellarator-symmetric:")
+        logger.info(
+            "  - input surface is NOT stellarator-symmetric (symmetric if xhat~cos,yhat~sin,zhat~sin):"
+        )
         logger.info(f"    max|xhat_c|={max_xhat_c}, max|xhat_s|={max_xhat_s}, ")
         logger.info(f"    max|yhat_c|={max_yhat_c}, max|yhat_s|={max_yhat_s}, ")
         logger.info(f"    max|zhat_c|={max_zhat_c}, max|zhat_s|={max_zhat_s}.")
@@ -809,7 +818,7 @@ def construct_gframe_from_surface(
         f". Finding minimal modes for X^1,X^2, (M={Mmax}, N={Nmax}), with tolerance {tolerance_output:.1e}"
     )
     Mmax, Nmax = minimal_modes(x1_cut.T, x2_cut.T, tolerance=tolerance_output)
-    logger.info(f" Found minimal (M={Mmax}, N={Nmax})")
+    logger.info(f" Found minimal (M={Mmax}, N={Nmax}) for (X^1,X^2)")
 
     X1c, X1s = fourier.fft2d(x1_cut.T)
     X2c, X2s = fourier.fft2d(x2_cut.T)
@@ -833,6 +842,7 @@ def construct_gframe_from_surface(
     dict_out["generatedFrom"] += f", theta0 = {theta0}"
     dict_out["generatedFrom"] += f", zeta0 = {zeta0}"
     dict_out["generatedFrom"] += f", cutoff_gframe = {cutoff_gframe}"
+    dict_out["generatedFrom"] += f", atol_field_periodicity = {atol_field_periodicity}"
 
     dict_out["axis"] = {
         "nzeta": nz_gframe,
