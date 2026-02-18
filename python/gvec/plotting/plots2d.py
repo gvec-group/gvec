@@ -260,7 +260,9 @@ def plot_on_flux_surface(
         Any ``**kwargs`` to send to the ``plt.figure()`` function.
         For example ``plot_kwargs={'figsize': (8,8)}``. See the `matplotlib documentation <https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.figure.html>`_ for a list of kwargs.
     boozer_kwargs : optional
-        Keyword arguments for the case where ``boozer`` is used.
+        Additional keyword arguments to pass to the ``get_boozer`` method of the ``state`` object.
+        These can be used to specify the Boozer transform parameters.
+        For example the maximum mode number factor ``boozer_kwargs={'MNfactor': 3}``.
 
 
     Returns
@@ -416,7 +418,9 @@ def plot_fourier_on_surface(
         Any ``**kwargs`` to send to the ``plt.figure()`` function.
         For example ``plot_kwargs={'figsize': (8,8)}``. See the `matplotlib documentation <https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.figure.html>`_ for a list of kwargs.
     boozer_kwargs : optional
-        Keyword arguments for the case where ``boozer`` is used.
+        Additional keyword arguments to pass to the ``get_boozer`` method of the ``state`` object.
+        These can be used to specify the Boozer transform parameters.
+        For example the maximum mode number factor ``boozer_kwargs={'MNfactor': 3}``.
 
 
     Returns
