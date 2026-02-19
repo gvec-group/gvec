@@ -107,12 +107,53 @@ class FreeBoundaryState(State):
         self.iters_used = 0
         self.free_boundary_target = 1e30
 
+        self.clockwise_zeta = self._determine_clockwise_zeta()
+
         if self.current_constraint:
             self.diagnostics["iota"] = (
                 ("rho_iota", "iteration"),
                 np.full(shape=(len(self.rho_iota), self.fb_updates), fill_value=np.nan),
             )
             self.diagnostics["rho_iota"] = self.rho_iota
+
+    def _determine_clockwise_zeta(self):
+        """Rotates a point of the axis with the Rodrigues equation to see if zeta runs clockwise or counter-clockwise.
+
+        Returns
+        -------
+        bool
+            Whether zeta runs clockwise ort not.
+
+        Raises
+        ------
+        ValueError
+            If there is an implementation error that causes this approach to fail.
+        """
+
+        zeta = 2 * np.pi / self.nfp
+        ev = self.evaluate("pos", rho=0.0, theta=0.0, zeta=[0, 2 * np.pi / self.nfp])
+        v0 = ev.pos.isel(pol=0, tor=0, rad=0).data
+        v1 = ev.pos.isel(pol=0, tor=1, rad=0).data
+        k = np.array([0, 0, 1])
+        vrot = (
+            v0 * np.cos(zeta)
+            + np.sin(zeta) * np.cross(k, v0)
+            + (1 - np.cos(zeta)) * np.dot(k, v0) * k
+        )
+        zeta_inv = 2 * np.pi - zeta
+        vrot_inv = (
+            v0 * np.cos(zeta_inv)
+            + np.sin(zeta_inv) * np.cross(k, v0)
+            + (1 - np.cos(zeta_inv)) * np.dot(k, v0) * k
+        )
+
+        if all(abs(vrot - v1) < 1e-12):
+            clockwise_zeta = False
+        elif all(abs(vrot_inv - v1) < 1e-12):
+            clockwise_zeta = True
+        else:
+            raise ValueError("Issue when determining zeta-rotation.")
+        return clockwise_zeta
 
     def _allocate_diagnostics(self):
         """Setup the diagnostics dataset."""
@@ -445,12 +486,11 @@ class FreeBoundaryState(State):
 
                 # whether to interpolate the external field or not
                 if i < 2:
-                    (B2, B_plas_ext, B_coils, B_ext_2) = _get_B2_one_fp(
+                    (B2, B_plas_ext, B_coils, B_ext_2) = _get_B2_fp(
                         state=self,
                         coil_set=self.coil_set,
                         ntheta=self.t_n,
                         nzeta=self.z_n,
-                        fac=self.fac,
                         I_tor=self.I_tor_boundary,
                         diagnostic_output=True,
                     )
@@ -460,12 +500,11 @@ class FreeBoundaryState(State):
 
                 else:
                     if i % self.iter_B_update == 0:
-                        (B2, B_plas_ext, B_coils, B_ext_2) = _get_B2_one_fp(
+                        (B2, B_plas_ext, B_coils, B_ext_2) = _get_B2_fp(
                             state=self,
                             coil_set=self.coil_set,
                             ntheta=self.t_n,
                             nzeta=self.z_n,
-                            fac=self.fac,
                             I_tor=self.I_tor_boundary,
                             diagnostic_output=True,
                         )
@@ -506,7 +545,7 @@ class FreeBoundaryState(State):
             )
 
 
-def _get_B2_one_fp(
+def _get_B2_all_fp(
     state: State | FreeBoundaryState,
     coil_set: CoilSet | Coil,
     ntheta: int,
@@ -515,8 +554,8 @@ def _get_B2_one_fp(
     diagnostic_output=False,
     fac: int = 1,
 ):
-    """Setup BIEST with points corresponding to one field period and return the flattened squared exterior field for free boundary gvec.
-    One field period is used to avoid automatic copying of from inside BIEST which may switch directions.
+    """Setup BIEST with points corresponding to all field periods and return the flattened squared exterior field for free boundary gvec.
+    All field periods are used to avoid automatic copying of from inside BIEST which may expect different orientation of the points.
 
     Parameters
     ----------
@@ -604,6 +643,104 @@ def _get_B2_one_fp(
             B2_flat,
             B_plas_ext[:, :nzeta_aux:fac, ::fac],
             B_coils[:, :nzeta_aux:fac, ::fac],
+            B2,
+        )
+    else:
+        return B2_flat
+
+
+def _get_B2_fp(
+    state: State | FreeBoundaryState,
+    coil_set: CoilSet | Coil,
+    ntheta: int,
+    nzeta: int,
+    I_tor: float,
+    diagnostic_output=False,
+):
+    """Setup BIEST with points corresponding to one field period and return the flattened squared exterior field for free boundary gvec.
+
+    Parameters
+    ----------
+    state : State
+        GVEC state object. This is used to extract the boundary points
+    coil_set : CoilSet | Coil
+        Free-boundary coil set. The coil magnetic field is evaluated at the boundary-integration points.
+    ntheta : int
+        Number of theta integration points.
+    nzeta : int
+        Number of zeta integration points.
+    I_tor : float
+        Toroidal current at the boundary.
+    diagnostic_output : bool, optional
+        Debug-flag to enable the return of the intermediate fields, by default False.
+        If True B2_flat, B_plas_ext, B_coils, B2 for one field period are returned
+
+    Returns
+    -------
+    np.ndarray(B2_ext)
+        Squared exterior field at the GVEC integration points flattened in GVEC order.
+    """
+
+    if has_fbtools:
+        from fbtools.exterior_vacuum_field import get_B_ext_plasma
+    else:
+        logger.warning(
+            "Could not import 'fbtools'! Please make sure the package is installed. Aborting Bext calulation."
+        )
+        return
+
+    theta = np.linspace(0, 2 * np.pi, ntheta, endpoint=False)
+    theta += 0.5 * theta[1]
+    zeta = np.linspace(0, 2 * np.pi / state.nfp, nzeta, endpoint=False)
+    zeta += 0.5 * zeta[1]
+
+    # get the boundary for the full device (=all field periods)
+    boundary = state.evaluate("pos", rho=1.0, zeta=zeta, theta=theta)
+    boundary = boundary.sel(rho=1).transpose("xyz", "tor", "pol")
+
+    # coil-field at the boundary
+    ev_coils = coil_set.eval_B(boundary.pos)
+    B_coils = ev_coils.B.transpose("xyz", "tor", "pol").values
+    if state.clockwise_zeta:
+        boundary_biest = np.flip(boundary.pos.values, axis=1)
+        B_coils_biest = np.flip(B_coils, axis=1)
+    else:
+        boundary_biest = boundary.pos.values
+        B_coils_biest = B_coils
+
+    # main BIEST calculation
+    time_0 = time.time()
+    B_plas_ext = get_B_ext_plasma(
+        boundary_biest,
+        state.nfp,
+        B_coils_biest,
+        I_tor * mu_0,
+        digits=10,
+    )
+    time_1 = time.time()
+    logger.info(f"time for BIEST: {time_1 - time_0:.3}s for {ntheta * nzeta} points")
+    if state.clockwise_zeta:
+        B_plas_ext = np.flip(B_plas_ext, axis=1)
+
+    # Bext^2
+    B_external = B_plas_ext + B_coils
+
+    B2 = np.sum(B_external**2, axis=0)
+
+    B2_flat = np.ones(ntheta * nzeta) * 1e6
+    counter = 0
+
+    # flatten according to internal GVEC order
+    for nIP in range(nzeta):
+        for mIP in range(ntheta):
+            B2_flat[counter] = B2[nIP, mIP]
+            counter += 1
+    B2_flat = np.asfortranarray(B2_flat)
+    if diagnostic_output:
+        return (
+            B2_flat,
+            B_plas_ext,
+            B_coils,
             B2,
         )
     else:
