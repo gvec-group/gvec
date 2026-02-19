@@ -854,6 +854,30 @@ def grad_mod_B(ds: xr.Dataset):
     )
 
 
+def _db_factory(a):
+    @register(
+        quantities=[f"db_d{a}"],
+        requirements=[
+            f"dB_d{a}",
+            f"dmod_B_d{a}",
+            "mod_B",
+        ],
+        attrs=dict(
+            long_name=derivative_name_smart("normalized magnetic field", a),
+            symbol=latex_partial(r"\mathbf{b}", a),
+        ),
+    )
+    def _db(ds: xr.Dataset):
+        ds[f"db_d{a}"] = ds[f"dB_d{a}"] / ds.mod_B - ds.B * ds[f"dmod_B_d{a}"] / ds.mod_B**2
+
+    return _db
+
+
+# generate functions from factory function
+for a in "rtz":
+    globals()[f"db_d{a}"] = _db_factory(a)
+
+
 @register(
     quantities=("J", "J_contra_r", "J_contra_t", "J_contra_z"),
     requirements=[
@@ -1919,3 +1943,45 @@ def L_gradB(ds: xr.Dataset):
     # frobenius norm
     gradB_normF = np.sqrt(sum(gradB[i, j] ** 2 for i in "xyz" for j in "xyz"))
     ds["L_gradB"] = np.sqrt(2) * ds.mod_B / gradB_normF
+
+
+@register(
+    requirements=(
+        "B",
+        "db_dr",
+        "db_dt",
+        "db_dz",
+        "grad_rho",
+        "grad_theta",
+        "grad_zeta",
+        "mod_B",
+    ),
+    attrs=dict(
+        long_name="field line curvature",
+        symbol=r"\mathbf{\kappa}_B",
+    ),
+)
+def kappa_B(ds: xr.Dataset):
+    b = ds.B / ds.mod_B
+    ds["kappa_B"] = (
+        xr.dot(b, ds.grad_rho, dim="xyz") * ds.db_dr
+        + xr.dot(b, ds.grad_theta, dim="xyz") * ds.db_dt
+        + xr.dot(b, ds.grad_zeta, dim="xyz") * ds.db_dz
+    )
+
+
+@register(
+    requirements=(
+        "kappa_B",
+        "grad_rho",
+        "B",
+        "mod_B",
+    ),
+    attrs=dict(
+        long_name="geodesic curvature",
+        symbol=r"\kappa_G",
+    ),
+)
+def kappa_G(ds: xr.Dataset):
+    b = ds.B / ds.mod_B
+    ds["kappa_G"] = xr.dot(ds.kappa_B, xr.cross(ds.grad_rho, b, dim="xyz"), dim="xyz")
