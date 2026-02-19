@@ -171,7 +171,7 @@ def plot_on_axis(
     zeta = evaluations.zeta.data
 
     fig, axs = _plot_line_quantities_from_xarray(
-        evaluations, zeta, quantities, subplot_grid, "$\zeta$", plot_kwargs
+        evaluations, zeta, quantities, subplot_grid, "$\\zeta$", plot_kwargs
     )
 
     return fig, axs

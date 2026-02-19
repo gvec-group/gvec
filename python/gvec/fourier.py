@@ -22,15 +22,16 @@ def fft1d(x: Iterable, angle0=0.0):
 
     Parameters
     ----------
-    x
-        Input array to transform, assumed to be sampled on `angle=angle0+np.linspace(0,2*np.pi,len(x),endpoint=False)`.
-    angle0: starting value of angle, where x was sampled, in [0,2pi] , defaults to 0.
+    x :  Iterable
+        Input array to transform, assumed to be sampled on ``angle=angle0+np.linspace(0,2*np.pi,len(x),endpoint=False)``.
+    angle0: float
+        starting value of angle, where x was sampled, in ``[0,2pi]`` , defaults to ``0.0``.
 
     Returns
     -------
-    c : ndarray
+    c : numpy.ndarray
         Cosine coefficients of the Fourier series.
-    s : ndarray
+    s : numpy.ndarray
         Sine coefficients of the Fourier series.
 
     Notes
@@ -53,18 +54,28 @@ def fft1d(x: Iterable, angle0=0.0):
 def shift_1d(y: np.ndarray, x0, axis, newshape=None):
     r"""
     shift periodic data along one given axis (and upsample):
-    from
-    $y(x_i)$ with $x_i=x_0+2\pi i/N$, $i=0,..N-1,$ `N=len(y)`
-    to
-    $y(x_j)$ with $x_j=0+2\pi j/M$, $j=0,..M-1$
 
-    with `M>=N`.
-    can be used to upsample, by setting `x0=0`.
-    Inputs:
-        y: periodic data
-        x0: origin position where y[0] was evaluated
-        axis: axis along which to shift
-        newshape: output shape along the shifted axis >= input shape. Defaults to input shape
+    from  $y(x_i)$ with $x_i=x_0+2\pi i/N$, $i=0,..N-1,$ ``N=len(y)``
+
+    to  $y(x_j)$ with $x_j=0+2\pi j/M$, $j=0,..M-1$
+
+    with ``M>=N``. can be used to upsample, by setting ``x0=0``.
+
+    Parameters
+    ----------
+    y: numpy.ndarray
+        periodic data
+    x0: float
+        origin position where ``y[0]`` was evaluated. If zero, no shift is applied.
+    axis: int
+        axis along which to shift
+    newshape: int
+        output shape along the shifted axis >= input shape. Defaults to input shape
+
+    Returns
+    -------
+    yshft : ndarray
+        shifted periodic data ``y(x-x0)``
     """
     c = np.fft.rfft(y, norm="forward", axis=axis)
     ks = np.expand_dims(
@@ -84,22 +95,25 @@ def fft2d(x: np.ndarray, theta0=0.0, zeta0=0.0):
     Compute the Fourier transform of a 2D array.
 
     The Fourier series is of the form :math:`x(\theta, \zeta) = \sum_{m, n} c_{m, n} \cos(m \theta - n \zeta) + s_{m, n} \sin(m \theta - n \zeta)`.
-    The coefficients are given as arrays of shape (M + 1, 2 * N + 1), where M and N are the maximum poloidal and toroidal harmonics, respectively.
+    The coefficients are given as arrays of shape ``(M + 1, 2 * N + 1)``, where M and N are the maximum poloidal and toroidal harmonics, respectively.
     The coefficients with toroidal indices :math:`n > N` are to be interpreted negatively, counted from the end of the array.
 
     Parameters
     ----------
-    x
-        Input array of shape (ntheta, nzeta) to transform,
-        assumed to be sampled on `theta=theta0+np.linspace(0,2*np.pi,ntheta,endpoint=False)`
-        and `zeta=zeta0+np.linspace(0,2*np.pi,nzeta*nfp,endpoint=False)`
-    theta0 : starting value of theta, where x was sampled , defaults to 0.
-    zeta0 : starting value of zeta, where x was sampled, defaults to 0.
+    x : numpy.ndarray
+        Input array of shape ``(ntheta, nzeta)`` to transform,
+        assumed to be sampled on ``theta=theta0+np.linspace(0,2*np.pi,ntheta,endpoint=False)``
+        and ``zeta=zeta0+np.linspace(0,2*np.pi,nzeta*nfp,endpoint=False)``
+    theta0 : float
+        starting value of theta, where x was sampled , defaults to ``0.0``.
+    zeta0 : float
+        starting value of zeta, where x was sampled, defaults to ``0.0``.
+
     Returns
     -------
-    c : ndarray
+    c : numpy.ndarray
         Cosine coefficients of the double-angle Fourier series.
-    s : ndarray
+    s : numpy.ndarray
         Sine coefficients of the double-angle Fourier series.
     """
     x = np.asarray(x)
@@ -147,7 +161,7 @@ def ifft2d(c: np.ndarray, s: np.ndarray, deriv: str | None = None, nfp: int = 1)
     s : numpy.ndarray
         Sine coefficients of the Fourier series.
     deriv : str, optional
-        Derivative to evaluate, by default None. Specified as 'theta', 'zeta' or any string of 't' & 'z', e.g. 't', 'tz', 'ttz', ...
+        Derivative to evaluate, by default None. Specified as ``'theta'``, ``'zeta'`` or any string of ``'t' ``  and ``'z'``, e.g. ``'t'``, ``'tz'``, ``'ttz'``, ...
     nfp : int, optional
         Number of field periods, by default 1. Only used for derivatives, the data itself is always assumed to be in a single field period.
 
@@ -155,8 +169,7 @@ def ifft2d(c: np.ndarray, s: np.ndarray, deriv: str | None = None, nfp: int = 1)
     Returns
     -------
     x : numpy.ndarray
-        The values of the series evaluated at `theta=np.linspace(0,2*np.pi,2*M+1,endpoint=False)` and `zeta=np.linspace(0,2*np.pi,N*nfp+1,endpoint=False)`.
-
+        The values of the series evaluated at ``theta=np.linspace(0,2*np.pi,2*M+1,endpoint=False)`` and ``zeta=np.linspace(0,2*np.pi,N*nfp+1,endpoint=False)``.
     """
     if c.shape != s.shape:
         raise ValueError("c and s must have the same shape")
@@ -319,15 +332,30 @@ def eval2d(
 
 def real_dft_mat(x_in, x_out, nfp=1, modes=None, deriv=0):
     """
-    Flexible Direct Fourier Transform for real data
-    takes an input array of equidistant points in [0,2pi/nfp[ (exclude endpoint!),
-    evaluate the discrete fourier transform with the given 1d mode vector (all >=0) using the input points x_in, then evaluate the inverse transform (or its derivative deriv>0) on the output points x_out anywhere...
-    len(x_in) must be > 2*max(modes)
-    output is the matrix that transforms real function to real function [derivative]:
-     f^deriv(x_out) = Mat f(x_in) (can then be used to do 2d transforms with matmul!)
+    Precompute matrices for flexible Direct Fourier Transform for real data in 1D.
 
-    nfp is the number of field periods, default 1 (int), all modes are multiples of nfp
+    Takes an input array of equidistant points in ``[0,2pi/nfp[`` (exclude endpoint!),
+    evaluate the discrete fourier transform with the given 1d mode vector (all >=0) using the input points ``x_in``, then evaluate the inverse transform (or its derivative ``deriv>0``) on the output points ``x_out`` anywhere.
 
+    Parameters
+    ----------
+    x_in : numpy.ndarray
+        equidistant points in one field period, excluding the periodic endpoint
+        ``len(x_in)`` must be ``> 2*max(modes)``
+    x_out : numpy.ndarray
+        array of output point positions, can be chosen anywhere.
+    nfp : int,optional
+        number of field periods, all modes are multiples of nfp, default is ``1``
+    modes : ndarray, int, optional
+        modes to be considered in the 1D Fourier transform, on one field period. Default is None, which sets the modes to ``np.arange((len(x_in) - 1) // 2 + 1)``
+    deriv : int,optional
+        build the output matrix for the derivative of the function.
+
+    Returns
+    -------
+    out : dict
+        output is a dictionary, storing the input data and the forward-backward matrix ``"FB"``, that transforms real function to real function [derivative]:
+        ``f^deriv(x_out) = dict["BF"]  @ f(x_in)`` (can then be used to do 2d transforms with matmul!)
     """
     if modes is None:
         modes = np.arange((len(x_in) - 1) // 2 + 1)  # all modes up to Nyquist
@@ -370,7 +398,25 @@ def real_dft_mat(x_in, x_out, nfp=1, modes=None, deriv=0):
 
 def get_B_dft(x_out, deriv, nfp, modes):
     """
-    get the matrix B for Fourier transform from modes -> points, with derivative
+    Function to be used together with ``real_dft_mat``, a direct Fourier transform in 1D.
+    Get the the matrix for the backward direct fourier transform.
+
+    Parameters
+    ----------
+    x_out : numpy.ndarray
+        array of output point positions, can be chosen anywhere.
+    deriv : int,optional
+        build the output matrix for the derivative of the function.
+    nfp : int,optional
+        number of field periods, all modes are multiples of nfp, default is ``1``
+    modes : numpy.ndarray, int
+        modes to be considered in the 1D Fourier transform, on one field period.
+
+    Returns
+    -------
+    modes_back : numpy.ndarray
+        Matrix for Fourier transform from modes to points, with derivative
+
     """
     modes_back = np.exp(-1j * nfp * (modes[None, :] * x_out[:, None]))
     if deriv > 0:
