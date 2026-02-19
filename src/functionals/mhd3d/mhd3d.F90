@@ -112,7 +112,7 @@ SUBROUTINE InitMHD3D(sf)
   doCheckDistance=GETLOGICAL("doCheckDistance",Proposal=.FALSE.)
   doCheckAxis=GETLOGICAL("doCheckAxis",Proposal=.TRUE.)
   !-----------
-  FreeBoundary = GETLOGICAL("FreeBoundary", Proposal=.TRUE.)
+  FreeBoundary = GETLOGICAL("FreeBoundary", Proposal=.FALSE.)
 
   fac_nyq = GETINT( "fac_nyq",Proposal=4)
 
