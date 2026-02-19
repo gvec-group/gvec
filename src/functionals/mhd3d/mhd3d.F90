@@ -646,7 +646,7 @@ END SUBROUTINE InitProfile
 !> Initialize Module
 !!
 !===================================================================================================================================
-SUBROUTINE InitSolutionMHD3D(sf)
+SUBROUTINE InitSolutionMHD3D(sf, RestartFile_in, do_WriteState_in)
 ! MODULES
   USE MODgvec_MHD3D_Vars     , ONLY: which_init,init_LA,boundary_perturb,boundary_perturb_depth,boundary_perturb_type
   USE MODgvec_Restart_vars   , ONLY: doRestart,RestartFile
@@ -660,19 +660,39 @@ SUBROUTINE InitSolutionMHD3D(sf)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
+  CHARACTER(LEN=255), INTENT(IN), OPTIONAL :: RestartFile_in ! for restart from State
+  LOGICAL,            INTENT(IN), OPTIONAL :: do_WriteState_in
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER              :: JacCheck
+  LOGICAL              :: doRestart_local, do_WriteState
+  CHARACTER(LEN=255)   :: RestartFile_local
 !===================================================================================================================================
   CALL par_barrier(beforeScreenOut="    INITIALIZE SOLUTION...",afterScreenOut="                           ...")
   CALL enter_subregion("init-solution")
+
+  ! allow for restart in the state
+  IF (PRESENT(RestartFile_in)) THEN
+    doRestart_local = .TRUE.
+    RestartFile_local = RestartFile_in
+  ELSE
+    doRestart_local = doRestart
+    RestartFile_local = RestartFile
+  END IF
+
+  IF (PRESENT(do_WriteState_in)) THEN
+    do_WriteState = do_WriteState_in
+  ELSE
+    do_WriteState = .TRUE.
+  END IF
+
   ASSOCIATE(vars=>sf%minimizer%vars)
     IF(MPIroot) THEN
-      IF(doRestart)THEN
+      IF(doRestart_local)THEN
         WRITE(UNIT_stdOut,'(4X,A)')'... restarting from file ... '
-        CALL RestartFromState(RestartFile,vars%dofs(0))
+        CALL RestartFromState(RestartFile_local,vars%dofs(0))
         CALL InitSolution(vars%dofs(0),-1) ! (re-)apply BC and init LA (if init_LA is true)
       ELSE
         CALL InitSolution(vars%dofs(0),which_init)
@@ -706,10 +726,16 @@ SUBROUTINE InitSolutionMHD3D(sf)
 
     CALL vars%dofs(-3)%set_to(vars%dofs(0)) ! initial valid solution should remain unchanged
 
-    CALL WriteState(vars%dofs(0),0)
+    IF (do_WriteState) THEN
+      CALL WriteState(vars%dofs(0),0)
+    END IF
+
     CALL EvalForce(vars%dofs(0),.FALSE.,JacCheck, vars%force(0))
     SWRITE(UNIT_stdOut,'(8x,A,3E11.4)')'|Force|= ',SQRT(vars%force(0)%norm_2())
-    CALL Analyze(0, vars%dofs(0), vars%force(0))
+
+    IF (do_WriteState) THEN
+      CALL Analyze(0, vars%dofs(0), vars%force(0))
+    END IF
   END ASSOCIATE !vars
   CALL exit_subregion("check-solution")
   CALL par_barrier(afterScreenOut="    ...DONE")

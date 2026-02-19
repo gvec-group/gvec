@@ -1,6 +1,7 @@
 import numpy as np
 from gvec import State, fluxsurface_integral
 from gvec.coils import CoilSet, Coil
+from gvec.core.state import with_binding
 from scipy.constants import mu_0
 import shutil
 from tqdm import tqdm
@@ -62,7 +63,7 @@ class FreeBoundaryState(State):
         statefile : str | Path | None, optional
             Statefile to restart from, by default None
         """
-        super().__init__(parameterfile, statefile)
+        super().__init__(parameterfile, statefile, True)
         self.coil_set = coil_set
         self.fb_updates = fb_updates
         self.totalIter = totalIter
@@ -116,6 +117,7 @@ class FreeBoundaryState(State):
             )
             self.diagnostics["rho_iota"] = self.rho_iota
 
+    @with_binding
     def _determine_clockwise_zeta(self):
         """Rotates a point of the axis with the Rodrigues equation to see if zeta runs clockwise or counter-clockwise.
 
@@ -202,6 +204,7 @@ class FreeBoundaryState(State):
         )
         self.diagnostics = diagnostics
 
+    @with_binding
     def _get_new_iota(self):
         """Calculate a new iota profile. Extracted from gvec-run, to be used for free-boundary current constraint
 
@@ -235,6 +238,7 @@ class FreeBoundaryState(State):
         rms_iota = np.sqrt((delta_iota**2).mean("rad"))
         return (iota_values, ev.rho**2, rms_iota)
 
+    @with_binding
     def _minimize_single_current_constraint(
         self,
         maxIter: int,
@@ -296,6 +300,7 @@ class FreeBoundaryState(State):
         )
         return rms_iota
 
+    @with_binding
     def _minimize_current_constraint(
         self,
         iota_target: float,
@@ -352,6 +357,7 @@ class FreeBoundaryState(State):
             f"Terminated current minimization with Δiota = {rms_iota:.3e}, Δiota = {iota_tol:.3e}. Used {iters_used} / {maxIter} iterations."
         )
 
+    @with_binding
     def _free_boundary_target(self, B_ext_2: np.ndarray):
         """Evaluate the free-boundary target function based on the force-balance.
 
@@ -375,6 +381,7 @@ class FreeBoundaryState(State):
         free_boundary_target = fluxsurface_integral(abs(force_balance))
         return free_boundary_target, force_balance, ev_gvec
 
+    @with_binding
     def _update_diagnostics(
         self, B_ext_2: np.ndarray, B_coils: np.ndarray, B_plas_ext: np.ndarray, iteration: int
     ):
@@ -405,6 +412,7 @@ class FreeBoundaryState(State):
         self.diagnostics.free_boundary_target[iteration] = free_boundary_target
         self.free_boundary_target = free_boundary_target
 
+    @with_binding
     def _free_boundary_update(
         self,
         maxIter: int,
@@ -445,6 +453,7 @@ class FreeBoundaryState(State):
         if copy_stdout:
             shutil.copyfile(self._stdout.name, "stdout.txt")
 
+    @with_binding
     def run_free_boundary(self):
         """Perform the free-boundary run.
 

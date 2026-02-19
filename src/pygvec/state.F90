@@ -20,7 +20,7 @@ INTEGER :: nfp = 0
 CONTAINS
 
 !================================================================================================================================!
-SUBROUTINE Init(parameterfile)
+SUBROUTINE Init(parameterfile, RestartFile_in)
   ! MODULES
   USE MODgvec_Globals,        ONLY: fmt_sep
   USE MODgvec_MHD3D_vars,     ONLY: X1_base
@@ -32,6 +32,7 @@ SUBROUTINE Init(parameterfile)
   USE MODgvec_MPI    ,ONLY: par_Init
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   CHARACTER(LEN=*) :: parameterfile
+  CHARACTER(LEN=255), INTENT(IN), OPTIONAL  :: RestartFile_in
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   ! CODE ========================================================================================================================!
   CALL reset_subregion()
@@ -73,10 +74,12 @@ SUBROUTINE Init(parameterfile)
 END SUBROUTINE Init
 
 !================================================================================================================================!
-SUBROUTINE InitSolution()
+SUBROUTINE InitSolution(RestartFile_in, do_WriteState_in)
+  CHARACTER(LEN=255), INTENT(IN), OPTIONAL  :: RestartFile_in
+  LOGICAL,            INTENT(IN), OPTIONAL  :: do_WriteState_in
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL enter_subregion("initialize solution")
-  CALL functional%InitSolution()
+  CALL functional%InitSolution(RestartFile_in, do_WriteState_in)
   CALL exit_subregion("initialize solution")
 END SUBROUTINE InitSolution
 

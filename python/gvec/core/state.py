@@ -134,9 +134,11 @@ class State:
         self,
         parameterfile: str | Path,
         statefile: str | Path | None = None,
+        init_for_minimization=False,
     ):
         self.parameterfile: Path = Path(parameterfile).absolute()
         self.statefile: Path | None = Path(statefile).absolute() if statefile else None
+        self._init_for_minimization = init_for_minimization
 
         self._stdout: tempfile.NamedTemporaryFile | None = None
         self._children: list[gvec.lib.Modgvec_Sfl_Boozer.t_sfl_boozer] = []
@@ -202,9 +204,13 @@ class State:
                 with catch_gvec_errors():
                     logger.debug("Initialize from parameterfile")
                     _state.init(self.parameterfile.name)
-                    if self.statefile is not None:
+                    if self.statefile is not None and not self._init_for_minimization:
                         logger.debug("Read state from statefile")
                         _state.readstate(self.statefile.relative_to(self.rundir))
+                    elif self.statefile is not None and self._init_for_minimization:
+                        # initialize a GVEC state as during a GVEC run
+                        logger.debug("Initialize solution from statefile for minimization")
+                        _state.initsolution(self.statefile.relative_to(self.rundir), False)
                     else:
                         logger.debug("Initialize solution without statefile")
                         _state.initsolution()
