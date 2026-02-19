@@ -522,22 +522,28 @@ class State:
 
     @with_binding
     def evaluate_profile(self, quantity: str, rho: np.ndarray, deriv: int = 0):
-        """Evaluate 1D profiles at the provided positions of the radial coordinate rho.
+        """Evaluate 1D profiles at the provided positions of the radial coordinate ``rho``.
 
-        Args:
-            quantity (str): name of the profile. Has to be either `iota` (rotational transform), `p` (pressure), `chi`(poloidal magn. flux), `Phi`(toroidal magn. flux)
-            rho (np.ndarray): Positions at the radial flux coordinate rho.
-            deriv (int, optional): Order of the derivative in rho. Note that for some quantities not all derivatives can be calculated, e.g. for `iota` and `p` the maximum is `deriv=4`. Defaults to 0.
+        Parameters
+        ----------
+        quantity : str
+            name of the profile. Has to be either ``"iota"`` (rotational transform), ``"p"`` (pressure), ``"chi"`` (poloidal magn. flux), ``"Phi"`` (toroidal magn. flux)
+        rho : ndarray
+            Positions at the radial flux coordinate ``rho``.
+        deriv : int, optional
+            Order of the derivative in ``rho``. Note that for some quantities not all derivatives can be calculated, e.g. for rotational transform and pressure the maximum is ``deriv=4``. Defaults to ``0``.
 
-        Raises:
-            ValueError: If `quantity`is not a string.
-            ValueError: If an invalid quantity is provided.
-            NotImplementedError: If `deriv > 1` for `quantity="chi"`.
-            ValueError: If `rho` is not a 1D array.
-            ValueError: If `rho` is not in [0, 1].
+        Raises
+        ------
+        ValueError
+            If ``quantity`` is not a string, or if an invalid quantity is provided or if `rho`` is not a 1D array or if ``rho`` is not in ``[0, 1]``.
+        NotImplementedError
+            If ``deriv > 1`` for ``quantity="chi"``.
 
-        Returns:
-            np.ndarray: profile values at `rho`.
+        Returns
+        -------
+        result : ndarray
+            profile values at ``rho``.
         """
         if not isinstance(quantity, str):
             raise ValueError("Quantity must be a string.")
@@ -557,22 +563,27 @@ class State:
 
     @with_binding
     def evaluate_rho2_profile(self, quantity: str, rho2: np.ndarray, deriv: int = 0):
-        r"""Evaluate 1D profiles at the provided positions of the radial coordinate `rho2`=:math:`\rho^2`.
-        Note: Use this routine to obtain derivarives with respect to `rho2`, else use `evaluate_profile`.
+        r"""Evaluate 1D profiles at the provided positions of the radial coordinate ``rho2``:math:`=s=\rho^2`.
+        Note: Use this routine to obtain derivarives with respect to :math:`s` coordinate, else use ``evaluate_profile``.
 
-        Args:
-            quantity (str): name of the profile. Has to be either `iota` or `p`
-            rho2 (np.ndarray): Positions at the radial flux coordinate rho^2.
-            deriv (int, optional): Order of the derivative, in s=rho^2 (!). Defaults to 0.
+        Parameters
+        ----------
+        quantity : str
+            name of the profile. Has to be either ``"iota"`` (rotational transform), ``"p"`` (pressure), ``"chi"`` (poloidal magn. flux), ``"Phi"`` (toroidal magn. flux)
+        rho2 : ndarray
+            Positions at the radial flux coordinate :math:`s=\rho^2`.
+        deriv : int, optional
+            Order of the derivative, in coordinate :math:`s=rho^2` (!). Defaults to ``0``.
 
-        Raises:
-            ValueError: If `quantity`is not a string.
-            ValueError: If an invalid quantity is provided.
-            ValueError: If `rho2` is not a 1D array.
-            ValueError: If `rho2` is not in [0, 1].
+        Raises
+        ------
+        ValueError
+            If ``quantity`` is not a string, or if an invalid quantity is provided or if `rho`` is not a 1D array or if ``rho`` is not in ``[0, 1]``.
 
-        Returns:
-            np.ndarray: profile values at `rho2`.
+        Returns
+        -------
+        result : ndarray
+            Profile values at ``rho2``.
         """
         if not isinstance(quantity, str):
             raise ValueError("Quantity must be a string.")

@@ -11,38 +11,32 @@ PUBLIC
 
 CONTAINS
 
-!===================================================================================================================================
+!================================================================================================================================!
 !> Evaluate the magnetic field of a current loop discretized via line-segments.
 !! The segments are defined by a list of `coil_points`, each segment being defined between points (i,i+1).
 !! For a closed loop, the last point in the list is a repetition of the first point.
 !! Each line segment is evaluated via the analytic compact Biot-Savart expression from
 !! Hanson and Hirshman (2002) (https://doi.org/10.1063/1.1507589).
 !! This implementation parallelizes over the number of evaluation positions `n_positions`.
-!===================================================================================================================================
+!================================================================================================================================!
 SUBROUTINE BiotSavart(n_positions, xyz, n_points, coil_points, prefactor, B)
     ! MODULES
     USE MODgvec_Globals, ONLY: TWOPI,CROSS,wp
-
-    !-----------------------------------------------------------------------------------------------------------------------------------
-    ! INPUT VARIABLES
+    ! INPUT VARIABLES -----------------------------------------------------------------------------------------------------------!
     INTEGER,  INTENT(IN) :: n_positions               !! number of positions where the magnetic field is evaluated
     REAL(wp), INTENT(IN) :: xyz(3,n_positions)        !! x,y,z positions where the magnetic field is evaluated
     INTEGER,  INTENT(IN) :: n_points                  !! number of points representing the segmented coil
     REAL(wp), INTENT(IN) :: coil_points(3,n_points)   !! x,y,z positions of the segment chain (=polygon), n_segments=n_points-1
     REAL(wp), INTENT(IN) :: prefactor                 !! factor applied to the final magnetic field
-    !-----------------------------------------------------------------------------------------------------------------------------------
-    ! OUTPUT VARIABLE
+    ! OUTPUT VARIABLES ----------------------------------------------------------------------------------------------------------!
     REAL(wp), INTENT(OUT):: B(3,n_positions)          !! magnetic field evaluated at xyz positions.
-    !-----------------------------------------------------------------------------------------------------------------------------------
-    ! LOCAL VARIABLES
+    ! LOCAL VARIABLES -----------------------------------------------------------------------------------------------------------!
     INTEGER              :: iPosition,iSegment,n_segments
     REAL(wp)             :: R_i(3)                    !! vector from current position to starting point of segment
     REAL(wp)             :: R_f(3)                    !! vector from current position to end point of segment (=starting point of next segment)
     REAL(wp)             :: mod_R_i,mod_R_f
-    !===================================================================================================================================
-
+    ! CODE ----------------------------------------------------------------------------------------------------------------------!
     n_segments = n_points-1
-
     B = 0.0_wp
     !$OMP PARALLEL DO     &
     !$OMP SCHEDULE(STATIC) DEFAULT(PRIVATE) SHARED(xyz, coil_points, n_positions, n_segments) &
@@ -65,12 +59,11 @@ SUBROUTINE BiotSavart(n_positions, xyz, n_points, coil_points, prefactor, B)
     B = prefactor*B
 END SUBROUTINE BiotSavart
 
+!================================================================================================================================!
 SUBROUTINE BiotSavart_VectorPotential(n_positions, xyz, n_points, n_segments, coil_points, ehat, L, prefactor, A)
     ! MODULES
     USE MODgvec_Globals, ONLY: TWOPI,CROSS,wp
-
-    !-----------------------------------------------------------------------------------------------------------------------------------
-    ! INPUT VARIABLES
+    ! INPUT VARIABLES -----------------------------------------------------------------------------------------------------------!
     INTEGER,  INTENT(IN) :: n_positions               !! number of positions where the magnetic field is evaluated
     REAL(wp), INTENT(IN) :: xyz(3,n_positions)        !! x,y,z positions where the magnetic field is evaluated
     INTEGER,  INTENT(IN) :: n_points                  !! number of points representing the segmented coil
@@ -79,18 +72,16 @@ SUBROUTINE BiotSavart_VectorPotential(n_positions, xyz, n_points, n_segments, co
     REAL(wp), INTENT(IN) :: prefactor                 !! factor applied to the final magnetic field
     REAL(wp), INTENT(IN) :: ehat(3,n_segments)         !! unit vector along segment
     REAL(wp), INTENT(IN) :: L(n_segments)             !! segment length
-    !-----------------------------------------------------------------------------------------------------------------------------------
-    ! OUTPUT VARIABLE
+    ! OUTPUT VARIABLES ----------------------------------------------------------------------------------------------------------!
     REAL(wp), INTENT(OUT):: A(3,n_positions)          !! magnetic field evaluated at xyz positions.
-    !-----------------------------------------------------------------------------------------------------------------------------------
-    ! LOCAL VARIABLES
+    ! LOCAL VARIABLES -----------------------------------------------------------------------------------------------------------!
     INTEGER              :: iPosition,iSegment
     REAL(wp)             :: R_i(3)                    !! vector from current position to starting point of segment
     REAL(wp)             :: R_f(3)                    !! vector from current position to end point of segment (=starting point of next segment)
     REAL(wp)             :: norm_ehat
     REAL(wp)             :: mod_R_i,mod_R_f
     REAL(wp)             :: f_epsilon
-    !===================================================================================================================================
+    ! CODE ----------------------------------------------------------------------------------------------------------------------!
     A = 0.0_wp
     !$OMP PARALLEL DO     &
     !$OMP SCHEDULE(STATIC) DEFAULT(PRIVATE) SHARED(xyz, coil_points, n_positions, n_segments, L, ehat) &
