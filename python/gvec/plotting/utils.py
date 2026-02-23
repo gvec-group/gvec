@@ -84,7 +84,6 @@ def _subplots(subplot_grid, sharex, sharey, **kwargs):
     """
     we will ensure this is always returns a `numpy.ndarray` of axis objects
     """
-    import matplotlib.pyplot as plt
 
     nrow = subplot_grid[0]
     ncol = subplot_grid[1]
@@ -93,22 +92,6 @@ def _subplots(subplot_grid, sharex, sharey, **kwargs):
         nrow, ncol, layout="compressed", sharex=sharex, sharey=sharey, **kwargs
     )
     return f, ax
-
-
-def _deco_usetex(func):
-    """
-    Switch usetex on during plotting then back to defaults
-    """
-
-    @functools.wraps(func)
-    def wrap(*args, **kwargs):
-        usetex = plt.rcParams["text.usetex"]
-        plt.rcParams["text.usetex"] = True
-        f, axs = func(*args, **kwargs)
-        plt.rcParams["text.usetex"] = usetex
-        return f, axs
-
-    return wrap
 
 
 def _convience_axis_additions(state, ax, quantity):
