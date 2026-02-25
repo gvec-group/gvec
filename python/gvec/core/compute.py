@@ -19,12 +19,17 @@ import gvec.fourier
 
 __all__ = [
     "table_of_quantities",
+    "register",
     "compute",
     "radial_integral",
+    "poloidal_integral",
+    "toroidal_integral",
     "fluxsurface_integral",
     "volume_integral",
     "Evaluations",
     "EvaluationsBoozer",
+    "EvaluationsBoozerCustom",
+    "EvaluationsPEST",
     "evaluate",
     "evaluate_sfl",
     "ev2ft",
@@ -84,11 +89,12 @@ def register(
 
     The quantity (compute function) is registered in the QUANTITIES dictionary.
     It contains:
-        * a function pointer
-        * the name of the computed quantities (used as key in QUANTITIES)
-        * the names of required quantities (that should be computed before)
-        * the names of the integration axes required for the computation
-        * the attributes of the computed quantity (long_name, symbol, etc.)
+
+    * a function pointer
+    * the name of the computed quantities (used as key in QUANTITIES)
+    * the names of required quantities (that should be computed before)
+    * the names of the integration axes required for the computation
+    * the attributes of the computed quantity (``long_name``, ``symbol``, etc.)
     """
     if registry is None:
         registry = QUANTITIES
@@ -490,15 +496,15 @@ def EvaluationsBoozer(
         1D assumes dimension "tor", 2D assumes ("pol", "tor"), 3D assumes ("rad", "pol", "tor").
     state : State
         The gvec.State object to create the grid for. Used to perform the Boozer transform.
-    radial_derivative : bool
+    radial_derivative : bool, default True
         Whether to compute the radial derivatives of the `LA` and `NU_B` variables, at fixed GVEC angles
         $(\\vartheta(\\rho_i,\\vartheta_{B,j},\\zeta_{B,k}),\\zeta(\\rho_i,\\vartheta_{B,j},\\zeta_{B,k}))$.
         Computes boozer transform at additional radial points $\\rho-\\epsilon$, and uses a first order Finite Difference for the derivatives.
-    epsilon_FD : float
+    epsilon_FD : float, default 1e-8
         The offset in rho used for the Finite Difference computation of the radial derivatives.
-    boozer_kwargs : dict
-        Additional keyword arguments to pass to the `get_boozer` method of the state object.
-        These can be used to specify the Boozer transform parameters, such as the maximum mode numbers via 'MNfactor'.
+    boozer_kwargs : dict, optional
+        Additional keyword arguments to pass to the ``get_boozer`` method of the ``state`` object.
+        These can be used to specify the Boozer transform parameters. For example the maximum mode number factor ``boozer_kwargs={"MNfactor": 3}``.
 
     Returns
     -------
@@ -991,6 +997,12 @@ def evaluate_sfl(
         - A 2D array-like with assumed dimensions (pol, tor).
         - A 3D array-like with assumed dimensions (rad, pol, tor).
         - An xarray.DataArray containing at least the dimension ``tor``.
+    sfl : "boozer" | "pest"
+        The type of straight-fieldline coordinates to use for the grid.
+    boozer_kwargs : optional
+        Additional keyword arguments to pass to the ``get_boozer`` method of the ``state`` object.
+        These can be used to specify the Boozer transform parameters.
+        For example the maximum mode number factor ``boozer_kwargs={'MNfactor': 3}``.
 
     Returns
     -------

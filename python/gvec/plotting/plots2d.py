@@ -7,10 +7,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from gvec.core.state import State
-from gvec.plotting.utils import _deco_usetex, _design_subgrid, _subplots, _symbol_check
+from gvec.plotting.utils import _design_subgrid, _subplots, _symbol_check
 
 
-@_deco_usetex
 def plot_poloidal_plane(
     state: State,
     quantity: None | str = "mod_B",
@@ -206,7 +205,6 @@ def plot_poloidal_plane(
     return fig, axs
 
 
-@_deco_usetex
 def plot_on_flux_surface(
     state: State,
     quantities: str | list[str] = "mod_B",
@@ -260,7 +258,9 @@ def plot_on_flux_surface(
         Any ``**kwargs`` to send to the ``plt.figure()`` function.
         For example ``plot_kwargs={'figsize': (8,8)}``. See the `matplotlib documentation <https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.figure.html>`_ for a list of kwargs.
     boozer_kwargs : optional
-        Keyword arguments for the case where ``boozer`` is used.
+        Additional keyword arguments to pass to the ``get_boozer`` method of the ``state`` object.
+        These can be used to specify the Boozer transform parameters.
+        For example the maximum mode number factor ``boozer_kwargs={'MNfactor': 3}``.
 
 
     Returns
@@ -354,27 +354,14 @@ def plot_on_flux_surface(
         if isinstance(quantities, list):
             # Specify the quantity type in the top right corner if multiple quantities were requested
             plot_label = f"${evaluations_i[quantity].attrs['symbol']}$"
-            fig.colorbar(f_ax, ax=ax)  # , label=f"${evaluations[quantity].symbol}$")
+            fig.colorbar(f_ax, ax=ax)
         else:
             plot_label = f"$\\rho={evaluations.rho.data[i]}$"
             if not share_contours:
-                fig.colorbar(f_ax, ax=ax)
-
-        # ax.annotate(
-        #     plot_label,
-        #     xy=(1, 1),
-        #     xycoords="axes fraction",
-        #     xytext=(-0.6, -0.6),
-        #     textcoords="offset fontsize",
-        #     verticalalignment="top",
-        #     horizontalalignment="right",
-        #     bbox=dict(facecolor="white", edgecolor="black"),
-        # )
-        ax.set_title(plot_label)
-
-        # zeta_angle = zeta_eval[i] / np.pi
+                fig.colorbar(f_ax, ax=ax, label=f"${evaluations[quantity].symbol}$")
 
         ax.set(
+            title=plot_label,
             xlabel=rf"${zeta_vals.attrs['symbol']} / (2\pi)$",
             ylabel=rf"${theta_vals.attrs['symbol']} / (2\pi)$",
         )
@@ -389,7 +376,6 @@ def plot_on_flux_surface(
     return fig, axs
 
 
-@_deco_usetex
 def plot_fourier_on_surface(
     state: State,
     quantity: str = "mod_B",
@@ -398,6 +384,8 @@ def plot_fourier_on_surface(
     nzeta: int = 101,
     sfl: Literal["pest", "boozer"] | None = None,
     limit: float | None = 1e-15,
+    plot_kwargs: dict[str] = {},
+    **boozer_kwargs,
 ):
     """
     Diagnostic plot for plotting the Fourier modes of a given quantitity on a flux surface.
@@ -423,6 +411,13 @@ def plot_fourier_on_surface(
     limit: float, optional
         Cut-off value for the Fourier amplitudes to plot.
         Default is ``1e-15``
+    plot_kwargs: dict, optional
+        Any ``**kwargs`` to send to the ``plt.figure()`` function.
+        For example ``plot_kwargs={'figsize': (8,8)}``. See the `matplotlib documentation <https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.figure.html>`_ for a list of kwargs.
+    boozer_kwargs : optional
+        Additional keyword arguments to pass to the ``get_boozer`` method of the ``state`` object.
+        These can be used to specify the Boozer transform parameters.
+        For example the maximum mode number factor ``boozer_kwargs={'MNfactor': 3}``.
 
 
     Returns
@@ -436,7 +431,7 @@ def plot_fourier_on_surface(
         evaluations = state.evaluate(*quantities, rho=rho, theta=ntheta, zeta=nzeta)
     else:
         evaluations = state.evaluate_sfl(
-            *quantities, rho=rho, theta=ntheta, zeta=nzeta, sfl=sfl
+            *quantities, rho=rho, theta=ntheta, zeta=nzeta, sfl=sfl, **boozer_kwargs
         )
     evaluations = evaluations[quantities]
 
@@ -447,7 +442,7 @@ def plot_fourier_on_surface(
     levels = np.linspace(-14, 0, 8)
     symbol = evaluations[quantity].attrs.get("symbol", f"\\mathrm{{{quantity}}}")
 
-    fig, axs = _subplots([1, 2], True, True)
+    fig, axs = _subplots([1, 2], sharex=True, sharey=True, **plot_kwargs)
     for ax, suffix in zip(axs, ["mnc", "mns"]):
         c = ax.contourf(
             evft.n,
@@ -478,18 +473,19 @@ def plot_fourier_on_surface(
     if limit is not None:
         power = np.sqrt(evft[f"{quantity}_mnc"] ** 2 + evft[f"{quantity}_mns"] ** 2)
         limit_m = power.m.where((power > limit).sum(dim="n") == 0).min().item()
-        limit_m = np.nanmax([limit_m, 5])
         limit_n1 = (
             power.n.where((power > limit).sum(dim="m") == 0).where(power.n > 0).min().item()
         )
         limit_n2 = (
             power.n.where((power > limit).sum(dim="m") == 0).where(power.n < 0).max().item()
         )
-        limit_n = np.nanmax([abs(limit_n1), abs(limit_n2), 5])
-        for ax in axs:
-            ax.set(
-                xlim=(-limit_n - 1, limit_n + 1),
-                ylim=(0, limit_m + 1),
-            )
+        if not np.isnan(limit_m):
+            limit_m = np.max([limit_m, 5])
+            for ax in axs:
+                ax.set(ylim=(0, limit_m + 1))
+        if not np.isnan(limit_n1) and not np.isnan(limit_n2):
+            limit_n = np.max([abs(limit_n1), abs(limit_n2), 5])
+            for ax in axs:
+                ax.set(xlim=(-limit_n - 1, limit_n + 1))
 
     return fig, axs
