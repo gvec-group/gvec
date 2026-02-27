@@ -2,19 +2,14 @@
 # License: MIT
 """convert.py - convert GVEC (& VMEC) parameterfiles between different formats & conventions"""
 
-import platform
 from pathlib import Path
 import logging
 import argparse
 from collections.abc import Sequence
-import tempfile
 
 import f90nml
-import numpy as np
-import xarray as xr
 
 import gvec
-from gvec.util import CaseInsensitiveDict
 
 parser = argparse.ArgumentParser(
     prog="pygvec-convert-params",
@@ -34,16 +29,10 @@ parser.add_argument(
     help="output GVEC parameterfile",
     default="parameter.yaml",
 )
-input_format_parser = parser.add_argument_group(title="input format")
-input_format_parser.add_argument(
+parser.add_argument(
     "--vmec",
     action="store_true",
     help="input parameterfile is a VMEC namelist",
-)
-input_format_parser.add_argument(
-    "--vmec-wout",
-    action="store_true",
-    help="input parameterfile is a VMEC wout file for which the boundary parameters should be extracted",
 )
 parser.add_argument(
     "-x",
@@ -76,72 +65,14 @@ verbosity.add_argument(
 )
 verbosity.add_argument("-q", "--quiet", action="store_true", help="suppress output")
 
-logger = logging.getLogger(__name__)
 
-
-def extract_parameters_from_vmec_wout(wout_file: Path) -> CaseInsensitiveDict:
-    """
-    Extract parameters from a VMEC wout file, by restarting GVEC and reading the parameters from the generated "vmec_to_gvec_boundary_and_axis.txt" file.
-    """
-    wout_ds = xr.open_dataset(wout_file)
-
-    M = int(wout_ds.xm.max())
-    N = int(wout_ds.xn.max() / wout_ds.nfp)
-    nfp = int(wout_ds.nfp)
-    lasym = bool(wout_ds.lasym__logical__)  # stellarator asymmetric
-    default_parameters = gvec.util.CaseInsensitiveDict(
-        which_hmap=1,
-        nfp=nfp,
-        X1_mn_max=[M, N],
-        X2_mn_max=[M, N],
-        LA_mn_max=[M, N],
-        X1_sin_cos="_cos_",
-        X2_sin_cos="_sin_",
-        LA_sin_cos="_sin_",
-        X1X2_deg=5,
-        LA_deg=5,
-        sgrid=dict(
-            nelems=3,
-        ),
-    )
-    if lasym:
-        for key in ["X1", "X2", "LA"]:
-            default_parameters[f"{key}_sin_cos"] = "_sincos_"
-    conversion_parameters = (
-        gvec.util.CaseInsensitiveDict(
-            whichInitEquilibrium=1,
-            VMECwoutfile=wout_file.absolute(),
-            VMECwoutfile_format=0,
-            init_LA=False,
-        )
-        | default_parameters
-    )
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        state = gvec.State.new(conversion_parameters, tmpdir)
-        ev = state.evaluate(
-            "p", "iota", rho=np.sqrt(np.linspace(0, 1, 101)), theta=None, zeta=None
-        )
-        boundary_parameters = gvec.util.read_parameters(
-            Path(tmpdir) / "vmec_to_gvec_boundary_and_axis.txt", format="ini"
-        )
-        profile_parameters = dict(
-            iota=dict(
-                type="interpolation",
-                rho2=ev.rho.values**2,
-                vals=ev.iota.values,
-            ),
-            pres=dict(
-                type="interpolation",
-                rho2=ev.rho.values**2,
-                vals=ev.p.values,
-            ),
-        )
-
-    return default_parameters | profile_parameters | boundary_parameters
-
-
+@gvec.errors.without_traceback
 def main(args: Sequence[str] | argparse.Namespace | None = None):
+    if not isinstance(args, argparse.Namespace):
+        args = parser.parse_args(args)
+
+    gvec.util.logging_setup()
+    logger = logging.getLogger("gvec")
     if args.quiet:
         logging.disable()
     elif args.verbose >= 2:
@@ -160,8 +91,6 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         parameters = gvec.util.parameters_from_vmec(nml, args.input.name)
         if args.flip == "auto":
             parameters = gvec.util.flip_parameters_zeta(parameters)
-    elif args.vmec_wout:
-        parameters = extract_parameters_from_vmec_wout(args.input)
     else:
         parameters = gvec.util.read_parameters(args.input)
 

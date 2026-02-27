@@ -364,9 +364,7 @@ def gvec_to_gist(
 
 
 def main(args: Sequence[str] | argparse.Namespace | None = None):
-    if isinstance(args, argparse.Namespace):
-        pass
-    else:
+    if not isinstance(args, argparse.Namespace):
         args = parser.parse_args(args)
 
     gvec.util.logging_setup()
@@ -427,4 +425,4 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
 
 
 if __name__ == "__main__":
-    main()
+    exit(main())
