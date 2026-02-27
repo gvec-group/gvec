@@ -108,6 +108,10 @@ REAL(wp)              :: beta2 ! decay rate for the free boundary update using A
 INTEGER               :: free_b_minimizer_type ! 0=gradient descent, 1 = ADAM
 CLASS(c_free_b_minimizer), ALLOCATABLE :: free_b_minimizer_X1
 CLASS(c_free_b_minimizer), ALLOCATABLE :: free_b_minimizer_X2
+REAL(wp)              :: Fnorm_X1_b_IP ! L2 norm of the forces on X1 at the boundary, calculated from the integration points
+REAL(wp)              :: Fnorm_X2_b_IP ! L2 norm of the forces on X2 at the boundary, calculated from the integration points
+REAL(wp)              :: Fnorm_X1_b_modes ! L2 norm of the forces on X1 at the boundary, after projection onto the modes
+REAL(wp)              :: Fnorm_X2_b_modes ! L2 norm of the forces on X1 at the boundary, after projection onto the modes
 
 !===================================================================================================================================
 

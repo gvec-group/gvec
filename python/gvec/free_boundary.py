@@ -1,6 +1,9 @@
 import numpy as np
 from gvec import State, fluxsurface_integral
 from gvec.coils import CoilSet, Coil
+from gvec.util import read_parameters, write_parameters, CaseInsensitiveDict
+from gvec.core.compute import ev2ft
+from gvec import fourier
 from gvec.core.state import with_binding
 from scipy.constants import mu_0
 import shutil
@@ -31,10 +34,11 @@ class FreeBoundaryState(State):
         max_iter_per_update: int = int(1e12),
         free_boundary_tolerance: float = 1e-8,
         I_tor: float | Callable | None = None,
-        fac: int = 1,
         iter_B_update: int = 1,
         dt: float = 0.001,
         statefile: str | Path | None = None,
+        reset_LA: bool = False,
+        track_boundary_fields: bool = False,
     ):
         """Free-boundary state object.
 
@@ -54,19 +58,30 @@ class FreeBoundaryState(State):
             Targeted tolerance on the free-boundary target, by default 1e-8
         I_tor : float | Callable | None, optional
             Toroidal current profile, by default None. If None, fixed-iota runs are preformed.
-        fac : int, optional
-            Upsampling factor for BIEST with respect to the GVEC integration points, by default 1
         iter_B_update : int, optional
             Number of iterations after which BIEST is called again, by default 1. If >1, the external magnetic field is linearly extrapolated between updates.
         dt : float, optional
             Stepsize for the free-boundary push, by default 0.001
         statefile : str | Path | None, optional
             Statefile to restart from, by default None
+        reset_LA: bool, optional
+            Whether to keep the previous lambda after a boundary push.
+            If True, lambda is either set to zero or reinitialized depending on `init_LA`.
+            The default is False.
+        track_boundary_fields : bool, optional
+            Whether to track relevant fields on the boundary in the diagnostics data-set.
+            The default is False. Note that tracking the fields can result in comparatively large data-sets.
         """
         super().__init__(parameterfile, statefile, True)
         self.coil_set = coil_set
+
+        # these parameters are modified during current constraint!
+        self._parameter_dict = read_parameters(parameterfile)
+
         self.fb_updates = fb_updates
         self.totalIter = totalIter
+
+        self.reset_LA = reset_LA
 
         if max_iter_per_update > totalIter:
             logger.warning(
@@ -76,7 +91,6 @@ class FreeBoundaryState(State):
         self.max_iter_per_update = max_iter_per_update
 
         self.free_boundary_tolerance = free_boundary_tolerance
-        self.fac = fac
         self.iter_B_update = iter_B_update
         self.dt = dt
 
@@ -101,12 +115,15 @@ class FreeBoundaryState(State):
         self.t_n = t_n
         self.z_n = z_n
 
+        self.m_max, self.n_max = self.get_mn_max()
+        self.track_boundary_fields = track_boundary_fields
         self._allocate_diagnostics()
 
         self.iter_B2_history = np.array([0, 1])
         self.B2_history = np.empty([t_n * z_n, 2])
         self.iters_used = 0
         self.free_boundary_target = 1e30
+        self._resolved_force_ratio = 1.0
 
         self.clockwise_zeta = self._determine_clockwise_zeta()
 
@@ -116,6 +133,16 @@ class FreeBoundaryState(State):
                 np.full(shape=(len(self.rho_iota), self.fb_updates), fill_value=np.nan),
             )
             self.diagnostics["rho_iota"] = self.rho_iota
+
+    @with_binding
+    def save(self):
+        self.save_statefile()
+        iters = self.get_iterations()
+        outid = self.get_outputlevel()
+        write_parameters(
+            self._parameter_dict,
+            self._parameter_dict["ProjectName"] + f"_parameters_{outid:04}_{iters:08}.ini",
+        )
 
     @with_binding
     def _determine_clockwise_zeta(self):
@@ -164,41 +191,75 @@ class FreeBoundaryState(State):
             ("tor", "pol", "iteration"),
             np.full(shape=(self.z_n, self.t_n, self.fb_updates), fill_value=np.nan),
         )
-        diagnostics.force_balance.assign_attrs(
+        diagnostics.force_balance.attrs = dict(
             long_name="free-boundary force balance on the LCFS.", symbol=r"$F_{b}}$"
         )
+        if self.track_boundary_fields:
+            diagnostics["B_jump"] = (
+                ("xyz", "tor", "pol", "iteration"),
+                np.full(shape=(3, self.z_n, self.t_n, self.fb_updates), fill_value=np.nan),
+            )
+            diagnostics.B_jump.attrs = dict(
+                long_name="jump of the magnetic field on the LCFS", symbol=r"$B_{\text{jump}}$"
+            )
 
-        diagnostics["B_jump"] = (
-            ("xyz", "tor", "pol", "iteration"),
-            np.full(shape=(3, self.z_n, self.t_n, self.fb_updates), fill_value=np.nan),
-        )
-        diagnostics.B_jump.assign_attrs(
-            long_name="jump of the magnetic field on the LCFS", symbol=r"$B_{\text{jump}}$"
-        )
+            diagnostics["B_int"] = (
+                ("xyz", "tor", "pol", "iteration"),
+                np.full(shape=(3, self.z_n, self.t_n, self.fb_updates), fill_value=np.nan),
+            )
+            diagnostics.B_int.attrs = dict(
+                long_name="internal magnetic field on the LCFS", symbol=r"$B_{\text{int}}$"
+            )
 
-        diagnostics["B_int"] = (
-            ("xyz", "tor", "pol", "iteration"),
-            np.full(shape=(3, self.z_n, self.t_n, self.fb_updates), fill_value=np.nan),
-        )
-        diagnostics.B_int.assign_attrs(
-            long_name="internal magnetic field on the LCFS", symbol=r"$B_{\text{int}}$"
-        )
+            diagnostics["B_ext"] = (
+                ("xyz", "tor", "pol", "iteration"),
+                np.full(shape=(3, self.z_n, self.t_n, self.fb_updates), fill_value=np.nan),
+            )
+            diagnostics.B_ext.attrs = dict(
+                long_name="external magnetic field on the LCFS", symbol=r"$B_{\text{ext}}$"
+            )
 
-        diagnostics["B_ext"] = (
-            ("xyz", "tor", "pol", "iteration"),
-            np.full(shape=(3, self.z_n, self.t_n, self.fb_updates), fill_value=np.nan),
-        )
-        diagnostics.B_ext.assign_attrs(
-            long_name="external magnetic field on the LCFS", symbol=r"$B_{\text{ext}}$"
-        )
-
-        diagnostics["K"] = (
-            ("xyz", "tor", "pol", "iteration"),
-            np.full(shape=(3, self.z_n, self.t_n, self.fb_updates), fill_value=np.nan),
-        )
-        diagnostics.K.assign_attrs(long_name="surface current on the LCFS", symbol=r"$K$")
+            diagnostics["K"] = (
+                ("xyz", "tor", "pol", "iteration"),
+                np.full(shape=(3, self.z_n, self.t_n, self.fb_updates), fill_value=np.nan),
+            )
+            diagnostics.K.attrs = dict(long_name="surface current on the LCFS", symbol=r"$K$")
 
         diagnostics["free_boundary_target"] = (
+            "iteration",
+            np.full(shape=self.fb_updates, fill_value=np.nan),
+        )
+
+        diagnostics["Fnorm_X1_b_IP"] = (
+            "iteration",
+            np.full(shape=self.fb_updates, fill_value=np.nan),
+        )
+        diagnostics["Fnorm_X2_b_IP"] = (
+            "iteration",
+            np.full(shape=self.fb_updates, fill_value=np.nan),
+        )
+        diagnostics["Fnorm_X1_b_modes"] = (
+            "iteration",
+            np.full(shape=self.fb_updates, fill_value=np.nan),
+        )
+        diagnostics["Fnorm_X2_b_modes"] = (
+            "iteration",
+            np.full(shape=self.fb_updates, fill_value=np.nan),
+        )
+
+        diagnostics["Fnorm_X2_b"] = (
+            "iteration",
+            np.full(shape=self.fb_updates, fill_value=np.nan),
+        )
+        diagnostics["Fnorm_X1_b"] = (
+            "iteration",
+            np.full(shape=self.fb_updates, fill_value=np.nan),
+        )
+        diagnostics["dt"] = (
+            "iteration",
+            np.full(shape=self.fb_updates, fill_value=np.nan),
+        )
+        diagnostics["resolved_force_ratio"] = (
             "iteration",
             np.full(shape=self.fb_updates, fill_value=np.nan),
         )
@@ -246,6 +307,7 @@ class FreeBoundaryState(State):
         iota_tol: float = 1e-10,
         minimize_tol: float | None = None,
         maxUpdates: int = 30,
+        reset_LA: bool = False,
     ):
         """Single current optimization stage.
 
@@ -283,7 +345,17 @@ class FreeBoundaryState(State):
                 minimize_tol=minimize_tol,
             )
             new_iota, new_rho2, rms_iota = self._get_new_iota()
-            self.update_iota_for_current_constraint(new_rho2, new_iota)
+
+            # only reset LA at the start
+            if iters_used > 0:
+                reset_LA = False
+
+            self.update_iota_for_current_constraint(new_rho2, new_iota, reset_LA)
+            self._parameter_dict["iota"] = CaseInsensitiveDict(
+                type="interpolation",
+                rho2=new_rho2.data,
+                vals=new_iota.data,
+            )
             self.iota = new_iota
 
             iters_used = self.get_iterations() - iters_used_start
@@ -307,6 +379,7 @@ class FreeBoundaryState(State):
         minimize_target: float,
         maxIter: int,
         maxUpdates: int = 30,
+        reset_LA: bool = False,
     ):
         """Fixed-boundary run with prescribed current profile.
 
@@ -324,8 +397,12 @@ class FreeBoundaryState(State):
         log_minimize_target = np.log10(minimize_target)
         log_iota_target = np.log10(iota_target)
         n_stages = max(int(max(-2 - log_minimize_target, log_minimize_target)), 1)
-        minimize_tols = np.logspace(max(-3, log_minimize_target), log_minimize_target, n_stages)
-        iota_tols = np.logspace(max(-3, log_iota_target), log_iota_target, n_stages)
+        minimize_tols = np.logspace(max(-4, log_minimize_target), log_minimize_target, n_stages)
+        if n_stages > 1:
+            iota_tols = np.logspace(max(-3, log_iota_target), log_iota_target, n_stages)
+        else:
+            iota_tols = [1e-10]
+
         iota_tol = iota_tols[0]
 
         iters_used_start = self.get_iterations()
@@ -336,6 +413,7 @@ class FreeBoundaryState(State):
             iota_tol=iota_tol,
             minimize_tol=minimize_tols[0],
             maxUpdates=maxUpdates,
+            reset_LA=reset_LA,
         )
 
         iters_used = self.get_iterations() - iters_used_start
@@ -356,6 +434,7 @@ class FreeBoundaryState(State):
         logger.info(
             f"Terminated current minimization with Δiota = {rms_iota:.3e}, Δiota = {iota_tol:.3e}. Used {iters_used} / {maxIter} iterations."
         )
+        self.save()
 
     @with_binding
     def _free_boundary_target(self, B_ext_2: np.ndarray):
@@ -382,6 +461,22 @@ class FreeBoundaryState(State):
         return free_boundary_target, force_balance, ev_gvec
 
     @with_binding
+    def _update_force_ratio(self, iteration):
+        force_balance_ds = self.diagnostics.isel(iteration=iteration)
+        force_balance_ds["N_FP"] = self.nfp
+        fourier_force_balance = ev2ft(force_balance_ds[["N_FP", "force_balance"]])
+        cut_fb = fourier_force_balance.where(
+            (fourier_force_balance.m <= self.m_max), drop=True
+        ).where(np.abs(fourier_force_balance.n) <= self.n_max, drop=True)
+        full_force = (fourier_force_balance.force_balance_mns**2).sum().item() + (
+            fourier_force_balance.force_balance_mnc**2
+        ).sum().item()
+        cut_force = (cut_fb.force_balance_mns**2).sum().item() + (
+            cut_fb.force_balance_mnc**2
+        ).sum().item()
+        self._resolved_force_ratio = cut_force / full_force
+
+    @with_binding
     def _update_diagnostics(
         self, B_ext_2: np.ndarray, B_coils: np.ndarray, B_plas_ext: np.ndarray, iteration: int
     ):
@@ -403,21 +498,38 @@ class FreeBoundaryState(State):
         B_ext = B_coils + B_plas_ext
         B_jump = ev_gvec.B - B_ext
 
-        # mu_0*K = n x [[B]]
-        self.diagnostics.K[:, :, :, iteration] = np.cross(ev_gvec.normal, B_jump, axis=0) / mu_0
         self.diagnostics.force_balance[:, :, iteration] = force_balance
-        self.diagnostics.B_ext[:, :, :, iteration] = B_ext
-        self.diagnostics.B_jump[:, :, :, iteration] = B_jump.data
-        self.diagnostics.B_int[:, :, :, iteration] = ev_gvec.B.data
         self.diagnostics.free_boundary_target[iteration] = free_boundary_target
-        self.free_boundary_target = free_boundary_target
+        Fnorm = self.get_Fnorm_boundary()
+        if self.track_boundary_fields:
+            # mu_0*K = n x [[B]]
+            self.diagnostics.K[:, :, :, iteration] = (
+                np.cross(ev_gvec.normal, B_jump, axis=0) / mu_0
+            )
+            self.diagnostics.B_ext[:, :, :, iteration] = B_ext
+            self.diagnostics.B_jump[:, :, :, iteration] = B_jump.data
+            self.diagnostics.B_int[:, :, :, iteration] = ev_gvec.B.data
+
+        self.diagnostics.Fnorm_X1_b_IP[iteration] = Fnorm[0]
+        self.diagnostics.Fnorm_X1_b_modes[iteration] = Fnorm[1]
+        self.diagnostics.Fnorm_X2_b_IP[iteration] = Fnorm[2]
+        self.diagnostics.Fnorm_X2_b_modes[iteration] = Fnorm[3]
+        self.diagnostics.Fnorm_X1_b[iteration] = Fnorm[4]
+        self.diagnostics.Fnorm_X2_b[iteration] = Fnorm[4]
+
+        self.diagnostics.dt[iteration] = self.dt
+        self.free_boundary_target = free_boundary_target.item()
+        self._update_force_ratio(iteration)
+        self.diagnostics.resolved_force_ratio[iteration] = self._resolved_force_ratio
 
     @with_binding
     def _free_boundary_update(
         self,
         maxIter: int,
         B2: np.ndarray,
+        tol: float,
         copy_stdout: bool = True,
+        reset_minimizer: bool = False,
     ):
         """Single free boundary push.
 
@@ -430,21 +542,25 @@ class FreeBoundaryState(State):
             Maximum number of iterations for the fixed-boundary minimization.
         B2 : np.ndarray
             External magnetic field, flattened in GVEC order (zeta->theta)
+        tol : float
+            Tolerance on fixed boundary forces.
         copy_stdout : bool, optional
             Whether to save stdout to stoudt.txt, by default True
+        reset_minimizer: bool, optional
+            Whether to reset the free boundary minimizers to their initial states.
         """
         # set Bext
         self.set_Bext_squared(B2)
         self.reset_descent()
-        self.dt = self.update_boundary(self.dt)
+        self.dt = self.update_boundary(self.dt, reset_minimizer)
 
         # get minimizer tolerance
-        self.tol = self.get_minimize_tol()
         if self.current_constraint:
             self._minimize_current_constraint(
                 iota_target=1e-10,
-                minimize_target=self.tol,
+                minimize_target=tol,
                 maxIter=maxIter,
+                reset_LA=self.reset_LA,
             )
         else:
             # fixed iota
@@ -454,31 +570,52 @@ class FreeBoundaryState(State):
             shutil.copyfile(self._stdout.name, "stdout.txt")
 
     @with_binding
-    def run_free_boundary(self):
+    def run_free_boundary(
+        self,
+        save_diagnostics: bool = False,
+        force_ratio_limit: float = 1e-1,
+        ramp_force_tol=True,
+    ):
         """Perform the free-boundary run.
 
         algorithm
         ---------
         1. start with a fixed-boundary minimization from the initial guess
-        2. calculate the external field from BIEST
+        2. calculate the external field using BIEST and the coils
         3. update the boundary forces and push the boundary via boundary perturbations
         4. minimize the fixed-boundary equilibrium with the new boundary
-        5. repeat from 2. until convergence  or until the budged is used up
+        5. repeat from 2. until convergence  or until the budget is used up
         """
 
         # start with a fixed boundary equilibrium
-        self.tol = self.get_minimize_tol()
+        minimize_tol_min = self.get_minimize_tol()
+        log_minimize_target = np.log10(minimize_tol_min)
+        if ramp_force_tol:
+            n_fb_stages = max(int(max(-2 - log_minimize_target, log_minimize_target)), 1)
+            minimize_tols = np.logspace(
+                max(-3, log_minimize_target), log_minimize_target, n_fb_stages
+            )
+            minimize_tol = minimize_tols[0]
+        else:
+            minimize_tol = minimize_tol_min
+            n_fb_stages = 1
+        fb_stage = 0
+        do_update = True
+        reset_minimizer = False  # Flag to restart minimizers after a stage.
+        force_ratio_limit_init = force_ratio_limit
+        if n_fb_stages > 1:
+            force_ratio_limit = max(5e-1, force_ratio_limit)
+
         if self.current_constraint:
             self._minimize_current_constraint(
                 iota_target=1e-10,
-                minimize_target=self.tol,
+                minimize_target=minimize_tol,
                 maxIter=self.max_iter_per_update,
             )
         else:
             # fixed iota
             self._minimize(logfinaliter=False, maxIter=self.max_iter_per_update)
         self.iters_used = self.get_iterations()
-
         try:  # allow clean abort with KeybordInterrupt
             for i in tqdm(range(self.fb_updates)):
                 # abort if budget is used up
@@ -529,8 +666,40 @@ class FreeBoundaryState(State):
                             self.B2_history[:, 1] - self.B2_history[:, 0]
                         ) / (self.iter_B2_history[1] - self.iter_B2_history[0])
 
-                if self.free_boundary_target > self.free_boundary_tolerance:
-                    self._free_boundary_update(maxIter=max_iter_per_update_aux, B2=B2)
+                # check if stage is convergeded
+                if (self.free_boundary_target <= self.free_boundary_tolerance) or (
+                    self._resolved_force_ratio <= force_ratio_limit
+                ):
+                    # move to next stage or finish
+                    if minimize_tol > minimize_tol_min:
+                        reset_minimizer = True
+                        fb_stage += 1
+                        minimize_tol = minimize_tols[fb_stage]
+                        self.free_boundary_target = 1e30
+                        self._resolved_force_ratio = 1.0
+
+                        # for final stage reduce the ratio limit
+                        if fb_stage == n_fb_stages - 1:
+                            force_ratio_limit = force_ratio_limit_init
+                        logger.info(
+                            "\n-----------------------------------------------------------------\n"
+                            + f"Free-boundary stage {fb_stage} / {n_fb_stages} converged! Set minimize_tol to {minimize_tol}\n"
+                            + "-----------------------------------------------------------------"
+                        )
+                    else:
+                        do_update = False
+
+                if do_update:
+                    logger.info(
+                        f"force ratio {self._resolved_force_ratio:.2}, limit {force_ratio_limit:.2}"
+                    )
+                    self._free_boundary_update(
+                        maxIter=max_iter_per_update_aux,
+                        B2=B2,
+                        tol=minimize_tol,
+                        reset_minimizer=reset_minimizer,
+                    )
+                    reset_minimizer = False
                     self.iters_used = self.get_iterations()
                     if not self.current_constraint:
                         self.I_tor_boundary = self.evaluate("I_tor", rho=1.0).I_tor.item()
@@ -538,16 +707,47 @@ class FreeBoundaryState(State):
                         self.diagnostics.iota[:, i] = self.iota.data
                 else:
                     logger.info(
-                        f"Reached free boundary tolerance. free-boundary target: {self.free_boundary_target.item():.3e}, specified tol.: {self.free_boundary_tolerance:.3e}"
+                        f"Reached free boundary stopping criterion. free-boundary target: {self.free_boundary_target:.3e}, specified tol.: {self.free_boundary_tolerance:.3e}."
+                        + f" resolved force-balance ratio: {self._resolved_force_ratio:.2e} %, specified limit: {force_ratio_limit:.2e}."
                     )
                     break
                 logger.info(
-                    f"free-boundary - target: {self.free_boundary_target.item():.3e}, tolerance: {self.free_boundary_tolerance}, iters: {self.iters_used} / {self.totalIter} "
+                    f"free-boundary - target: {self.free_boundary_target:.3e}, tolerance: {self.free_boundary_tolerance}, iters: {self.iters_used} / {self.totalIter} "
                 )
+                if save_diagnostics:
+                    try:
+                        self.diagnostics.to_netcdf("diagnostics_aux.nc")
+                    except PermissionError:
+                        logger.warning(
+                            "Permission error when attemting to write diagnostics to netcdf! Maybe the data-set is opened somewhere else?"
+                        )
             # ensure that the final result is in fixed-boundary equilibrium
             self._minimize(logfinaliter=False, maxIter=(self.totalIter - self.iters_used))
         except KeyboardInterrupt:
             logger.warning("Aborting free-boundary due to keyboard interrupt!")
+        if (
+            self._resolved_force_ratio < force_ratio_limit
+            and self.free_boundary_target > self.free_boundary_tolerance
+        ):
+            fb_aux = (
+                self.diagnostics.force_balance.isel(iteration=i)
+                .squeeze()
+                .transpose("pol", "tor")
+            )
+            M_proposed, N_proposed = minimal_modes_force_balance(
+                fb_aux,
+                zeta0=fb_aux.zeta[0].item(),
+                theta0=fb_aux.theta[0].item(),
+                tolerance=self.free_boundary_tolerance,
+            )
+            logger.info(
+                "Not all modes in the free-boundary force  balance can be resolved with the provided angular resolution.\n"
+                + "Try reducing minimze_tol or adapt the angular resolution.\n"
+                + "Proposed angular resolution increase for the solution variables X1 / X2 / LA:\n"
+                + f"    m_max - current {self.m_max} -> proposed {M_proposed}\n"
+                + f"    n_max - current {self.n_max} -> proposed {N_proposed}"
+            )
+
         if self.free_boundary_target > self.free_boundary_tolerance:
             logger.warning(
                 f"Free-boundary target not reached! target: {self.free_boundary_target:.3e}, specified tol.: {self.free_boundary_tolerance:.3e}"
@@ -712,10 +912,10 @@ def _get_B2_fp(
     B_coils = ev_coils.B.transpose("xyz", "tor", "pol").values
     if state.clockwise_zeta:
         boundary_biest = np.flip(boundary.pos.values, axis=1)
-        B_coils_biest = np.flip(B_coils, axis=1)
+        B_coils_biest = np.flip(B_coils.copy(), axis=1)
     else:
         boundary_biest = boundary.pos.values
-        B_coils_biest = B_coils
+        B_coils_biest = B_coils.copy()
 
     # main BIEST calculation
     time_0 = time.time()
@@ -754,3 +954,36 @@ def _get_B2_fp(
         )
     else:
         return B2_flat
+
+
+def minimal_modes_force_balance(X, tolerance=1e-8, **kwargs):
+    """
+    Find the minimal maximum mode numbers (M, N) such that the error is below the tolerance.
+    First dimension of X to be theta,
+    second dimension is assumed to be zeta.
+    """
+    Xcos, Xsin = fourier.fft2d(X, **kwargs)
+
+    M, N = Xcos.shape[0] - 1, Xcos.shape[1] // 2
+
+    m, n = fourier.fft2d_modes(M, N, grid=True)
+    Mrange, Nrange = np.arange(M + 1), np.arange(0, N + 1)
+    error = np.full((M + 1, N + 1), np.inf)
+    norm = np.sqrt(np.sum(Xcos**2 + Xsin**2))
+    for Mnew in Mrange:
+        for Nnew in Nrange:
+            # sum magnitudes of all modes above the cutoff
+            mask = (m > Mnew) | (n > Nnew) | (n < -Nnew)
+            err = Xcos[mask] ** 2 + Xsin[mask] ** 2
+            error[Mnew, Nnew] = np.sqrt(np.sum(err)) / norm
+
+    # select candidates with error below the tolerance
+    mcan, ncan = np.meshgrid(Mrange, Nrange, indexing="ij")
+    mask = error < tolerance
+    # restrict candidates to those with minimum DoFs
+    dofs = ncan + 1 + mcan * (2 * ncan + 1)
+    mask &= dofs == dofs[mask].min()
+    # select candidate with minimum error
+    mask &= error == error[mask].min()
+
+    return mcan[mask].item(), ncan[mask].item()

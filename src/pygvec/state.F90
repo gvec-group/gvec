@@ -139,10 +139,12 @@ END SUBROUTINE set_Bext_squared
 !> Wrapper to perform a free boundary update
 !!
 !===================================================================================================================================
-FUNCTION update_boundary(dt) RESULT(dt_out)
+FUNCTION update_boundary(dt, reset_minimizer) RESULT(dt_out)
   REAL(wp), INTENT(INOUT)  :: dt
-  REAL(wp)              :: dt_out
-  CALL functional%update_boundary(dt)
+  LOGICAL, INTENT(IN)      ::reset_minimizer
+  REAL(wp)                 :: dt_out
+
+  CALL functional%update_boundary(dt, reset_minimizer)
   dt_out = dt
 END FUNCTION update_boundary
 
@@ -164,19 +166,36 @@ FUNCTION get_minimize_tol() RESULT(tol)
   REAL(wp) :: tol
   tol = minimize_tol
 END FUNCTION get_minimize_tol
+
+FUNCTION get_outputlevel() RESULT(outid)
+  USE MODgvec_Output_Vars, ONLY: outputLevel
+  INTEGER :: outid
+  outid = outputLevel
+END FUNCTION get_outputlevel
+
+SUBROUTINE save_statefile()
+  USE MODgvec_Analyze, ONLY: Analyze
+  USE MODgvec_Restart, ONLY: WriteState
+  ASSOCIATE(vars => functional%minimizer%vars)
+    CALL Analyze(vars%iter, vars%dofs(0), vars%force(0))
+    CALL WriteState(vars%dofs(0),vars%iter)
+  END ASSOCIATE
+END SUBROUTINE save_statefile
 !===================================================================================================================================
 !> Wrapper to update the iota-profile via bspl-interpolation
 !!
 !! Used for current constraint with free-boundary. Updates iota_profile, chi_profile and chiPrime_GP
 !===================================================================================================================================
-SUBROUTINE update_iota_for_current_constraint(rho2, vals)
+SUBROUTINE update_iota_for_current_constraint(rho2, vals, reset_LA)
   USE MODgvec_cubic_spline   , ONLY: interpolate_cubic_spline
   USE MODgvec_MHD3D_evalFunc , ONLY: chiPrime_GP
-  USE MODgvec_MHD3D_Vars     , ONLY: iota_profile, chi_profile, X1_base, Phi_edge
+  USE MODgvec_MHD3D_Vars     , ONLY: iota_profile, chi_profile, X1_base, Phi_edge, init_LA
+  USE MODgvec_MHD3D          , ONLY: Init_LA_from_Solution
   USE MODgvec_rProfile_bspl  , ONLY: t_rProfile_bspl
 
   REAL(wp), INTENT(IN) :: rho2(:) !! interpolation points
   REAL(wp), INTENT(IN) :: vals(:) !! profile values at the interpolation points
+  LOGICAL,  INTENT(IN) :: reset_LA !! whether to set LA to zero
 
   REAL(wp), ALLOCATABLE :: knots(:), coefs(:)
   INTEGER :: n_rho2, n_vals, iGP, nGP
@@ -209,7 +228,33 @@ SUBROUTINE update_iota_for_current_constraint(rho2, vals)
       chiPrime_GP( iGP) = chi_profile%eval_at_rho(s_GP(iGP),deriv=1)
     END DO !iGP
   END ASSOCIATE
+
+  IF (reset_LA) THEN
+    IF (init_LA) THEN
+      CALL Init_LA_from_Solution(functional%minimizer%vars%dofs(0))
+    ELSE
+      functional%minimizer%vars%dofs(0)%LA = 0.0_wp
+    END IF
+  END IF
 END SUBROUTINE update_iota_for_current_constraint
+
+!================================================================================================================================!
+!> Returns the theta and zeta integration points
+!================================================================================================================================!
+SUBROUTINE get_angle_integration_points(theta, ntheta, zeta, nzeta)
+  USE MODgvec_MHD3D_Vars, ONLY: X1_base
+  INTEGER , INTENT(IN)    :: ntheta, nzeta
+  REAL(wp), INTENT(INOUT) :: theta(1:ntheta), zeta(1:nzeta)
+
+  theta = X1_base%f%thet_IP
+  zeta = X1_base%f%zeta_IP
+END SUBROUTINE get_angle_integration_points
+
+FUNCTION get_Fnorm_boundary() RESULT(Fnorms)
+  USE MODgvec_MHD3D_Vars, ONLY: Fnorm_X1_b_IP, Fnorm_X1_b_modes, Fnorm_X2_b_IP, Fnorm_X2_b_modes, Force_b_X1, Force_b_X2
+  REAL(wp) :: Fnorms(6)
+  Fnorms = SQRT((/Fnorm_X1_b_IP, Fnorm_X1_b_modes, Fnorm_X2_b_IP, Fnorm_X2_b_modes, SUM(Force_b_X1**2), SUM(Force_b_X2**2)/))
+END FUNCTION get_Fnorm_boundary
 
 
 !================================================================================================================================!

@@ -18,7 +18,7 @@ MODULE MODgvec_MHD3D
   IMPLICIT NONE
 
   PRIVATE
-  PUBLIC t_functional_mhd3d, AddBoundaryPerturbation
+  PUBLIC t_functional_mhd3d, AddBoundaryPerturbation, Init_LA_from_Solution
 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! TYPES
@@ -1262,7 +1262,7 @@ SUBROUTINE AddBoundaryPerturbation(U_init, depth, blend_type)
 
 END SUBROUTINE AddBoundaryPerturbation
 
-SUBROUTINE update_boundary_MHD3D(sf, dt_in)
+SUBROUTINE update_boundary_MHD3D(sf, dt_in, reset_minimizer)
   USE MODgvec_MHD3D_Vars, ONLY: free_b_minimizer_X1, free_b_minimizer_X2, FreeBoundary
   USE MODgvec_MHD3D_Vars, ONLY: X1_b, X2_b, X1_base, X2_base, X1pert_b, X2pert_b ! for bondary perturbation
   USE MODgvec_MHD3D_Vars, ONLY: Force_b_X1, Force_b_X2
@@ -1270,6 +1270,7 @@ SUBROUTINE update_boundary_MHD3D(sf, dt_in)
 
   CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
   REAL(wp), INTENT(INOUT)                  :: dt_in
+  LOGICAL, INTENT(IN)                      :: reset_minimizer
 
   INTEGER  :: step_decreases, JacCheck, max_step_decreases
   LOGICAL  :: perform_update
@@ -1278,6 +1279,11 @@ SUBROUTINE update_boundary_MHD3D(sf, dt_in)
   IF (.NOT.FreeBoundary) THEN
     CALL abort(__STAMP__, &
            'FreeBoundary is .FALSE. but tried to call update_boundary! Set FreeBoundary=T to allow a boundary update.')
+  END IF
+
+  IF (reset_minimizer) THEN
+    free_b_minimizer_X1%reset()
+    free_b_minimizer_X2%reset()
   END IF
 
   dt = dt_in

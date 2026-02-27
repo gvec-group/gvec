@@ -1502,6 +1502,7 @@ END SUBROUTINE ApplyPrecond
 SUBROUTINE EvalBoundaryForce(dofs_in,F_b_X1,F_b_X2)
 ! MODULES
   USE MODgvec_MHD3D_Vars, ONLY: X1_base,X2_base,LA_base,hmap,Phi_profile,chi_profile, Bext_squared
+  USE MODgvec_MHD3D_Vars, ONLY: Fnorm_X1_b_IP, Fnorm_X2_b_IP, Fnorm_X1_b_modes, Fnorm_X2_b_modes ! DIAGNOSTICS
   USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -1524,9 +1525,13 @@ SUBROUTINE EvalBoundaryForce(dofs_in,F_b_X1,F_b_X2)
   END DO
 
   coefY(:) = -0.5*Bext_squared(:)*J_h_boundary(:)*dX2_dthet_boundary(:)
+  Fnorm_X1_b_IP = SUM(coefY**2)
   CALL X1_base%f%projectIPtoDOF(.FALSE.,dthet_dzeta,   0,coefY(     :),F_b_X1(:))
+  Fnorm_X1_b_modes = SUM(F_b_X1**2)
   coefY(:) =  0.5*Bext_squared(:)*J_h_boundary(:)*dX1_dthet_boundary(:)
+  Fnorm_X2_b_IP = SUM(coefY**2)
   CALL X2_base%f%projectIPtoDOF(.FALSE.,dthet_dzeta,   0,coefY(     :),F_b_X2(:))
+  Fnorm_X2_b_modes = SUM(F_b_X2**2)
 END SUBROUTINE EvalBoundaryForce
 
 !===================================================================================================================================

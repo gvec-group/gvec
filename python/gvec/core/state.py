@@ -311,15 +311,46 @@ class State:
         _state.set_bext_squared(B2)
 
     @with_binding
-    def update_iota_for_current_constraint(self, rho2, iota):
-        logger.debug("Updating iota")
-        _state.update_iota_for_current_constraint(rho2, iota)
+    def save_statefile(self):
+        logger.debug("Writing state to file")
+        _state.save_statefile()
 
     @with_binding
-    def update_boundary(self, dt: float):
+    def update_iota_for_current_constraint(self, rho2, iota, reset_LA):
+        logger.debug("Updating iota")
+        _state.update_iota_for_current_constraint(rho2, iota, reset_LA)
+
+    @with_binding
+    def _get_angle_integration_points(self):
+        """Extracts the theta and zeta integration points from fortran GVEC
+
+        Returns
+        -------
+        (np.ndarray, np.ndarray)
+            theta and zeta integration points.
+        """
+        r_GP, r_w, t_n, t_w, z_n, z_w = self.get_integration_points(quantity="X1")
+        theta = np.zeros(t_n)
+        zeta = np.zeros(z_n)
+        _state.get_angle_integration_points(theta, t_n, zeta, z_n)
+        return theta, zeta
+
+    @with_binding
+    def get_Fnorm_boundary(self):
+        logger.debug("Extracting Fnorm at the boundary")
+        return _state.get_fnorm_boundary()
+
+    @with_binding
+    def update_boundary(self, dt: float, reset_minimizer: bool):
         logger.debug("Stepping in free boundary direction")
-        dt = _state.update_boundary(dt)
+        dt = _state.update_boundary(dt, reset_minimizer)
         return dt
+
+    @with_binding
+    def get_outputlevel(self):
+        logger.debug("Extracting outputlevel")
+        outid = _state.get_outputlevel()
+        return outid
 
     @with_binding
     def get_iterations(self):
