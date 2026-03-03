@@ -1088,20 +1088,6 @@ def to_RZ(
         -------
         dict
             Dictionary with:
-    <<<<<<< HEAD
-                zeta : zeta positions on one field period
-                theta : theta positions
-                R : R positions on one field period, with shape ``[ntheta_out,nzeta_out]``
-                Z : Z positions on one field period, with shape ``[ntheta_out,nzeta_out]``
-                nfp : number of field periods
-                lasym : logical for asymmetry, =false if stellarator symmetry is found
-                Mmax,Nmax : maximum mode numbers needed for the given tolerance
-                Rc,Rs,Zc,Zs : R and Z cosine and sine Fourier mode coefficients, shape is ``[Mmax+1,2*Nmax+1]``
-                m_modes: poloidal mode numbers (m) in first dimension of ``Rc, Rs, ...``
-                n_modes: toroidal mode numbers (n) in second dimension of ``Rc, Rs, ...``
-                tolerance: input ``tolerance``
-    =======
-
             - ``zeta`` : zeta positions on one field period, length ``nzeta``
             - ``theta`` : theta positions, length ``ntheta``
             - ``R`` : R positions on one field period, with shape ``(ntheta,nzeta)``
@@ -1112,7 +1098,7 @@ def to_RZ(
             - ``Rc``,``Rs``,``Zc``,``Zs`` : R and Z cosine and sine Fourier mode coefficients,  shape is ``(Mmax+1,2*Nmax+1)``
             - ``m_modes``: poloidal mode numbers (m) in first dimension of ``Rc, Rs,Zc, Zs``
             - ``n_modes``: toroidal mode numbers (n) in second dimension of ``Rc, Rs,Zc, Zs``
-    >>>>>>> v1.3.x
+            - ``tolerance``: input ``tolerance``
     """
     assert xyz.shape[2] == 3, "xyz must have shape [nzeta*nfp, ntheta, 3]"
     nzetafull_in, ntheta_in = xyz.shape[0], xyz.shape[1]
