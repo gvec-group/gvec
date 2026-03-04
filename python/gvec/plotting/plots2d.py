@@ -7,10 +7,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from gvec.core.state import State
-from gvec.plotting.utils import _deco_usetex, _design_subgrid, _subplots, _symbol_check
+from gvec.plotting.utils import _design_subgrid, _subplots, _symbol_check
 
 
-@_deco_usetex
 def plot_poloidal_plane(
     state: State,
     quantity: None | str = "mod_B",
@@ -206,7 +205,6 @@ def plot_poloidal_plane(
     return fig, axs
 
 
-@_deco_usetex
 def plot_on_flux_surface(
     state: State,
     quantities: str | list[str] = "mod_B",
@@ -378,7 +376,6 @@ def plot_on_flux_surface(
     return fig, axs
 
 
-@_deco_usetex
 def plot_fourier_on_surface(
     state: State,
     quantity: str = "mod_B",
