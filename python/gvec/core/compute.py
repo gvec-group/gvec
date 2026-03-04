@@ -123,7 +123,9 @@ def register(
     return _register
 
 
-def table_of_quantities(markdown: bool = False, registry: Mapping | None = None):
+def table_of_quantities(
+    markdown: bool = False, registry: Mapping | None = None, keys: Sequence[str] | None = None
+):
     """
     Generate a table of computable quantities.
 
@@ -134,6 +136,8 @@ def table_of_quantities(markdown: bool = False, registry: Mapping | None = None)
     registry : Mapping | None, optional
         The registry of computable quantites to use.
         Default: the ``gvec.core.compute.QUANTITIES`` registry used to evaluate a gvec.State object.
+    keys: Sequence[str] | None, optional
+        The keys of the quantities to include in the table. If None, all quantities in the registry are included.
 
     Returns
     -------
@@ -148,16 +152,19 @@ def table_of_quantities(markdown: bool = False, registry: Mapping | None = None)
     """
     if registry is None:
         registry = QUANTITIES
+    if keys is None:
+        keys = sorted(registry.keys())
 
     lines = []
-    for key, func in sorted(list(registry.items())):
+    for key in keys:
+        func = registry[key]
         long_name = func.attrs[key].get("long_name", "")
         symbol = func.attrs[key].get("symbol", "")
         symbol = "$" + symbol.replace("|", r"\|") + "$"
         lines.append((f"`{key}`", long_name, symbol))
     sizes = [max(len(s) for s in col) for col in zip(*lines)]
     txt = f"| {'label':^{sizes[0]}s} | {'long name':^{sizes[1]}s} | {'symbol':^{sizes[2]}s} |\n"
-    txt += f"| {'-' * sizes[0]} | {'-' * sizes[1]} | {'-' * sizes[2]} |\n"
+    txt += f"| :{'-' * (sizes[0] - 1)} | :{'-' * (sizes[1] - 1)} | :{'-' * (sizes[2] - 1)} |\n"
     for line in lines:
         txt += f"| {line[0]:^{sizes[0]}s} | {line[1]:^{sizes[1]}s} | {line[2]:^{sizes[2]}s} |\n"
     if markdown:
