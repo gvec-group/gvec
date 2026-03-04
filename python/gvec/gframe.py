@@ -19,8 +19,8 @@ from gvec import fourier
 
 def check_field_periodicity(xyz: np.ndarray, nfp: int, atol=1e-12):
     """
-    checks if all  xyz positions of the surface on a full turn, xyz[0:nz*nfp,0:nt,0:2], have the field periodicity with nfp.
-    returns the sign of the rotation +2pi/nfp or -2pi/nfp
+    checks if all  xyz positions of the surface on a full turn, ``xyz[0:nz*nfp,0:nt,0:2]``, have the field periodicity with ``nfp``.
+    returns the sign of the rotation ``+2pi/nfp`` or ``-2pi/nfp``
     """
     assert xyz.shape[-1] == 3, (
         "last dimension must be the cartesian components surface positions!"
@@ -822,10 +822,9 @@ def construct_gframe_from_surface(
 
     xyz0, N, B = get_X0_N_B(xyz_gframe)
 
-    Lk = linking_number(xyz0, xyz0 + 1e-3 * N)
-    Tw = twist_of_ribbon(xyz0, 1e-3 * N)
+    Wr, Lk, Tw = writhe(xyz0, N)
     logger.info(
-        f"  - G-frame linking number = {Lk:.0f}, twist = {Tw:.3f}, writhe = (Lk-Tw)= {Lk - Tw:.3f}"
+        f"  - G-frame linking number = {Lk:.0f}, twist = {Tw:.3f}, writhe = (Lk-Tw)= {Wr:.3f}"
     )
 
     logger.info(". Cutting the surface")
@@ -987,6 +986,49 @@ def minimal_modes(X, Y, Z=None, tolerance=1e-8):
     mask &= error == error[mask].min()
 
     return mcan[mask].item(), ncan[mask].item()
+
+
+def to_axis(dict_in: dict, nzeta: int = 81):
+    """
+    Convert the "axis" of a gframe file to a different resolution.
+
+    Parameters
+    ----------
+    dict_in : dict
+        dictionary of the Gframe netcdf file, from `gvec.gframe.read_Gframe_ncfile(filename)`
+    nzeta : int, optional
+        number of zeta positions for the output, to sample on one field period (default: 81)
+
+    Returns
+    -------
+    dict_axis : dict
+        dictionary containing
+
+        - ``nfp``: number of field periods
+        - ``axis``: dictionary for the G-Frame data:
+
+            - ``nzeta``: number of zeta positions for one field-period
+            - ``zetafull``: equidistant positions along the curve parameter zeta, without endpoint, length is ``nfp*nzeta``
+            - ``xyz``: cartesian positions along the curve, shape is ``(3,nfp*nzeta)``
+            - ``Nxyz``: cartesian components of the 'normal' vector, shape is ``(3,nfp*nzeta)``
+            - ``Bxyz``: cartesian components of the 'bi-normal' vector, shape is ``(3,nfp*nzeta)``
+    """
+    nfp = dict_in["nfp"]
+    zetafull_out = np.linspace(0, 2 * np.pi, nzeta * nfp, endpoint=False)
+    zdft = fourier.real_dft_mat(dict_in["axis"]["zetafull"], zetafull_out, nfp=1)
+    xyz = zdft["BF"] @ dict_in["axis"]["xyz"].T  # [0:nz*nfp,0:2]
+    Nxyz = zdft["BF"] @ dict_in["axis"]["Nxyz"].T
+    Bxyz = zdft["BF"] @ dict_in["axis"]["Bxyz"].T
+    return {
+        "nfp": nfp,
+        "axis": {
+            "nzeta": nzeta,
+            "zetafull": zetafull_out,
+            "xyz": xyz.T,
+            "Nxyz": Nxyz.T,
+            "Bxyz": Bxyz.T,
+        },
+    }
 
 
 def to_surface(dict_in: dict, nzeta: int = 81, ntheta: int = 81, tolerance: float = 1e-08):
@@ -1245,7 +1287,7 @@ def plot_cross_section_comparison(dict_surf, dict_RZ, step=1, halfperiod=True):
 
 def twist_of_ribbon(X0: np.ndarray, N: np.ndarray, nint: int = None) -> float:
     r"""
-    Compute the twist of a closed (!) ribbon defined by a centerline curve $X_0(\zeta)$ and non-vanishing "normal" vector $N(\zeta)$. The vector N only needs to be linearly independent of the tangent vector $|X_0'(\zeta) \times N| >0$
+    Compute the twist of a closed (!) ribbon defined by a centerline curve $X_0(\zeta)$ and non-vanishing "normal" vector $N(\zeta)$. The vector ``N`` only needs to be linearly independent of the tangent vector $|X_0^\prime(\zeta) \times N| >0$
 
     The twist is computed as
 
@@ -1253,21 +1295,21 @@ def twist_of_ribbon(X0: np.ndarray, N: np.ndarray, nint: int = None) -> float:
     \text{Tw} = \frac{1}{2\pi}\int_0^{2\pi}\frac{\left ({N\times \left [{N^\prime\left|{\Xp}\right|^2 - \left({N \cdot X_0^\prime}\right) X_0^{\prime\prime}}\right]}\right) \cdot X_0^\prime}{\left|{N\left|{X_0^\prime}\right|^2-\left({N \cdot X_0^\prime}\right) X_0^\prime}\right|^2}\left|{X_0^\prime}\right| d\zeta
     $$
 
-    Derivatives of $X_0$ and $N$ are computed via fft, so the curve is assumed to be given on an equispaced grid in `zeta=np.linspace(0,2*np.pi,npoints,endpoint=False)`, excluding the endpoint.
+    Derivatives of $X_0$ and $N$ are computed via fft, so the curve is assumed to be given on an equispaced grid in ``zeta=np.linspace(0,2*np.pi,npoints,endpoint=False)``, excluding the endpoint.
 
     Parameters
     ----------
     X0 : np.ndarray
-        curve positions, in cartesian coordinates, shape (npoints,3),  excluding periodic endpoint!
+        positions along closed curve, in cartesian coordinates, shape ``(npoints,3)``,  excluding periodic endpoint!
     N  : np.ndarray
-        linearly independent, non-normalized "normal" vector at curve positions, in cartesian coordinates, same shape as X0
+        linearly independent, non-normalized "normal" vector at curve positions, in cartesian coordinates, same shape as ``X0``
     nint : int, optional
-        number of points for integration, None sets default =npoints
+        number of points for integration, None sets default ``=npoints``
 
     Returns
     -------
     Tw : float
-        twist of the ribbon defined by X0 and N
+        twist of the ribbon defined by ``X0`` and ``N``
     """
     nzeta = X0.shape[0]
     assert nzeta == N.shape[0], (
@@ -1275,7 +1317,7 @@ def twist_of_ribbon(X0: np.ndarray, N: np.ndarray, nint: int = None) -> float:
     )
     assert X0.shape[1] == 3, f"X0 must have shape (npoints,3), but has shape {X0.shape}"
     assert N.shape[1] == 3, f"X0 must have shape (npoints,3), but has shape {N.shape}"
-    assert np.sqrt(np.sum((X0[0, :] - X0[-1, :]) ** 2)) > 1e-8, (
+    assert np.sqrt(np.sum((X0[0, :] - X0[-1, :]) ** 2)) > 1e-8 * np.sum(X0[0, :] ** 2), (
         "X0 must exclude endpoint, but first and last point coincide"
     )
 
@@ -1308,3 +1350,139 @@ def twist_of_ribbon(X0: np.ndarray, N: np.ndarray, nint: int = None) -> float:
     denom = np.sum((N_f * Xp_dot_Xp[:, None] - N_dot_Xp[:, None] * Xp) ** 2, axis=-1)
     # intergate over zeta and divide by 2pi, using trapezoidal rule
     return np.average(num / denom * np.sqrt(Xp_dot_Xp))
+
+
+def writhe(X0: np.ndarray, N: np.ndarray = None, width: float = 1e-6, nint: int = None):
+    r"""
+    Compute the writhe of a closed (!) curve defined by $X_0(\zeta)$, by attaching a ribbon defined along a non-vanishing "normal" vector $N(\zeta)$, and computing writhe as the difference of the linking number of the ribbon and the twist of the ribbon, ``Wr = Lk - Tw`.
+    The vector ``N`` only needs to be linearly independent of the tangent vector $|X_0^\prime(\zeta) \times N| >0$.
+
+    If ``N`` is not provided, the centroid frame of the curve is used.
+
+    Note that this method is more accurate for a smooth curve than using a polygonal approximation ``writhe_from_polygon``
+
+    Parameters
+    ----------
+    X0 : np.ndarray
+        positions along closed curve, in cartesian coordinates, shape ``(npoints,3)``,  excluding periodic endpoint!
+    N  : np.ndarray, optional
+        linearly independent, non-normalized "normal" vector at curve positions, in cartesian coordinates, same shape as ``X0``. If   not provided, `N` is computed from the centroid frame of ``X0``
+    width : float, optional
+        In order to compute the linking number, the width of the ribbon must be specified, generating a second curve `X0+N*width`. Default width is `1e-6`
+    nint : int, optional
+        number of points for integration for twist, None sets default =npoints
+
+    Returns
+    -------
+    Wr : float
+        Write of the closed curve ``X0``
+    Lk : float
+        Linking number of the ribbon defined by ``X0`` and ``N``
+    Tw : float
+        twist of the ribbon defined by ``X0`` and ``N``
+    """
+    if N is None:
+        N = X0 - np.mean(X0, axis=0)  # centroid frame
+    Tw = twist_of_ribbon(X0, N, nint=nint)
+    Lk = linking_number(X0, X0 + N * width)
+    Wr = Lk - Tw
+    return Wr, Lk, Tw
+
+
+def frenet_frame(X0: np.ndarray) -> dict:
+    r"""
+    Compute the Frenet frame of a closed (!) curve defined by $X_0(\zeta)$, by computing the tangent vector $T$, normal vector $N$ and binormal vector $B$.
+
+    Derivatives of $X_0$ are computed via fft, so the curve is assumed to be given on an equispaced grid in ``zeta=zeta0+np.linspace(0,2*np.pi,npoints,endpoint=False)``, excluding the endpoint.
+
+    Warnings
+    --------
+
+    The curvature ``kappa`` scales with the second derivative. If it is zero at any point, normal and bi-normal vectors are not defined. ``N`` and ``B`` and torsion ``tau`` will return as ``None``.
+
+
+    Parameters
+    ----------
+    X0 : np.ndarray
+        closed curve positions, in cartesian coordinates, shape ``(npoints,3)``,  excluding periodic endpoint!
+
+    Returns
+    -------
+    dict_frame : dict
+        dictionary with:
+
+        - ``X0``: input curve positions, shape ``(npoints,3)``
+        - ``T``: tangent vector, shape ``(npoints,3)``
+        - ``N``: normal vector, shape ``(npoints,3)``. If curvature is zero at any point, ``None`` is returned
+        - ``B``: binormal vector, shape ``(npoints,3)``.  If curvature is zero at any point, ``None`` is returned
+        - ``lp``: arc-length element of the curve $|X_0^{\prime}(\zeta)|$, shape ``(npoints,)``
+        - ``kappa``: curvature, shape ``(npoints,)``
+        - ``tau``: torsion, shape ``(npoints,)``. If curvature is zero at any point, ``None`` is returned
+
+    """
+    X0_c, X0_s = fourier.fft1d(X0, axis=0)
+    Xp = fourier.ifft1d(X0_c, X0_s, axis=0, deriv=1)
+    Xpp = fourier.ifft1d(X0_c, X0_s, axis=0, deriv=2)
+    Xppp = fourier.ifft1d(X0_c, X0_s, axis=0, deriv=3)
+    return frenet_frame_evaluate(X0, Xp, Xpp, Xppp)
+
+
+def frenet_frame_evaluate(X0, X0p, X0pp, X0ppp) -> dict:
+    r"""
+    Compute the Frenet frame from the first three derivatives of the curve $X_0(\zeta)$ in cartesian coordinates.
+
+    The tangent vector, binormal vector and normal vector are computed as
+
+    .. math::
+        T = \frac{X_0^\prime}{|X_0^\prime|}, \quad
+        B = \frac{X_0^\prime \times X_0^{\prime\prime}}{|X_0^\prime \times X_0^{\prime\prime}|}, \quad
+        N = B \times T
+
+    The arc-length element is :math:`\ell^\prime = |X_0^\prime|`, and curvature and torsion are computed as
+
+    .. math::
+
+        \kappa = \frac{|X_0^\prime \times X_0^{\prime\prime}|}{(\ell^\prime)^3},\quad
+        \tau = \frac{((X_0^\prime \times X_0^{\prime\prime}) \cdot X_0^{\prime\prime\prime})}{|X_0^\prime \times X_0^{\prime\prime}|^2}\,.
+
+
+
+    Warnings
+    --------
+
+    The curvature ``kappa`` scales with the second derivative. If it is zero at any point, normal and bi-normal vectors are not defined. ``N`` and ``B`` and torsion ``tau`` will return as ``None``.
+
+    Parameters
+    ----------
+    X0 : np.ndarray
+        closed curve positions, in cartesian coordinates, shape ``(npoints,3)``,  excluding periodic endpoint!
+    X0p : np.ndarray
+        first derivative of the curve, shape ``(npoints, 3)``
+    X0pp : np.ndarray
+        second derivative of the curve, shape ``(npoints, 3)``
+    X0ppp : np.ndarray
+        third derivative of the curve, shape ``(npoints, 3)``
+
+    Returns
+    -------
+    dict_frame : dict
+        dictionary with:
+
+        - ``T``: tangent vector, shape ``(npoints,3)``
+        - ``N``: normal vector, shape ``(npoints,3)``. If any ``kappa*lp <1e-8`, ``None`` is returned
+        - ``B``: binormal vector, shape ``(npoints,3)``.  If any ``kappa*lp <1e-8`, ``None`` is returned
+        - ``lp``: arc-length element of the curve $|X_0^\prime(\zeta)|$, shape ``(npoints,)``
+        - ``kappa``: curvature, shape ``(npoints,)``
+        - ``tau``: torsion, shape ``(npoints,)``. If any ``kappa*lp <1e-8`, ``None`` is returned
+    """
+    lp = np.sqrt(np.sum(X0p**2, axis=-1))
+    T = X0p / lp[:, None]
+    B_full = np.cross(X0p, X0pp, axis=-1)
+    Bnorm = np.sqrt(np.sum(B_full**2, axis=-1))
+    kappa = Bnorm / (lp**3)
+    if np.any(kappa * lp < 1e-8):
+        return {"lp": lp, "kappa": kappa, "T": T, "N": None, "B": None, "tau": None}
+    tau = np.sum(B_full * X0ppp, axis=-1) / Bnorm**2
+    B = B_full / Bnorm[:, None]
+    N = np.cross(B, T, axis=-1)
+    return {"X0": X0, "T": T, "N": N, "B": B, "lp": lp, "kappa": kappa, "tau": tau}

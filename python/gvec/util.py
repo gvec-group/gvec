@@ -1305,7 +1305,7 @@ def linking_number(curve_a: np.ndarray, curve_b: np.ndarray, tol=1e-15, endpoint
     )
 
 
-def writhe(curve: np.ndarray, endpoint=False):
+def writhe_from_polygon(curve: np.ndarray, endpoint=False):
     r"""
     Compute the writhe of a closed curve $C(\zeta)$, solving the (singular!) double integral over the curve
 
@@ -1327,6 +1327,10 @@ def writhe(curve: np.ndarray, endpoint=False):
     -------
     Wr : float
         the approximate writhe of the curve
+
+    Warnings
+    --------
+    The algorithm converges very slowly with the number of line segments.
     """
     assert curve.ndim == 2, "curve must be a 2D array"
     assert curve.shape[1] == 3, "second dimension of curve must be of size 3"

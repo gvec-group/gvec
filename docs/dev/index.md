@@ -119,7 +119,6 @@ gvec.core.run </api/core-run>
 gvec.core.compute </api/core-compute>
 gvec.quantities </api/quantities>
 gvec.fourier </api/fourier>
-gvec.gframe </api/gframe>
 gvec.surface </api/surface>
 gvec.util </api/util>
 gvec.vtk </api/vtk>

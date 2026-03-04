@@ -1,6 +1,7 @@
 .. _api-gframe:
 
 gvec.gframe
+===========
 
 .. automodule:: gvec.gframe
   :members:
