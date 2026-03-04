@@ -3,14 +3,14 @@
 """run gvec from python"""
 
 import logging
-from pathlib import Path
 import re
 import shutil
 import time
-from collections.abc import Mapping
-from typing import Literal
-from datetime import datetime
 import warnings
+from collections.abc import Mapping
+from datetime import datetime
+from pathlib import Path
+from typing import Literal
 
 import numpy as np
 import xarray as xr
@@ -19,9 +19,9 @@ from pandas import read_csv
 import gvec
 from gvec.core.state import State
 from gvec.errors import catch_gvec_errors
-from gvec.util import CaseInsensitiveDict as cidict
-from gvec.lib import modgvec_py_run as _run
 from gvec.lib import modgvec_py_binding as _binding
+from gvec.lib import modgvec_py_run as _run
+from gvec.util import CaseInsensitiveDict as cidict
 
 
 def run(
@@ -173,6 +173,10 @@ class Run:
         self.totaliter = self.parameters.get("totaliter", int(1e5))
         if "maxIter" not in self.parameters:
             self.parameters["maxIter"] = self.totaliter
+        if self.parameters["maxIter"] <= 0:
+            raise ValueError(
+                f"Value 'maxIter' must be greater than 0 (current value is {self.parameters['maxIter']})."
+            )
 
         picard_current = self.parameters.get("picard_current", "off")
 
