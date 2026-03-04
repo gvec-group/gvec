@@ -44,8 +44,9 @@ You can also join the [matrix-chat channel](https://matrix.to/#/#gvec:mpg.de) fo
     * tags/releases (mostly) follow [semantic versioning](https://semver.org/)
 * fixes should be added to `develop` / a feature branch and can be cherry-picked back to older releases if necessary
     * a release branch (e.g. `v1.3.x`) can be setup to track the history of a release which has branched away from `develop`
-* `docs` can be used to quickly fix the documentation (allows directly committing to it)
-    * On readthedocs `latest` → `docs` branch, the other branches / tags are used by name
+* on readthedocs, multiple versions of the documentation are available:
+    * in the version switcher (top-left): `latest` → `main`, `develop`, and other selected releases
+    * in the readthedocs panel (bottom-right): additional branches, configured in the readthedocs settings
     * configure readthedocs here: https://app.readthedocs.org/projects/gvec/
     * in repo: `.readthedocs.yaml` & `docs/static/version-switcher.json`
 * use pre-commit hooks (python formatting, notebook cleaning, etc.)
@@ -126,6 +127,7 @@ gvec.gframe </api/gframe>
 gvec.plotting.plots1d </api/plotting-plots1d>
 gvec.plotting.plots2d </api/plotting-plots2d>
 gvec.plotting.plots3d </api/plotting-plots3d>
+gvec.coils </api/coils>
 gvec.scripts.main </api/scripts-main>
 gvec.scripts.run </api/scripts-run>
 gvec.scripts.cas3d </api/scripts-cas3d>

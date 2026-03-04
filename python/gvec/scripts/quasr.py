@@ -2,47 +2,60 @@
 # License: MIT
 r"""The pyGVEC script for converting a QUASR configuration to a G-Frame for use with GVEC.
 
-QUASR is the A QUAsi-symmetric Stellarator Repository: https://quasr.flatironinstitute.org/
+QUASR is the QUAsi-symmetric Stellarator Repository: https://quasr.flatironinstitute.org/.
+The algorithm used to construct a G-Frame is described in [1]_ and is as follows:
 
-The algorithm is described in the paper Hindenlang et al. DOI: 10.1088/1361-6587/adba11 and is as follows:
+1) Evaluate surface in cartesian space
 
-### STEP 1: Evaluate surface in cartesian space:
-
-1. using a json file from QUASR (from `https://quasr.flatironinstitute.org/`) with the simsopt interface
-2. Evaluate the surface cartesian position $(x,y,z)(\vartheta_i,\zeta_j)$ at a meshgrid  on the full torus:
+   First use the simsopt interface to load a json file from QUASR, which can also be retrieved automatically with a given ID.
+   Then evaluate the surface cartesian position $(x,y,z)(\vartheta_i,\zeta_j)$ at a meshgrid  on the full torus:
 
    $\vartheta_i=2\pi \frac{i}{n_t},i=0\dots,n_t-1,\quad \zeta_j=2\pi\frac{j}{n_z},j=0,\dots,n_z-1$
 
    where the angles $\vartheta,\zeta$ are just the parametrization of the given surface. (For the quasr surfaces, its a boozer angle parameterization!).
-
    The number $n_z$ is chosen as a multiple of the number of field periods $n_{FP}$, to be able to reduce the discrete dataset exactly to one field period.
 
-### STEP 2: Project to surface with elliptical cross-sections
+2) Project to surface with elliptical cross-sections
 
-Project ${\bm x}_m(\zeta)=\frac{1}{2\pi}\int_{\vartheta=0}^{2\pi}{\bm x}(\vartheta,\zeta)\sigma_m(\vartheta)d\vartheta$ with $\sigma_0(\vartheta)=1,\sigma_{s}(\vartheta)=2\sin(\vartheta),\sigma_{c}(\vartheta)=2\cos(\vartheta)$, leading to a surface
+   Project ${\bm x}_m(\zeta)=\frac{1}{2\pi}\int_{\vartheta=0}^{2\pi}{\bm x}(\vartheta,\zeta)\sigma_m(\vartheta)d\vartheta$
+   with $\sigma_0(\vartheta)=1,\sigma_{s}(\vartheta)=2\sin(\vartheta),\sigma_{c}(\vartheta)=2\cos(\vartheta)$, leading to a surface
 
-${\bm x}_m(\vartheta,\zeta)={\bm x}_0(\zeta) + {\bm x}_s(\zeta)\sin(\vartheta)+ {\bm x}_c(\zeta)\cos(\vartheta)$
+   ${\bm x}_m(\vartheta,\zeta)={\bm x}_0(\zeta) + {\bm x}_s(\zeta)\sin(\vartheta)+ {\bm x}_c(\zeta)\cos(\vartheta)$
 
-where cross-sections of $\zeta=\text{const.}$ are planar elliptical curves.
+   where cross-sections of $\zeta=\text{const.}$ are planar elliptical curves.
 
+3) Compute the plane of the ellipse cross-sections
 
-### STEP 3: Compute the plane of the ellipse cross-sections
+   First choice is to set the first basis unit vector $N$ from the center point of the ellipse to a point on the boundary at $\vartheta=0$ position.
+   Then use a first guess for the second basis unit vector $B$ from the center point to $\theta=\frac{\pi}{2}$ position to span the unit normal of the plane $K=(N \times B)$,
+   and then set the second unit vector $B=K\times N$, such that $N$ and $B$ are orthonormal and describe the plane of the ellipse.
 
-First choice is to set the first basis unit vector $N$ from the center point of the ellipse to a point on the boundary at $\vartheta=0$ position. Then use a first guess for the second basis unit vector $B$ from the center point to $\theta=\frac{\pi}{2}$ position to span the unit normal of the plane $K=(N \times B)$, and then set the second unit vector $B=K\times N$, such that $N$ and $B$ are orthonormal and describe the plane of the ellipse.
-###  STEP 4: compute fourier coefficients of the ellipse
+4) compute fourier coefficients of the ellipse
 
-The ellipse in a single $N,B$ plane is defined as $  $X^k(\vartheta)= x^k_c\cos(\vartheta)+x^k_s\sin(\vartheta),k=1,2$
+   The ellipse in a single $N,B$ plane is defined as $X^k(\vartheta)= x^k_c\cos(\vartheta)+x^k_s\sin(\vartheta),k=1,2$.
+   We can deduce from the four coefficients the shift $\vartheta_0$ and the rotation angle $\Gamma$.
 
-We can deduce from the four coefficients the shift  $\vartheta_0$ and the rotation angle $\Gamma$.
+5) Final frame
 
-### STEP 5: Final frame
+   The final frame is obtained by rotating the $N$ and $B$ vectors by $-(\Gamma-\vartheta_0)$, which yields constant rotation speed along $\zeta$.
+   Thus, in the final frame, the rotating ellipse is represented by a single poloidal and a single toroidal Fourier mode.
 
-The final frame is obtained by rotating the $N$ and $B$ vectors by $-(\Gamma-\vartheta_0)$, which yields constant rotation speed along $\zeta$.
-Thus, in the final frame, the rotating ellipse is represented by a single poloidal and a single toroidal Fourier mode.
+6) cut the original surface with the planes of the frame
 
-### STEP 6: cut the original surface with the planes of the frame
+   For each discrete $N,B$ plane, we compute the intersection of the all curves $\bm x(\vartheta_i,\zeta)$ and compute its position $X^1,X^2$ in the $N,B$ plane. This gives the final surface.
 
-For each discrete $N,B$ plane, we compute the intersection of the all curves $\bm x(\vartheta_i,\zeta)$ and compute its position $X^1,X^2$ in the $N,B$ plane. This gives the final surface.
+See Also
+--------
+:py:mod:`gvec.gframe`
+    module for constructing and manipulating G-Frames
+
+:doc:`/user/quasr`
+    high-level documentation for this script
+
+References
+----------
+.. [1] Florian Hindenlang *et al.* 2025 "Computing MHD equilibria of stellarators with a flexible coordinate frame", Plasma Phys. Control. Fusion **67** 045002. DOI: _10.1088/1361-6587/adba11: https://doi.org/10.1088/1361-6587/adba11
+
 """
 
 import argparse
@@ -66,7 +79,7 @@ from gvec.coils import Coil, CoilSet, trace_fieldlines, intersection_planes_from
 parser = argparse.ArgumentParser(
     prog="pygvec-load-quasr",
     description="Load a QUASR configuration and convert it to a G-Frame and boundary for use with GVEC.",
-    usage="%(prog)s [-h] (ID | -s FILE | -f FILE) [-v | -q] [--nt NT] [--nz NZ] [--clean CLEANTOL] [--stellsym] [--cutoff=CUTOFF] [--tol=TOL] [--yaml | --toml] [--save-xyz]",
+    usage="%(prog)s [-h] (ID | -s FILE | -f FILE) [-v | -q] [<options>]",
 )
 parser.add_argument("ID", type=int, nargs="?", help="ID of the QUASR configuration")
 parser.add_argument(
@@ -138,6 +151,11 @@ parser.add_argument(
     "--save-xyz",
     action="store_true",
     help="save the boundary points to a netCDF file",
+)
+parser.add_argument(
+    "--boundary-coefficients",
+    action="store_true",
+    help="write the boundary data as fourier coefficients in the parameter file instead of points in the netCDF file",
 )
 parser.add_argument(
     "--name",
@@ -214,7 +232,7 @@ def get_xyz_from_surface(nt: int, nz: int, surface):
     """Sample a SIMSOPT Surface object in cartesian coordinates.
 
     Sample surface at nt,nz*nfp point positions on the full torus.
-    Gives cartesian positions xyz[0:nz*nfp,0:nt,0:2].
+    Gives cartesian positions ``xyz[0:nz*nfp, 0:nt, 0:2]``.
     """
     nfp = surface.nfp
     # simsopt.Surface objects use [0,1] for theta & zeta
@@ -228,29 +246,35 @@ def get_xyz_from_surface(nt: int, nz: int, surface):
 
 
 def save_xyz(xyz: np.ndarray, nfp: int, filename: Path | str, attrs: dict = {}):
-    """
-    Save cartesian surface points xyz[0:nz*nfp,0:nt,0:2] to a netcdf file.
+    r"""Save cartesian surface points ``xyz[0:nz*nfp,0:nt,0:2]`` to a netcdf file.
+
     The surface cartesian position $(x,y,z)(\vartheta_i,\zeta_j)$ must be evaluated
     at a meshgrid  on the full torus, excluding the periodic endpoint:
     $\vartheta_i=2\pi \frac{i}{n_t},i=0\dots,n_t-1,\quad \zeta_j=2\pi\frac{j}{n_z},j=0,\dots,n_z-1$
-    Inputs:
-    xyz: cartesian surface points xyz[0:nz*nfp,0:nt,0:2]
-    nfp: number of field periods
-    filename: path to netcdf file (with .nc extension)
 
-    Example usage, with a function that evaluates the surface cartesian position $\vec{x}(\vartheta,\zeta)$,
-    provided the number of points `ntheta` and `nzeta` and the number of field periods `nfp`:
+    Parameters
+    ----------
+        xyz: 3D np.ndarray
+            cartesian surface points of shape (nz*nfp, nt, 3)
+        nfp: int
+            number of field periods
+        filename: Path | str
+            path to the output netcdf file (with .nc extension)
+        attrs: dict, optional
+            additional attributes to add to the netcdf file
 
-    ```python
-    theta=np.linspace(0,2*np.pi,ntheta,endpoint=False)
-    zeta=np.linspace(0,2*np.pi,nzeta*nfp,endpoint=False)
-    xyz=np.zeros((nzeta*nfp,ntheta,3))
-    for j in range(nzeta*nfp):
-         for i in range(ntheta):
-             xyz[j,i,:] = eval_surface(theta[i],zeta[j])
-    save_xyz(xyz,nfp,'mycase-boundary.nc')
-    ```
+    Examples
+    --------
 
+    Given a function ``eval_surface`` that evaluates the surface cartesian position $\vec{x}(\vartheta,\zeta)$:
+
+    >>> theta = np.linspace(0, 2 * np.pi, ntheta, endpoint=False)
+    >>> zeta = np.linspace(0, 2 * np.pi, nzeta * nfp, endpoint=False)
+    >>> xyz = np.zeros((nzeta * nfp, ntheta, 3))
+    >>> for j in range(nzeta * nfp):
+    ...     for i in range(ntheta):
+    ...         xyz[j,i,:] = eval_surface(theta[i], zeta[j])
+    >>> save_xyz(xyz, nfp, "example-boundary.nc")
     """
     import datetime
     from gvec import __version__
@@ -457,13 +481,14 @@ def load_quasr(
     param_type: Literal["toml", "yaml"] = "toml",
     clean: int = 0,
     stellsym: bool = False,
+    boundary_coefficients: bool = False,
     logger: logging.Logger | None = None,
 ):
     """Load a QUASR configuration and convert it to a G-Frame and boundary for use with GVEC.
 
     Parameters
     ----------
-    configuration : int | str |Path
+    configuration : int | str | Path
         QUASR configuration ID or file.
     filetype : Literal["netcd","json"] | None, optional
         If configuration is a string or Path, specifies the boundary file format.
@@ -492,6 +517,8 @@ def load_quasr(
         Default is 0., which means no cleaning.
     stellsym : bool, optional
         If set, imposes stellarator symmetry for the input surface. Use this with great care! By default False
+    boundary_coefficients : bool, optional
+        Write the boundary data as fourier coefficients in the parameter file instead of points in the netCDF file.
     logger : Logger | None, optional
         If None a new logger will be created.
 
@@ -559,6 +586,7 @@ def load_quasr(
         format=param_type,
         tolerance_clean_surface=clean,
         impose_stell_symmetry=stellsym,
+        boundary_coefficients=boundary_coefficients,
         cutoff_gframe=cutoff,
         logger=logger,
     )
@@ -615,6 +643,7 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         param_type=args.param_type,
         clean=args.clean,
         stellsym=args.stellsym,
+        boundary_coefficients=args.boundary_coefficients,
         logger=logger,
     )
 

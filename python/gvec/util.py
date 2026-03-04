@@ -73,7 +73,7 @@ class CaseInsensitiveDict(MutableMapping):
     # Adapted from requests.structures.CaseInsensitiveDict
     # See: https://github.com/psf/requests/blob/main/src/requests/structures.py
     # Original license: Apache License 2.0
-    """A dictionary-like Mutable Mapping where string keys are case-insensitive.
+    r"""A dictionary-like Mutable Mapping where string keys are case-insensitive.
 
     Implements all methods and operations of
     ``MutableMapping`` as well as dict's ``copy``. Also
@@ -83,14 +83,22 @@ class CaseInsensitiveDict(MutableMapping):
     The structure remembers the case of the last used key, and
     ``iter(instance)``, ``keys()``, ``items()``, ``iterkeys()``, and ``iteritems()``
     will contain case-sensitive keys. However, querying and contains
-    testing is case insensitive:
+    testing is case insensitive.
 
-        cid = CaseInsensitiveDict()
-        cid['param'] = 'value'
-        cid['Param'] == 'value'  # True
+    Raises
+    ------
+    ValueError
+        If the constructor, ``.update``, or equality comparison
+        operations are given keys that have equal ``.lower()`` representations.
+        This is to avoid ambiguity in lookups and ensure consistent behavior.
 
-    If the constructor, ``.update``, or equality comparison
-    operations are given keys that have equal ``.lower()``s, a ValueError is raised.
+    Examples
+    --------
+
+    >>> cid = CaseInsensitiveDict()
+    >>> cid['param'] = 'value'
+    >>> cid['Param'] == 'value'
+    True
     """
 
     def __init__(self, data=(), /, **kwargs):
@@ -178,7 +186,7 @@ class CaseInsensitiveDict(MutableMapping):
 
 def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
     """
-    Copy the `source` file to the `target` file and replace the parameters according to `kwargs`.
+    Copy the `source` file to the `target` file and replace the parameters according to ``kwargs``.
 
     Args:
         source (str or Path): The path to the source parameter file.
@@ -190,17 +198,17 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
         AssertionError: If the number of occurrences for any parameter is not exactly 1.
 
     Notes:
-        - If no parameters are provided in `kwargs`, the function simply copies the `source` file to the `target` file.
-        - The function replaces the parameters in the format `key = value`, where value is either a sequence of characters containing
-          no whitespace or a single pair of parentheses with any content. The value from `kwargs` is inserted using the standard python
-          string conversion. There may be a comment, starting with `!`, after the value.
-        - If a parameter already exists in the `source` file, its value is replaced with the corresponding value from `kwargs`.
-        - If a parameter does not exist in the `source` file, it is added to the `target` file.
-        - If the value of the key starts with "!", the line with the keyword is just uncommented.  (i.e. "!key=2.5" -> "key=2.5")
-          If no line with the keyword is found, the key is added with the value, excluding the leading "!"  (i.e. value is "!0.5" -> "key=0.5" is added)
+        - If no parameters are provided in ``kwargs``, the function simply copies the ``source`` file to the ``target`` file.
+        - The function replaces the parameters in the format ``key = value``, where value is either a sequence of characters containing
+          no whitespace or a single pair of parentheses with any content. The value from ``kwargs`` is inserted using the standard python
+          string conversion. There may be a comment, starting with ``!``, after the value.
+        - If a parameter already exists in the ``source`` file, its value is replaced with the corresponding value from ``kwargs``.
+        - If a parameter does not exist in the ``source`` file, it is added to the ``target`` file.
+        - If the value of the key starts with "!", the line with the keyword is just uncommented.  (i.e. ``"!key=2.5" -> "key=2.5"``)
+          If no line with the keyword is found, the key is added with the value, excluding the leading ``"!"``  (i.e. value is ``"!0.5" -> "key=0.5"`` is added)
 
     Example:
-        `>>> adapt_parameter_file('/path/to/source.ini', '/path/to/target.ini', param1=1.2, param2="(1, 2, 3)")`
+        ``adapt_parameter_file('/path/to/source.ini', '/path/to/target.ini', param1=1.2, param2="(1, 2, 3)")``
     """
     if not len(kwargs.keys()):
         shutil.copy2(source, target)
@@ -641,7 +649,6 @@ def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
     except AttributeError:
         pass
 
-    M, N = nml.get("mpol", 2) - 1, nml.get("ntor", 0)
     stellsym = not nml.get("lasym", False)  # stellarator symmetry
     params = CaseInsensitiveDict(
         ProjectName=name,
@@ -700,6 +707,7 @@ def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
         logger.warning("No iota or current profile defined.")
 
     # --- boundary --- #
+    M, N = nml.get("mpol", 2) - 1, nml.get("ntor", 0)
     for vmec_key, gvec_key in [
         ("rbc", "X1_b_cos"),
         ("rbs", "X1_b_sin"),
@@ -709,10 +717,15 @@ def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
         if vmec_key not in nml:
             continue
         values = np.array(nml[vmec_key], dtype=float)
+        m0, n0 = 0, -N
         if "_start_index" in nml and vmec_key in nml["_start_index"]:
             n0, m0 = nml["_start_index"][vmec_key]
-            M = max(M, values.shape[0] - 1 + m0)
-            N = max(N, abs(n0), values.shape[1] - 1 + max(0, n0))
+            if "mpol" not in nml:
+                M = max(M, values.shape[0] - 1 + m0)  # m in [0 ... M]
+                logger.debug(f"Setting M={M} from shape of '{vmec_key}' and start index {m0}")
+            if "ntor" not in nml:
+                N = max(N, -n0, values.shape[1] - 1 + n0)  # n in [-N ... N]
+                logger.debug(f"Setting N={N} from shape of '{vmec_key}' and start index {n0}")
         else:
             raise ValueError(
                 f"VMEC namelist array '{vmec_key}' has shape {values.shape} that does not match the expected shape {(M + 1, 2 * N + 1)=} and no '_start_index' is given in the namelist."
@@ -971,32 +984,42 @@ def logging_setup():
 
 def compute_FD(f: np.ndarray, pos, coefs, axis=0):
     """
-    1D Finite difference of a function f on equispaced n-dimnesional grid, using FD coefficients coefficients `coefs` and relative integer positions to the central evaluation point `pos`, along one given axis.
+    1D Finite difference of a function f on equispaced n-dimnesional grid, using FD coefficients coefficients ``coefs`` and relative integer positions to the central evaluation point ``pos``, along one given axis.
 
-    WARNING:
-        - if data is periodic, meaning that endpoints of periodic interval are excluded, result can be on all points.
-        - If data is not periodic, the result at the **boundaries is WRONG**, for the points |min(pos)| on the left and max(pos) on the right along the given axis.
-    Inputs:
-        f     : function values on equispaced n-dimnesional grid
-        pos   : relative integer positions to the central evaluation point,, as 1d list or 1d array
-        coefs : FD coefficients for each position, as 1d list or 1d array, same size as pos!
-        axis  : axis along which the FD is computed, default is 0
-    Returns:
-        df    : Finite-Difference result, same shape as f (see warning above!)
+    Warnings
+    --------
+    - if data is periodic, meaning that endpoints of periodic interval are excluded, result can be on all points.
+    - If data is not periodic, the result at the **boundaries is WRONG**, for the points ``|min(pos)|`` on the left and ``max(pos)`` on the right along the given axis.
 
-    Examples:
+    Parameters
+    ----------
+    f : numpy.ndarray
+        function values on equispaced n-dimnesional grid
+    pos : int
+        relative integer positions to the central evaluation point, as 1d list or 1d array of integers
+    coefs : float
+        FD coefficients for each position, as 1d list or 1d array, same size as pos!
+    axis  : int, optional
+        axis along which the FD is computed, default is 0
 
+    Returns
+    -------
+    df    : numpy.ndarray
+        Finite-Difference result, same shape as f (see warning above!)
+
+    Examples
+    --------
     - examples for first derivative of f:
-        - 1st order forward FD: `pos=[1,0]; coefs=[-1,1]/(dx)`
-        - 2nd order central FD: `pos=[-1,1]; coefs=[-1,1]/(2*dx)`
-        - 4th order central FD: `pos=[-2,-1,1,2]; coefs=[1/12,-2/3,2/3,-1/12]/(dx)`
-        - 6th order central FD: `pos=[-3,-2,-1,1,2,3]; coefs=[-1/60,3/20,-3/4,3/4,-3/20,1/60]/(dx)`
-        - 8th order central FD: `pos=[-4,-3,-2,-1,1,2,3,4]; coefs=[1/280,-4/105,1/5,-4/5,4/5,-1/5,4/105,-1/280]/(dx)`
+        - 1st order forward FD: ``pos=[1,0]; coefs=[-1,1]/(dx)``
+        - 2nd order central FD: ``pos=[-1,1]; coefs=[-1,1]/(2*dx)``
+        - 4th order central FD: ``pos=[-2,-1,1,2]; coefs=[1/12,-2/3,2/3,-1/12]/(dx)``
+        - 6th order central FD: ``pos=[-3,-2,-1,1,2,3]; coefs=[-1/60,3/20,-3/4,3/4,-3/20,1/60]/(dx)``
+        - 8th order central FD: ``pos=[-4,-3,-2,-1,1,2,3,4]; coefs=[1/280,-4/105,1/5,-4/5,4/5,-1/5,4/105,-1/280]/(dx)``
     - examples for second derivatives of f:
-        - 2nd order central FD: `pos=[-1,0,1]; coefs=[1,-2,1]/(dx**2)`
-        - 4th order central FD: `pos=[-2,-1,0,1,2]; coefs=[-1/12, 4/3,-5/2, 4/3,-1/12]/(dx**2)`
-        - 6th order central FD: `pos=[-3,-2,-1,0,1,2,3]; coefs=[1/90,-3/20,3/2,-49/18,3/2,-3/20,1/90]/(dx**2)`
-        - 8th order central FD: `pos=[-4,-3,-2,-1,0,1,2,3,4]; coefs=[-1/560,8/315,-1/5,8/5,-205/72,8/5,-1/5,8/315,-1/560]/(dx**2)`
+        - 2nd order central FD: ``pos=[-1,0,1]; coefs=[1,-2,1]/(dx**2)``
+        - 4th order central FD: ``pos=[-2,-1,1,2]; coefs=[-1/12, 4/3,-5/2, 4/3,-1/12]/(dx**2)``
+        - 6th order central FD: ``pos=[-3,-2,-1,1,2,3]; coefs=[1/90,-3/20,3/2,-49/18,3/2,-3/20,1/90]/(dx**2)``
+        - 8th order central FD: ``pos=[-4,-3,-2,-1,1,2,3,4]; coefs=[-1/560,8/315,-1/5,8/5,-205/72,8/5,-1/5,8/315,-1/560]/(dx**2)``
 
     """
     assert axis < f.ndim, f"array does not have the requested dimension {axis}"

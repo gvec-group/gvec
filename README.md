@@ -39,7 +39,7 @@ Outside contributions are always welcome!
 
  * [user and developer documentation](https://gvec.readthedocs.io/latest) built with *sphinx* and hosted on *readthedocs*.
    * [Installation](https://gvec.readthedocs.io/latest/user/install.html)
-   * [Getting Started](https://gvec.readthedocs.io/latest/user/getting-started.html)
+   * [Getting Started](https://gvec.readthedocs.io/latest/tutorials/getting-started.html)
    * [Theoretical considerations](https://gvec.readthedocs.io/latest/user/theory.html)
  * auto-generated [fortran code documentation](https://gvec.readthedocs.io/latest/ford/index.html) built with [FORD](https://forddocs.readthedocs.io/en/latest/)
 
@@ -50,7 +50,7 @@ GVEC is available on [PyPI](https://pypi.org/project/gvec/):
 pip install gvec
 ```
 
-For required libraries, other installation methods and more details see the documentation on [Installation](https://gvec.readthedocs.io/latest/user/install.html) and [Getting Started](https://gvec.readthedocs.io/latest/user/getting-started.html).
+For required libraries, other installation methods and more details see the documentation on [Installation](https://gvec.readthedocs.io/latest/user/install.html) and [Getting Started](https://gvec.readthedocs.io/latest/tutorials/getting-started.html).
 
 ## Reporting Bugs & Contributing to GVEC
 

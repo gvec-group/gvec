@@ -152,6 +152,7 @@ mathjax3_config = {
             "Wr": r"\textrm{Wr}",
             "Tw": r"\textrm{Tw}",
             "Lk": r"\textrm{Lk}",
+            "bm": [r"\mathbf{#1}", 1],
         },
     },
 }

@@ -37,7 +37,7 @@ Note that each variable has its own discretization parameters, which can be set 
 ## Boundary and axis parameters
 For the variables $X^1$ and $X^2$, the boundary and initial guess for the axis must be specified.
 
-One possibility is to provide the coefficients of the sine and cosine Fourier modes with poloidal mode number $m$ and toroidal mode number $n$. The initial guess for the axis is also given as cosine and sine Fourier mode coefficients, but obviously only toroidal modes. Alternatively, for simple enough geometries, the axis can also be guessed by setting `init_axis_average=True`.
+One possibility is to provide the coefficients of the sine and cosine Fourier modes with poloidal mode number $m$ and toroidal mode number $n$. The initial guess for the axis is also given as cosine and sine Fourier mode coefficients, but obviously only toroidal modes. Alternatively, for simple enough geometries, the axis can also be guessed by setting `init_average_axis=True`.
 
 Another possibility is to provide a specific dataset via a netcdf file, that contains the positions of the boundary on a regular grid in $\vartheta$ and $\zeta$, so $X^1(\vartheta_i,\zeta_j), X^2(\vartheta_i,\zeta_j)$ values.
 

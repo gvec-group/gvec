@@ -1905,9 +1905,9 @@ def L_gradB(ds: xr.Dataset):
 
     The magnetic gradient scale length is defined as
 
-    L_gradB = sqrt(2) |B| / ||grad B||
+    :math:`L_{\nabla B} = \frac{\sqrt{2} |B|}{ ||\nabla B||}`
 
-    where ||grad B|| is the frobenius norm of the gradient of the magnetic field.
+    where $||\nabla B||$ is the frobenius norm of the gradient of the magnetic field.
     Details can be found in Kappel et al. PPCF 66 (2024) 025018 DOI:10.1088/1361-6587/ad1a3e.
     """
     gradB = {}  # 3x3 tensor

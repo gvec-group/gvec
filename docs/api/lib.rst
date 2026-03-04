@@ -1,4 +1,4 @@
-.. _api-fourier:
+.. _api-lib:
 
 gvec.lib
 ============
