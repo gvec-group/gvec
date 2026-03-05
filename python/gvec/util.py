@@ -665,8 +665,14 @@ def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
             nElems=5,
         ),
     )
+
+    if nml.get("lfreeb", False):
+        logger.warning("VMEC free boundary mode is not supported for conversion.")
+
     # --- profiles --- #
-    if nml.get("pmass_type", "power_series") != "power_series":
+    if "pmass_type" not in nml:
+        logger.warning("No pressure profile type defined, assuming 'power_series'.")
+    elif nml["pmass_type"] != "power_series":
         raise ValueError(
             f"VMEC pressure profile of type {nml['pmass_type']} is not supported for conversion"
         )
@@ -678,7 +684,10 @@ def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
         }
     else:
         logger.warning("No pressure profile defined.")
-    if nml.get("piota_type", "power_series") != "power_series":
+
+    if "piota_type" not in nml:
+        logger.warning("No iota profile type defined, assuming 'power_series'.")
+    elif nml["piota_type"] != "power_series":
         raise ValueError(
             f"VMEC iota profile of type {nml['piota_type']} is not supported for conversion"
         )
@@ -687,8 +696,11 @@ def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
             "type": "polynomial",
             "coefs": as_list(nml["ai"]),
         }
+
     if nml.get("ncurr", 0) == 1:  # ncurr = 0: flux conservation | ncurr = 1: current constraint
-        if nml.get("pcurr_type", "power_series") != "power_series":
+        if "pcurr_type" not in nml:
+            logger.warning("No current profile type defined, assuming 'power_series'.")
+        elif nml["pcurr_type"] != "power_series":
             raise ValueError(
                 f"VMEC current profile of type {nml['pcurr_type']} is not supported for conversion"
             )
@@ -701,7 +713,10 @@ def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
                 p / (i + 1) for i, p in enumerate(as_list(nml["ac"]))
             ]  # I'(s) -> I(s)
             params["I_tor"]["coefs"] = coefs
-            params["I_tor"]["scale"] = nml["curtor"] / sum(coefs)
+            if sum(coefs) == 0.0:
+                params["I_tor"]["scale"] = 1.0
+            else:
+                params["I_tor"]["scale"] = nml["curtor"] / sum(coefs)
         params["picard_current"] = "auto"
     if "ai" not in nml and nml.get("ncurr", 0) == 0:
         logger.warning("No iota or current profile defined.")

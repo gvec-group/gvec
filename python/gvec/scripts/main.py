@@ -5,13 +5,10 @@
 # === Imports === #
 
 import argparse
-import logging
-import platform
 from collections.abc import Sequence
-from pathlib import Path
 
 import gvec
-from gvec.scripts import cas3d, convert, gist, quasr, run, toparaview, visu
+from gvec.scripts import cas3d, convert, convert_wout, gist, quasr, run, toparaview, visu
 
 # === Arguments === #
 
@@ -49,6 +46,15 @@ convert_parser = subparsers.add_parser(
     formatter_class=convert.parser.formatter_class,
     description=convert.parser.description,
     parents=[convert.parser],
+    add_help=False,
+)
+
+convert_wout_parser = subparsers.add_parser(
+    "convert-wout",
+    help="convert a VMEC wout file to a GVEC parameterfile & state",
+    formatter_class=convert_wout.parser.formatter_class,
+    description=convert_wout.parser.description,
+    parents=[convert_wout.parser],
     add_help=False,
 )
 
@@ -100,9 +106,7 @@ paraview_parser = subparsers.add_parser(
 def main(args: Sequence[str] | argparse.Namespace | None = None):
     gvec.util.logging_setup()
 
-    if isinstance(args, argparse.Namespace):
-        pass
-    else:
+    if not isinstance(args, argparse.Namespace):
         args = parser.parse_args(args)
 
     # --- run GVEC scripts --- #
@@ -111,6 +115,9 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
 
     elif args.mode == "convert-params":
         return convert.main(args)
+
+    elif args.mode == "convert-wout":
+        return convert_wout.main(args)
 
     elif args.mode == "to-cas3d":
         return cas3d.main(args)
@@ -126,6 +133,10 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
 
     elif args.mode == "to-paraview":
         return toparaview.main(args)
+
+    else:
+        parser.print_help()
+        return 1
 
 
 if __name__ == "__main__":
