@@ -74,7 +74,6 @@ def convert_vmec_wout(
     *,
     VMECwoutfile_format: int = 0,
     extra_parameters: Mapping = {},
-    convdir: Path | None = None,
 ) -> CaseInsensitiveDict:
     """
     Convert a VMEC wout file to a GVEC parameter & statefile.
@@ -101,6 +100,7 @@ def convert_vmec_wout(
     N = int(wout_ds.xn.max() / wout_ds.nfp)
     nfp = int(wout_ds.nfp)
     lasym = bool(wout_ds.lasym__logical__)  # stellarator asymmetric
+    phiedge = float(wout_ds.phi[-1].item())
     default_parameters = gvec.util.CaseInsensitiveDict(
         which_hmap=1,
         nfp=nfp,
@@ -115,6 +115,7 @@ def convert_vmec_wout(
         sgrid=dict(
             nelems=10,
         ),
+        phiedge=-phiedge,
     )
     if lasym:
         for key in ["X1", "X2", "LA"]:
