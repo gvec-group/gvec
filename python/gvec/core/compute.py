@@ -123,7 +123,9 @@ def register(
     return _register
 
 
-def table_of_quantities(markdown: bool = False, registry: Mapping | None = None):
+def table_of_quantities(
+    markdown: bool = False, registry: Mapping | None = None, keys: Sequence[str] | None = None
+):
     """
     Generate a table of computable quantities.
 
@@ -134,6 +136,8 @@ def table_of_quantities(markdown: bool = False, registry: Mapping | None = None)
     registry : Mapping | None, optional
         The registry of computable quantites to use.
         Default: the ``gvec.core.compute.QUANTITIES`` registry used to evaluate a gvec.State object.
+    keys: Sequence[str] | None, optional
+        The keys of the quantities to include in the table. If None, all quantities in the registry are included.
 
     Returns
     -------
@@ -148,16 +152,19 @@ def table_of_quantities(markdown: bool = False, registry: Mapping | None = None)
     """
     if registry is None:
         registry = QUANTITIES
+    if keys is None:
+        keys = sorted(registry.keys())
 
     lines = []
-    for key, func in sorted(list(registry.items())):
+    for key in keys:
+        func = registry[key]
         long_name = func.attrs[key].get("long_name", "")
         symbol = func.attrs[key].get("symbol", "")
         symbol = "$" + symbol.replace("|", r"\|") + "$"
         lines.append((f"`{key}`", long_name, symbol))
     sizes = [max(len(s) for s in col) for col in zip(*lines)]
     txt = f"| {'label':^{sizes[0]}s} | {'long name':^{sizes[1]}s} | {'symbol':^{sizes[2]}s} |\n"
-    txt += f"| {'-' * sizes[0]} | {'-' * sizes[1]} | {'-' * sizes[2]} |\n"
+    txt += f"| :{'-' * (sizes[0] - 1)} | :{'-' * (sizes[1] - 1)} | :{'-' * (sizes[2] - 1)} |\n"
     for line in lines:
         txt += f"| {line[0]:^{sizes[0]}s} | {line[1]:^{sizes[1]}s} | {line[2]:^{sizes[2]}s} |\n"
     if markdown:
@@ -500,8 +507,8 @@ def EvaluationsBoozer(
         Whether to compute the radial derivatives of the `LA` and `NU_B` variables, at fixed GVEC angles
         $(\\vartheta(\\rho_i,\\vartheta_{B,j},\\zeta_{B,k}),\\zeta(\\rho_i,\\vartheta_{B,j},\\zeta_{B,k}))$.
         Computes boozer transform at additional radial points $\\rho-\\epsilon$, and uses a first order Finite Difference for the derivatives.
-    epsilon_FD : float, default 1e-8
-        The offset in rho used for the Finite Difference computation of the radial derivatives.
+    epsilon_FD : float, optional
+        The offset in rho used for the Finite Difference computation of the radial derivatives, default ``1e-8``.
     boozer_kwargs : dict, optional
         Additional keyword arguments to pass to the ``get_boozer`` method of the ``state`` object.
         These can be used to specify the Boozer transform parameters. For example the maximum mode number factor ``boozer_kwargs={"MNfactor": 3}``.
@@ -954,71 +961,74 @@ def evaluate_sfl(
     **boozer_kwargs,
 ) -> xr.Dataset:
     r"""
-    Evaluate the specified quantities on a grid in straight-fieldline coordinates (Boozer or PEST).
-    This function creates an xarray Dataset with a specified grid and evaluates the desired
-    quantities and recursively determined prerequisites on that grid.
+        Evaluate the specified quantities on a grid in straight-fieldline coordinates (Boozer or PEST).
+        This function creates an xarray Dataset with a specified grid and evaluates the desired
+        quantities and recursively determined prerequisites on that grid.
 
-    Parameters
-    ----------
-    state : State
-        The gvec.State object to evaluate the quantities for.
-    *quantities : str
-        The names of (registered) quantities to evaluate, e.g. ``"pos"``, ``"B"``, ``"mod_B"``.
+        Parameters
+        ----------
+        state : State
+            The gvec.State object to evaluate the quantities for.
+        *quantities : str
+            The names of (registered) quantities to evaluate, e.g. ``"pos"``, ``"B"``, ``"mod_B"``.
 
-        See the :ref:`default table of available quantities <table-of-quantities>`
-        or call ``table_of_quantities`` to see all options.
-    rho : "int" | int | float | 1D array
-        The specification of the radial, radius-like coordinate ($\rho$), defined in the interval $[0, 1]$.
-        It can be specified as:
+            See the :ref:`default table of available quantities <table-of-quantities>`
+            or call ``table_of_quantities`` to see all options.
+        rho : "int" | int | float | 1D array
+            The specification of the radial, radius-like coordinate ($\rho$), defined in the interval $[0, 1]$.
+            It can be specified as:
 
-        - The literal string ``"int"`` to use the integration points from the state object.
-        - An integer number of points (e.g. ``rho=10``) to create a uniform grid.
-        - A float value (e.g. ``rho=0.5``) to evaluate at a single point.
-        - A 1D array-like (list, numpy.ndarray) of values.
-        - An xarray.DataArray containing at least the dimension ``rad``.
-    theta : int | float | 1D, 2D or 3D array
-        The specification of the poloidal, angle-like coordinate ($\vartheta$, $\vartheta_P$ or $\vartheta_B$), defined in the interval $[0, 2\pi)$.
-        It can be specified as:
+            - The literal string ``"int"`` to use the integration points from the state object.
+            - An integer number of points (e.g. ``rho=10``) to create a uniform grid.
+            - A float value (e.g. ``rho=0.5``) to evaluate at a single point.
+            - A 1D array-like (list, numpy.ndarray) of values.
+            - An xarray.DataArray containing at least the dimension ``rad``.
+        theta : int | float | 1D, 2D or 3D array
+            The specification of the poloidal, angle-like coordinate ($\vartheta$, $\vartheta_P$ or $\vartheta_B$), defined in the interval $[0, 2\pi)$.
+            It can be specified as:
 
-        - An integer number of points (e.g. ``theta=10``) to create a uniform grid.
-        - A float value (e.g. ``theta=0.5``) to evaluate at a single point.
-        - A 1D array-like (list, numpy.ndarray) of values.
-        - A 2D array-like with assumed dimensions (pol, tor).
-        - A 3D array-like with assumed dimensions (rad, pol, tor).
-        - An xarray.DataArray containing at least the dimension ``pol``.
-    zeta : int | float | 1D, 2D or 3D array
-        The specification of the toroidal, angle-like coordinate ($\zeta$ or $\zeta_B$), defined in the interval $[0, 2\pi)$.
-        For equidistant grids, the grid will only cover one field period (i.e. $[0, 2\pi/N_{FP})$).
-        It can be specified as:
+            - An integer number of points (e.g. ``theta=10``) to create a uniform grid.
+            - A float value (e.g. ``theta=0.5``) to evaluate at a single point.
+            - A 1D array-like (list, numpy.ndarray) of values.
+            - A 2D array-like with assumed dimensions (pol, tor).
+            - A 3D array-like with assumed dimensions (rad, pol, tor).
+            - An xarray.DataArray containing at least the dimension ``pol``.
+        zeta : int | float | 1D, 2D or 3D array
+            The specification of the toroidal, angle-like coordinate ($\zeta$ or $\zeta_B$), defined in the interval $[0, 2\pi)$.
+            For equidistant grids, the grid will only cover one field period (i.e. $[0, 2\pi/N_{FP})$).
+            It can be specified as:
 
-        - An integer number of points (e.g. ``zeta=10``) to create a uniform grid (on a single field-period).
-        - A float value (e.g. ``zeta=0.5``) to evaluate at a single point.
-        - A 1D array-like (list, numpy.ndarray) of values.
-        - A 2D array-like with assumed dimensions (pol, tor).
-        - A 3D array-like with assumed dimensions (rad, pol, tor).
-        - An xarray.DataArray containing at least the dimension ``tor``.
-    sfl : "boozer" | "pest"
-        The type of straight-fieldline coordinates to use for the grid.
-    boozer_kwargs : optional
-        Additional keyword arguments to pass to the ``get_boozer`` method of the ``state`` object.
-        These can be used to specify the Boozer transform parameters.
-        For example the maximum mode number factor ``boozer_kwargs={'MNfactor': 3}``.
+            - An integer number of points (e.g. ``zeta=10``) to create a uniform grid (on a single field-period).
+            - A float value (e.g. ``zeta=0.5``) to evaluate at a single point.
+            - A 1D array-like (list, numpy.ndarray) of values.
+            - A 2D array-like with assumed dimensions (pol, tor).
+            - A 3D array-like with assumed dimensions (rad, pol, tor).
+            - An xarray.DataArray containing at least the dimension ``tor``.
+    <<<<<<< HEAD
+        sfl : "boozer" | "pest"
+            The type of straight-fieldline coordinates to use for the grid.
+        boozer_kwargs : optional
+            Additional keyword arguments to pass to the ``get_boozer`` method of the ``state`` object.
+            These can be used to specify the Boozer transform parameters.
+            For example the maximum mode number factor ``boozer_kwargs={'MNfactor': 3}``.
+    =======
+    >>>>>>> v1.3.x
 
-    Returns
-    -------
-    xarray.Dataset
-        An xarray Dataset containing the evaluated quantities and prerequisites on the specified grid.
+        Returns
+        -------
+        xarray.Dataset
+            An xarray Dataset containing the evaluated quantities and prerequisites on the specified grid.
 
-        The returned Dataset has (at least) dimensions ``("rad", "pol", "tor")`` corresponding to the radial, poloidal, and toroidal directions.
-        With 1D or equidistant coordinates, the respective coordinates are ``rho(rad)``, ``theta_P(pol)`` or ``theta_B(pol)``, and ``zeta(tor)`` or ``zeta_B(tor)``.
-        The logical coordinates are then normal data variables of more dimensions in the dataset.
+            The returned Dataset has (at least) dimensions ``("rad", "pol", "tor")`` corresponding to the radial, poloidal, and toroidal directions.
+            With 1D or equidistant coordinates, the respective coordinates are ``rho(rad)``, ``theta_P(pol)`` or ``theta_B(pol)``, and ``zeta(tor)`` or ``zeta_B(tor)``.
+            The logical coordinates are then normal data variables of more dimensions in the dataset.
 
-    See Also
-    --------
-    gvec.core.compute.evaluate_sfl: this function as a standalone function.
-    gvec.core.state.State.evaluate_sfl: this function as a method of gvec.State.
-    gvec.core.compute.compute: compute quantities and add them to an existing dataset.
-    gvec.core.compute.evaluate: evaluate quantities on a grid in logical coordinates.
+        See Also
+        --------
+        gvec.core.compute.evaluate_sfl: this function as a standalone function.
+        gvec.core.state.State.evaluate_sfl: this function as a method of gvec.State.
+        gvec.core.compute.compute: compute quantities and add them to an existing dataset.
+        gvec.core.compute.evaluate: evaluate quantities on a grid in logical coordinates.
     """
     if not isinstance(state, State):
         raise TypeError(f"Expected a gvec.State object, got {type(state)}.")

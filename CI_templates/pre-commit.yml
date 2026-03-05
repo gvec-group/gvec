@@ -22,7 +22,7 @@ pre-commit:
       - ${PRE_COMMIT_HOME}
   script:
     - pip install pre-commit
-    - pre-commit run --all-files
+    - pre-commit run --all-files --show-diff-on-failure
   needs: []
   rules:
     - when: always

@@ -1,21 +1,22 @@
 [
   {
-    "name": "latest",
-    "version": "latest",
-    "url": "https://gvec.readthedocs.io/latest/"
-  },
-  {
-    "name": "develop",
+    "name": "development",
     "version": "develop",
     "url": "https://gvec.readthedocs.io/develop/"
   },
   {
-    "name": "v1.3",
-    "version": "v1.3",
+    "name": "v1.3.x",
+    "version": "v1.3.x",
     "url": "https://gvec.readthedocs.io/v1.3.x/"
   },
   {
-    "name": "v1.2",
+    "name": "v1.3.1 (latest)",
+    "version": "latest",
+    "url": "https://gvec.readthedocs.io/latest/",
+    "preferred": true
+  },
+  {
+    "name": "v1.2.0",
     "version": "v1.2",
     "url": "https://gvec.readthedocs.io/v1.2/"
   }
