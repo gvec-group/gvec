@@ -22,15 +22,13 @@ def check_field_periodicity(xyz: np.ndarray, nfp: int, atol=1e-12):
     checks if all  xyz positions of the surface on a full turn, ``xyz[0:nz*nfp,0:nt,0:2]``, have the field periodicity with ``nfp``.
     returns the sign of the rotation ``+2pi/nfp`` or ``-2pi/nfp``
     """
-    assert xyz.shape[-1] == 3, (
-        "last dimension must be the cartesian components surface positions!"
-    )
+    if not xyz.shape[-1] == 3:
+        raise ValueError("last dimension must be the cartesian components surface positions!")
     sign_rot = 1
     if nfp == 1:
         return sign_rot  # nothing to check
-    assert np.mod(xyz.shape[0], nfp) == 0, (
-        "number of points in zeta direction  must be divisible by nfp!"
-    )
+    if not np.mod(xyz.shape[0], nfp) == 0:
+        raise ValueError("number of points in zeta direction must be divisible by nfp!")
     nzeta_fp = xyz.shape[0] // nfp
 
     # find rotation direction:
@@ -82,9 +80,8 @@ def rodrigues(
     pos_rot : ndarray
         The rotated position vector (cartesian components).
     """
-    assert np.array(xyz.shape[-1]) == 3, (
-        "last dimension must be the cartesian components surface positions!"
-    )
+    if not np.array(xyz.shape[-1]) == 3:
+        raise ValueError("last dimension must be the cartesian components surface positions!")
     vec = xyz - origin  # origin of rotation
 
     cos_angle = np.cos(angle)
@@ -118,10 +115,12 @@ def xyz_to_xyz_hat(xyz_in: np.ndarray, zeta: np.ndarray, sign_rot: float):
         hat coordinates, periodic on one field period, size [0:nz,0:nt,0:2]
     """
 
-    assert sign_rot == -1 or sign_rot == 1, f"sign_rot must be -1 or 1, but is {sign_rot}"
-    assert xyz_in.shape[0] == zeta.shape[0], (
-        f"xyz and zeta must have the same length, but are {xyz_in.shape[0]} and {zeta.shape[0]} respectively"
-    )
+    if not (sign_rot == -1 or sign_rot == 1):
+        raise ValueError(f"sign_rot must be -1 or 1, but is {sign_rot}")
+    if not xyz_in.shape[0] == zeta.shape[0]:
+        raise ValueError(
+            f"xyz and zeta must have the same length, but are {xyz_in.shape[0]} and {zeta.shape[0]} respectively"
+        )
     sinzeta = sign_rot * np.sin(zeta)
     coszeta = np.cos(zeta)
     xhat = xyz_in[:, :, 0] * coszeta[:, None] + xyz_in[:, :, 1] * sinzeta[:, None]
@@ -154,13 +153,16 @@ def xyz_hat_to_xyz(
     xyz : ndarray
         Cartesian xyz positions of the surface, size [0:nz,0:nt,0:2].
     """
-    assert sign_rot == -1 or sign_rot == 1, f"sign_rot must be -1 or 1, but is {sign_rot}"
-    assert xhat.shape[0] == zeta.shape[0], (
-        f"xyz and zeta must have the same length, but are {xhat.shape[0]} and {zeta.shape[0]} respectively"
-    )
-    assert xhat.shape == yhat.shape == zhat.shape, (
-        f"xhat, yhat and zhat must have the same shape, but are {xhat.shape}, {yhat.shape} and {zhat.shape} respectively"
-    )
+    if not (sign_rot == -1 or sign_rot == 1):
+        raise ValueError(f"sign_rot must be -1 or 1, but is {sign_rot}")
+    if not (xhat.shape[0] == zeta.shape[0]):
+        raise ValueError(
+            f"xyz and zeta must have the same length, but are {xhat.shape[0]} and {zeta.shape[0]} respectively"
+        )
+    if not (xhat.shape == yhat.shape == zhat.shape):
+        raise ValueError(
+            f"xhat, yhat and zhat must have the same shape, but are {xhat.shape}, {yhat.shape} and {zhat.shape} respectively"
+        )
     sinzeta = sign_rot * np.sin(zeta)
     coszeta = np.cos(zeta)
     xyz = np.zeros((xhat.shape[0], xhat.shape[1], 3))
@@ -330,20 +332,25 @@ def cut_surf(xyz, nfp, xyz0_in, N_in, B_in):
             coordinates of the intersection points for cutting planes in one field period.
             shape is ``(nzeta,ntheta)``.
     """
-    assert xyz.shape[2] == 3, "xyz must have shape (nzeta,ntheta,3)"
+    if not xyz.shape[2] == 3:
+        raise ValueError(
+            "last dimension of xyz must be 3, for the cartesian components surface positions!"
+        )
     nz = xyz.shape[0]
-    assert np.mod(nz, nfp) == 0, (
-        "number of surface points in zeta direction must be divisible by nfp!"
-    )
+    if not np.mod(nz, nfp) == 0:
+        raise ValueError("number of surface points in zeta direction must be divisible by nfp!")
 
     nz_gframe = xyz0_in.shape[0]
     if not xyz0_in.shape[0] == N_in.shape[0] == B_in.shape[0]:
         raise ValueError(
             "xyz0,N,B must have the same number of points, but they have different lengths!"
         )
-    assert xyz0_in.shape[1] == 3, "second dimension of xyz0 must be 3"
-    assert N_in.shape[1] == 3, "second dimension of N must be 3"
-    assert B_in.shape[1] == 3, "second dimension of B must be 3"
+    if not xyz0_in.shape[1] == 3:
+        raise ValueError("second dimension of xyz0 must be 3")
+    if not N_in.shape[1] == 3:
+        raise ValueError("second dimension of N must be 3")
+    if not B_in.shape[1] == 3:
+        raise ValueError("second dimension of B must be 3")
     # cut geometry with new frame (xyz0,N,B)
     zeta1d = np.linspace(0.0, 2 * np.pi, nz, endpoint=False)
     if nz != nz_gframe:
@@ -424,9 +431,10 @@ def write_Gframe_ncfile(filename: str | Path, dict_in):
     ncfile.createDimension("vec", 3)
     ncfile.createDimension("nzeta_axis", dict_in["axis"]["nzeta"])
     nzetaFull = dict_in["axis"]["nzeta"] * dict_in["nfp"]
-    assert len(dict_in["axis"]["zetafull"]) == nzetaFull, (
-        f"zeta of axis must be of length nfp*nzeta={nzetaFull}, but it is {len(dict_in['axis']['zetafull'])}"
-    )
+    if not len(dict_in["axis"]["zetafull"]) == nzetaFull:
+        raise ValueError(
+            f"zeta of axis must be of length nfp*nzeta={nzetaFull}, but it is {len(dict_in['axis']['zetafull'])}"
+        )
     ncfile.createDimension("nzetaFull_axis", nzetaFull)
     version = 301
     axis_n_max = (dict_in["axis"]["nzeta"] - 1) // 2
@@ -444,9 +452,10 @@ def write_Gframe_ncfile(filename: str | Path, dict_in):
     ncvars["zeta_var"][:] = dict_in["axis"]["zetafull"][0 : dict_in["axis"]["nzeta"]]
 
     for vecvar, vecval in zip(["axis/xyz", "axis/Nxyz", "axis/Bxyz"], ["xyz", "Nxyz", "Bxyz"]):
-        assert np.all(dict_in["axis"][vecval].shape == (3, nzetaFull)), (
-            f"shape of axis/{vecval} must be (3,{nzetaFull}), but it is {dict_in['axis'][vecval].shape}"
-        )
+        if not np.all(dict_in["axis"][vecval].shape == (3, nzetaFull)):
+            raise ValueError(
+                f"shape of axis/{vecval} must be (3,{nzetaFull}), but it is {dict_in['axis'][vecval].shape}"
+            )
         ncvars[vecvar + "_var"] = ncfile.createVariable(
             vecvar + "(::)", "f8", ("vec", "nzetaFull_axis")
         )
@@ -476,10 +485,13 @@ def write_Gframe_ncfile(filename: str | Path, dict_in):
         ncvars["zeta_var"][:] = dict_in["boundary"]["zeta"]
 
         for vecvar, vecval in zip(["boundary/X", "boundary/Y"], ["X1", "X2"]):
-            assert np.all(
+            if not np.all(
                 dict_in["boundary"][vecval].shape
                 == (dict_in["boundary"]["ntheta"], dict_in["boundary"]["nzeta"])
-            ), f"shape of boundary/{vecval} must be (ntheta_boundary,nzeta_boundary)"
+            ):
+                raise ValueError(
+                    f"shape of boundary/{vecval} must be (ntheta_boundary,nzeta_boundary)"
+                )
             ncvars[vecvar + "_var"] = ncfile.createVariable(
                 vecvar + "(::)", "f8", ("ntheta_boundary", "nzeta_boundary")
             )
@@ -568,29 +580,29 @@ def read_Gframe_ncfile(ncfile: str | Path):
         ]:
             dict_out["axis"][dvar] = ds["axis"][ncvar].data
         # sizecheck
-        assert dict_out["axis"]["zeta"].shape[0] == dict_out["axis"]["nzeta"], (
-            "nzeta and len(zeta) must be equal!"
-        )
+        if not dict_out["axis"]["zeta"].shape[0] == dict_out["axis"]["nzeta"]:
+            raise ValueError("nzeta and len(zeta) must be equal!")
 
         zeta_fp = dict_out["axis"]["zeta"]
         nzeta_fp = zeta_fp.shape[0]
         nzetaFull = dict_out["axis"]["xyz"].shape[1]
-        assert nzetaFull == nfp * nzeta_fp, (
-            f"axis data must be given on a full turn, with nfp being a factor in the number of points! nfp={nfp}, nzetaFull={nzetaFull}, nzeta of one fp={nzeta_fp}"
-        )
-        assert dict_out["axis"]["xyz"].shape == (3, nzetaFull), (
-            f"shape of xyz must be (3, nzeta*nfp), but is {dict_out['axis']['xyz'].shape}"
-        )
-        assert dict_out["axis"]["xyz"].shape == dict_out["axis"]["Nxyz"].shape, (
-            "xyz and Nxyz must have same shape"
-        )
-        assert dict_out["axis"]["xyz"].shape == dict_out["axis"]["Bxyz"].shape, (
-            "xyz and Bxyz must have same shape"
-        )
+        if not nzetaFull == nfp * nzeta_fp:
+            raise ValueError(
+                f"axis data must be given on a full turn, with nfp being a factor in the number of points! nfp={nfp}, nzetaFull={nzetaFull}, nzeta of one fp={nzeta_fp}"
+            )
+        if not dict_out["axis"]["xyz"].shape == (3, nzetaFull):
+            raise ValueError(
+                f"shape of xyz must be (3, nzeta*nfp), but is {dict_out['axis']['xyz'].shape}"
+            )
+        if not dict_out["axis"]["xyz"].shape == dict_out["axis"]["Nxyz"].shape:
+            raise ValueError("xyz and Nxyz must have same shape")
+        if not dict_out["axis"]["xyz"].shape == dict_out["axis"]["Bxyz"].shape:
+            raise ValueError("xyz and Bxyz must have same shape")
 
         dict_out["axis"]["nzetaFull"] = nzetaFull
         zetafull = zeta_fp[0] + np.linspace(0, 2 * np.pi, nzetaFull, endpoint=False)
-        assert np.allclose(zeta_fp, zetafull[0:nzeta_fp]), "zeta on axis must be equidistant"
+        if not np.allclose(zeta_fp, zetafull[0:nzeta_fp]):
+            raise ValueError("zeta on axis must be equidistant")
         dict_out["axis"]["zetafull"] = zetafull
 
     if "boundary" in ds:
@@ -608,19 +620,17 @@ def read_Gframe_ncfile(ncfile: str | Path):
         ]:
             dict_out["boundary"][dvar] = ds["boundary"][ncvar].data
 
-        assert dict_out["boundary"]["nzeta"] == dict_out["boundary"]["zeta"].shape[0], (
-            "nzeta and len(zeta) must be equal!"
-        )
-        assert dict_out["boundary"]["ntheta"] == dict_out["boundary"]["theta"].shape[0], (
-            "ntheta and len(theta) must be equal!"
-        )
-        assert dict_out["boundary"]["X1"].shape == (
+        if not dict_out["boundary"]["nzeta"] == dict_out["boundary"]["zeta"].shape[0]:
+            raise ValueError("nzeta and len(zeta) must be equal!")
+        if not dict_out["boundary"]["ntheta"] == dict_out["boundary"]["theta"].shape[0]:
+            raise ValueError("ntheta and len(theta) must be equal!")
+        if not dict_out["boundary"]["X1"].shape == (
             dict_out["boundary"]["ntheta"],
             dict_out["boundary"]["nzeta"],
-        ), "shape of X and Y must be (ntheta, nzeta)"
-        assert dict_out["boundary"]["X1"].shape == dict_out["boundary"]["X2"].shape, (
-            "X and Y must have same shape"
-        )
+        ):
+            raise ValueError("shape of X and Y must be (ntheta, nzeta)")
+        if not dict_out["boundary"]["X1"].shape == dict_out["boundary"]["X2"].shape:
+            raise ValueError("X and Y must have same shape")
 
     return dict_out
 
@@ -691,9 +701,10 @@ def construct_gframe_from_surface(
         logging_setup()
         logger = logging.getLogger(__name__)
 
-    assert (xyz_in.shape[0] // nfp) * nfp == xyz_in.shape[0], (
-        "xyz_in must be sampled on the full torus and nfp must be a factor in the number of points!"
-    )
+    if not (xyz_in.shape[0] // nfp) * nfp == xyz_in.shape[0]:
+        raise ValueError(
+            "xyz_in must be sampled on the full torus and nfp must be a factor in the number of points!"
+        )
     nz_in = xyz_in.shape[0] // nfp
     nt_in = xyz_in.shape[1]
     # make the number of points odd
@@ -1154,10 +1165,12 @@ def to_RZ(
         - ``n_modes``: toroidal mode numbers (n) in second dimension of ``Rc, Rs,Zc, Zs``
         - ``tolerance``: input ``tolerance``
     """
-    assert xyz.shape[2] == 3, "xyz must have shape [nzeta*nfp, ntheta, 3]"
+    if not xyz.shape[2] == 3:
+        raise ValueError("xyz must have shape (nzeta*nfp, ntheta, 3)")
     nzetafull_in, ntheta_in = xyz.shape[0], xyz.shape[1]
     nzeta_in = nzetafull_in // nfp
-    assert nzeta_in * nfp == nzetafull_in, "nfp must be a factor in the number of zeta points"
+    if not nzeta_in * nfp == nzetafull_in:
+        raise ValueError("nfp must be a factor in the number of zeta points")
     zetafull = zeta0 + np.linspace(0, 2 * np.pi, nzetafull_in, endpoint=False)
     zeta_out = zeta0 + np.linspace(0, 2 * np.pi / nfp, nzeta, endpoint=False)
     theta = theta0 + np.linspace(0, 2 * np.pi, ntheta_in, endpoint=False)
@@ -1292,7 +1305,7 @@ def twist_of_ribbon(X0: np.ndarray, N: np.ndarray, nint: int = None) -> float:
     The twist is computed as
 
     $$
-    \text{Tw} = \frac{1}{2\pi}\int_0^{2\pi}\frac{\left ({N\times \left [{N^\prime\left|{\Xp}\right|^2 - \left({N \cdot X_0^\prime}\right) X_0^{\prime\prime}}\right]}\right) \cdot X_0^\prime}{\left|{N\left|{X_0^\prime}\right|^2-\left({N \cdot X_0^\prime}\right) X_0^\prime}\right|^2}\left|{X_0^\prime}\right| d\zeta
+    \text{Tw} = \frac{1}{2\pi}\int_0^{2\pi}\frac{\left ({N\times \left [{N^\prime\left|{X_0^\prime}\right|^2 - \left({N \cdot X_0^\prime}\right) X_0^{\prime\prime}}\right]}\right) \cdot X_0^\prime}{\left|{N\left|{X_0^\prime}\right|^2-\left({N \cdot X_0^\prime}\right) X_0^\prime}\right|^2}\left|{X_0^\prime}\right| d\zeta
     $$
 
     Derivatives of $X_0$ and $N$ are computed via fft, so the curve is assumed to be given on an equispaced grid in ``zeta=np.linspace(0,2*np.pi,npoints,endpoint=False)``, excluding the endpoint.
@@ -1312,14 +1325,16 @@ def twist_of_ribbon(X0: np.ndarray, N: np.ndarray, nint: int = None) -> float:
         twist of the ribbon defined by ``X0`` and ``N``
     """
     nzeta = X0.shape[0]
-    assert nzeta == N.shape[0], (
-        f"X0 and N must have the same length, but are {X0.shape[0]} and {N.shape[0]} respectively"
-    )
-    assert X0.shape[1] == 3, f"X0 must have shape (npoints,3), but has shape {X0.shape}"
-    assert N.shape[1] == 3, f"X0 must have shape (npoints,3), but has shape {N.shape}"
-    assert np.sqrt(np.sum((X0[0, :] - X0[-1, :]) ** 2)) > 1e-8 * np.sum(X0[0, :] ** 2), (
-        "X0 must exclude endpoint, but first and last point coincide"
-    )
+    if not nzeta == N.shape[0]:
+        raise ValueError(
+            f"X0 and N must have the same length, but are {X0.shape[0]} and {N.shape[0]} respectively"
+        )
+    if not X0.shape[1] == 3:
+        raise ValueError(f"X0 must have shape (npoints,3), but has shape {X0.shape}")
+    if not N.shape[1] == 3:
+        raise ValueError(f"N must have shape (npoints,3), but has shape {N.shape}")
+    if not np.sqrt(np.sum((X0[0, :] - X0[-1, :]) ** 2)) > 1e-8 * np.sum(X0[0, :] ** 2):
+        raise ValueError("X0 must exclude endpoint, but first and last point coincide")
 
     nint_zeta = nzeta
     if nint is not None and nint > nzeta:
@@ -1327,8 +1342,8 @@ def twist_of_ribbon(X0: np.ndarray, N: np.ndarray, nint: int = None) -> float:
     X0_c, X0_s = fourier.fft1d(X0, axis=0)
     N_c, N_s = fourier.fft1d(N, axis=0)
 
-    Xp = fourier.ifft1d(X0_c, X0_s, nint_zeta, deriv=1, axis=0)
-    Xpp = fourier.ifft1d(X0_c, X0_s, nint_zeta, deriv=2, axis=0)
+    X0p = fourier.ifft1d(X0_c, X0_s, nint_zeta, deriv=1, axis=0)
+    X0pp = fourier.ifft1d(X0_c, X0_s, nint_zeta, deriv=2, axis=0)
     Np = fourier.ifft1d(N_c, N_s, nint_zeta, deriv=1, axis=0)
 
     if nint_zeta == nzeta:
@@ -1336,20 +1351,20 @@ def twist_of_ribbon(X0: np.ndarray, N: np.ndarray, nint: int = None) -> float:
     else:
         N_f = fourier.ifft1d(N_c, N_s, nint_zeta, axis=0)
 
-    N_x_Xp = np.sqrt(np.sum((np.cross(N_f, Xp)) ** 2, axis=-1))
-    N_dot_Xp = np.vecdot(N_f, Xp)
-    N_Xp_angle = np.atan2(N_x_Xp, N_dot_Xp)
-    assert np.all(N_Xp_angle > 1e-8), (
-        f"N must be linearly independent of Xp, min angle={np.amin(N_Xp_angle)}"
+    N_x_X0p = np.sqrt(np.sum((np.cross(N_f, X0p)) ** 2, axis=-1))
+    N_dot_X0p = np.vecdot(N_f, X0p)
+    N_X0p_angle = np.atan2(N_x_X0p, N_dot_X0p)
+    assert np.all(N_X0p_angle > 1e-8), (
+        f"N must be linearly independent of X0p, min angle={np.amin(N_X0p_angle)}"
     )
 
     # cross and vecdot apply only on last axis!
-    Xp_dot_Xp = np.vecdot(Xp, Xp)
+    X0p_dot_X0p = np.vecdot(X0p, X0p)
 
-    num = np.vecdot(np.cross(N_f, (Np * Xp_dot_Xp[:, None] - N_dot_Xp[:, None] * Xpp)), Xp)
-    denom = np.sum((N_f * Xp_dot_Xp[:, None] - N_dot_Xp[:, None] * Xp) ** 2, axis=-1)
+    num = np.vecdot(np.cross(N_f, (Np * X0p_dot_X0p[:, None] - N_dot_X0p[:, None] * X0pp)), X0p)
+    denom = np.sum((N_f * X0p_dot_X0p[:, None] - N_dot_X0p[:, None] * X0p) ** 2, axis=-1)
     # intergate over zeta and divide by 2pi, using trapezoidal rule
-    return np.average(num / denom * np.sqrt(Xp_dot_Xp))
+    return np.average(num / denom * np.sqrt(X0p_dot_X0p))
 
 
 def writhe(X0: np.ndarray, N: np.ndarray = None, width: float = 1e-6, nint: int = None):
@@ -1441,10 +1456,10 @@ def frenet_frame(X0: np.ndarray, nzeta: int = None) -> dict:
     else:
         X0_out = zdft["BF"] @ X0
 
-    Xp = (B1 @ X0_c).real
-    Xpp = (B2 @ X0_c).real
-    Xppp = (B3 @ X0_c).real
-    return frenet_frame_evaluate(X0_out, Xp, Xpp, Xppp)
+    X0p = (B1 @ X0_c).real
+    X0pp = (B2 @ X0_c).real
+    X0ppp = (B3 @ X0_c).real
+    return frenet_frame_evaluate(X0_out, X0p, X0pp, X0ppp)
 
 
 def frenet_frame_evaluate(X0, X0p, X0pp, X0ppp) -> dict:

@@ -206,17 +206,17 @@ def test_linking_number(npoints, endpoint):
     curve_b[:, 2] = 0.49 * np.sin(theta)
 
     curve_b[:, 0] = 1.4 - 0.51 * np.cos(theta)
-    assert np.allclose(util.linking_number(curve_a, curve_b, endpoint=endpoint), 1.0), (
+    assert np.isclose(util.linking_number(curve_a, curve_b, endpoint=endpoint), 1.0), (
         "linking number of two linked circles should be 1.0"
     )
 
     curve_b[:, 0] = 1.4 + 0.51 * np.cos(theta)
-    assert np.allclose(util.linking_number(curve_a, curve_b, endpoint=endpoint), -1.0), (
+    assert np.isclose(util.linking_number(curve_a, curve_b, endpoint=endpoint), -1.0), (
         "linking number of two linked circles with opposite orientation should be -1.0"
     )
 
     curve_b[:, 0] = 1.6 - 0.51 * np.cos(theta)
-    assert np.allclose(util.linking_number(curve_a, curve_b, endpoint=endpoint), 0.0), (
+    assert np.isclose(util.linking_number(curve_a, curve_b, endpoint=endpoint), 0.0), (
         "linking number of two unlinked circles should be 0.0"
     )
 

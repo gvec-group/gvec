@@ -25,6 +25,7 @@ except ImportError:
     xr.DataArray = lambda *args, **kwargs: NotImplemented
     pass  # tests will be skipped via the `check_import` fixture
 
+default_rtol_atol = dict(rtol=1e-5, atol=1e-8)
 # === FIXTURES === #
 
 
@@ -227,7 +228,7 @@ def ev_boozer_drho(teststate):
 
 def test_evaluations_init(teststate):
     ds = Evaluations(rho=[0.5, 0.6], theta=None, zeta=None)
-    assert np.allclose(ds.rho, [0.5, 0.6])
+    np.testing.assert_allclose(ds.rho, [0.5, 0.6], **default_rtol_atol)
     assert {"rho"} == set(ds.coords)
 
     with pytest.raises(ValueError):
@@ -238,12 +239,12 @@ def test_evaluations_init(teststate):
         ds = Evaluations(zeta="int")
 
     ds = Evaluations(rho=np.array([0.5, 0.6]), theta="int", zeta="int", state=teststate)
-    assert np.allclose(ds.rho, [0.5, 0.6])
+    np.testing.assert_allclose(ds.rho, [0.5, 0.6], **default_rtol_atol)
     assert {"rho", "theta", "zeta", "pol_weight", "tor_weight"} == set(ds.coords)
     assert ds.rho.attrs["integration_points"] == "False"
 
     ds = Evaluations(rho=[0.5], theta="int", zeta="int", state=teststate)
-    assert np.allclose(ds.rho, [0.5])
+    np.testing.assert_allclose(ds.rho, [0.5], **default_rtol_atol)
     assert {"rho", "theta", "zeta", "pol_weight", "tor_weight"} == set(ds.coords)
     assert ds.rho.attrs["integration_points"] == "False"
 
@@ -281,7 +282,7 @@ def test_boozer_init(teststate, rho, theta_B, zeta_B, radial_derivative):
 
 def test_boozer(teststate, ev_boozer, radial_derivative):
     ds = ev_boozer.copy()
-    assert np.allclose(ds.rho, [0.5, 1.0])
+    np.testing.assert_allclose(ds.rho, [0.5, 1.0], **default_rtol_atol)
     assert {"rho", "theta_B", "zeta_B"} == set(ds.coords)
     assert {"rad", "pol", "tor"} == set(ds.dims)
     assert "LA" in ds
@@ -549,9 +550,10 @@ def test_compute_metric(teststate, ev_rtz):
     assert "e_theta" in ds
     assert "e_zeta" in ds
     for ij in "rr rt rz tt tz zz".split():
-        assert np.allclose(
+        np.testing.assert_allclose(
             ds[f"g_{ij}"],
             xr.dot(ds[f"e_{idxs[ij[0]]}"], ds[f"e_{idxs[ij[1]]}"], dim="xyz"),
+            **default_rtol_atol,
         )
 
 
@@ -604,13 +606,23 @@ def test_compute_basis(teststate, ev_rtz):
         compute(ds, f"e_{coord}", f"grad_{coord}", state=teststate)
     ds = ds.isel(rad=slice(1, None))
     for coord in ["rho", "theta", "zeta"]:
-        assert np.allclose(xr.dot(ds[f"e_{coord}"], ds[f"grad_{coord}"], dim="xyz"), 1.0)
+        np.testing.assert_allclose(
+            xr.dot(ds[f"e_{coord}"], ds[f"grad_{coord}"], dim="xyz"), 1.0, **default_rtol_atol
+        )
         for coord2 in ["rho", "theta", "zeta"]:
             if coord2 == coord:
                 continue
             compute(ds, f"e_{coord2}", f"grad_{coord2}", state=teststate)
-            assert np.allclose(xr.dot(ds[f"e_{coord}"], ds[f"grad_{coord2}"], dim="xyz"), 0.0)
-            assert np.allclose(xr.dot(ds[f"grad_{coord}"], ds[f"e_{coord2}"], dim="xyz"), 0.0)
+            np.testing.assert_allclose(
+                xr.dot(ds[f"e_{coord}"], ds[f"grad_{coord2}"], dim="xyz"),
+                0.0,
+                **default_rtol_atol,
+            )
+            np.testing.assert_allclose(
+                xr.dot(ds[f"grad_{coord}"], ds[f"e_{coord2}"], dim="xyz"),
+                0.0,
+                **default_rtol_atol,
+            )
 
 
 def test_compute_g_ij_B(teststate, ev_boozer_drho):

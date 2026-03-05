@@ -8,7 +8,7 @@ try:
 except ImportError:
     pass  # tests will be skipped via the `check_import` fixture
 
-
+default_rtol_atol = dict(rtol=1e-5, atol=1e-8)
 # === Fixtures === #
 
 
@@ -80,11 +80,17 @@ def test_fft1d(c, s, points: tuple[int, int], shift, axis):
         assert xc2d.shape == xs2d.shape, (
             "Problem with 1d fft of 2d array along axis 0, not same shape "
         )
-        assert np.allclose(xc2d[:, 0], xc2d[:, 1]), (
-            "Problem with 1d fft of 2d array along axis 0 "
+        np.testing.assert_allclose(
+            xc2d[:, 0],
+            xc2d[:, 1],
+            **default_rtol_atol,
+            err_msg="Problem with 1d fft of 2d array along axis 0 ",
         )
-        assert np.allclose(xs2d[:, 0], xs2d[:, 1]), (
-            "Problem with 1d fft of 2d array along axis 0 "
+        np.testing.assert_allclose(
+            xs2d[:, 0],
+            xs2d[:, 1],
+            **default_rtol_atol,
+            err_msg="Problem with 1d fft of 2d array along axis 0 ",
         )
         xc, xs = xc2d[:, 0], xs2d[:, 0]
     elif axis == 1:
@@ -96,11 +102,17 @@ def test_fft1d(c, s, points: tuple[int, int], shift, axis):
         assert xc2d.shape == xs2d.shape, (
             "Problem with 1d fft of 2d array along axis 1, not same shape "
         )
-        assert np.allclose(xc2d[0, :], xc2d[1, :]), (
-            "Problem with 1d fft of 2d array along axis 1 "
+        np.testing.assert_allclose(
+            xc2d[0, :],
+            xc2d[1, :],
+            **default_rtol_atol,
+            err_msg="Problem with 1d fft of 2d array along axis 1 ",
         )
-        assert np.allclose(xs2d[0, :], xs2d[1, :]), (
-            "Problem with 1d fft of 2d array along axis 1 "
+        np.testing.assert_allclose(
+            xs2d[0, :],
+            xs2d[1, :],
+            **default_rtol_atol,
+            err_msg="Problem with 1d fft of 2d array along axis 1 ",
         )
         xc, xs = xc2d[0, :], xs2d[0, :]
     elif axis == 2:
@@ -113,25 +125,32 @@ def test_fft1d(c, s, points: tuple[int, int], shift, axis):
         assert xc3d.shape == xs3d.shape, (
             "Problem with 1d fft of 3d array along axis 2, not same shape "
         )
-        assert np.allclose(xc3d[0, 0, :], np.average(xc3d, axis=(0, 1))), (
-            "Problem with 1d fft of 3d array along axis 2 "
+        np.testing.assert_allclose(
+            xc3d[0, 0, :],
+            np.average(xc3d, axis=(0, 1)),
+            **default_rtol_atol,
+            err_msg="Problem with 1d fft of 3d array along axis 2 ",
         )
-        assert np.allclose(xs3d[0, 0, :], np.average(xs3d, axis=(0, 1))), (
-            "Problem with 1d fft of 3d array along axis 2 "
+        np.testing.assert_allclose(
+            xs3d[0, 0, :],
+            np.average(xs3d, axis=(0, 1)),
+            **default_rtol_atol,
+            err_msg="Problem with 1d fft of 3d array along axis 2 ",
         )
         xc, xs = xc3d[0, 0, :], xs3d[0, 0, :]
 
     if shift != 0.0:
         x2 = fourier.shift_1d(x, t[0], 0)
         xc2, xs2 = fourier.fft1d(x2)
-        assert np.allclose(xc, xc2) and np.allclose(xs, xs2)
-    assert np.allclose(xc[: len(c)], c)
-    assert np.allclose(xs[1 : len(s)], s[1:])
+        np.testing.assert_allclose(xc, xc2, **default_rtol_atol)
+        np.testing.assert_allclose(xs, xs2, **default_rtol_atol)
+    np.testing.assert_allclose(xc[: len(c)], c, **default_rtol_atol)
+    np.testing.assert_allclose(xs[1 : len(s)], s[1:], **default_rtol_atol)
     assert xs[0] == 0
 
     y = sum([ci * np.cos(i * t) for i, ci in enumerate(xc)])
     y += sum([si * np.sin(i * t) for i, si in enumerate(xs)])
-    assert np.allclose(x, y)
+    np.testing.assert_allclose(x, y, **default_rtol_atol)
 
 
 @pytest.mark.parametrize("npoints", [10, 11], ids=["even", "odd"])
@@ -158,11 +177,17 @@ def test_ifft1d_fft1d(npoints, deriv, axis):
         s2d = np.vstack([s, s]).T
         y2d = fourier.ifft1d(c2d, s2d, deriv=deriv, axis=0, npoints=npoints)
         yc2d, ys2d = fourier.fft1d(y2d, axis=0)
-        assert np.allclose(yc2d[:, 0], yc2d[:, 1]), (
-            "Problem with 1d ifft of 2d array along axis 0 "
+        np.testing.assert_allclose(
+            yc2d[:, 0],
+            yc2d[:, 1],
+            **default_rtol_atol,
+            err_msg="Problem with 1d ifft of 2d array along axis 0 ",
         )
-        assert np.allclose(ys2d[:, 0], ys2d[:, 1]), (
-            "Problem with 1d ifft of 2d array along axis 0 "
+        np.testing.assert_allclose(
+            ys2d[:, 0],
+            ys2d[:, 1],
+            **default_rtol_atol,
+            err_msg="Problem with 1d ifft of 2d array along axis 0 ",
         )
         yc, ys = yc2d[:, 0], ys2d[:, 0]
     elif axis == 1:
@@ -170,11 +195,17 @@ def test_ifft1d_fft1d(npoints, deriv, axis):
         s2d = np.vstack([s, s])
         y2d = fourier.ifft1d(c2d, s2d, deriv=deriv, axis=1, npoints=npoints)
         yc2d, ys2d = fourier.fft1d(y2d, axis=1)
-        assert np.allclose(yc2d[0, :], yc2d[1, :]), (
-            "Problem with 1d ifft of 2d array along axis 1 "
+        np.testing.assert_allclose(
+            yc2d[0, :],
+            yc2d[1, :],
+            **default_rtol_atol,
+            err_msg="Problem with 1d ifft of 2d array along axis 1 ",
         )
-        assert np.allclose(ys2d[0, :], ys2d[1, :]), (
-            "Problem with 1d ifft of 2d array along axis 1 "
+        np.testing.assert_allclose(
+            ys2d[0, :],
+            ys2d[1, :],
+            **default_rtol_atol,
+            err_msg="Problem with 1d ifft of 2d array along axis 1 ",
         )
         yc, ys = yc2d[0, :], ys2d[0, :]
     elif axis == 2:
@@ -184,26 +215,53 @@ def test_ifft1d_fft1d(npoints, deriv, axis):
         s3d = np.stack([s2d, s2d])
         y3d = fourier.ifft1d(c3d, s3d, deriv=deriv, axis=2, npoints=npoints)
         yc3d, ys3d = fourier.fft1d(y3d, axis=2)
-        assert np.allclose(yc3d[0, 0, :], np.average(yc3d, axis=(0, 1))), (
-            "Problem with 1d ifft of 3d array along axis 2 "
+        np.testing.assert_allclose(
+            yc3d[0, 0, :],
+            np.average(yc3d, axis=(0, 1)),
+            **default_rtol_atol,
+            err_msg="Problem with 1d ifft of 3d array along axis 2 ",
         )
-        assert np.allclose(ys3d[0, 0, :], np.average(ys3d, axis=(0, 1))), (
-            "Problem with 1d ifft of 3d array along axis 2 "
+        np.testing.assert_allclose(
+            ys3d[0, 0, :],
+            np.average(ys3d, axis=(0, 1)),
+            **default_rtol_atol,
+            err_msg="Problem with 1d ifft of 3d array along axis 2 ",
         )
         yc, ys = yc3d[0, 0, :], ys3d[0, 0, :]
 
     if deriv is None or deriv == 0:
-        assert np.allclose(s, ys), "sin coef. do not match for 1d ifft"
-        assert np.allclose(c, yc), "cos coef. do not match for 1d ifft"
+        np.testing.assert_allclose(
+            s, ys, **default_rtol_atol, err_msg="sin coef. do not match for 1d ifft"
+        )
+        np.testing.assert_allclose(
+            c, yc, **default_rtol_atol, err_msg="cos coef. do not match for 1d ifft"
+        )
     elif deriv == 1:
         m = np.arange(m_max + 1)
-        assert np.allclose(s * m, yc), "cos coef. do not match for 1d ifft deriv=1"
-        assert np.allclose(-c * m, ys), "sin coef. do not match for 1d ifft deriv=1"
+        np.testing.assert_allclose(
+            s * m, yc, **default_rtol_atol, err_msg="cos coef. do not match for 1d ifft deriv=1"
+        )
+        np.testing.assert_allclose(
+            -c * m,
+            ys,
+            **default_rtol_atol,
+            err_msg="sin coef. do not match for 1d ifft deriv=1",
+        )
 
     elif deriv == 2:
         m = np.arange(m_max + 1)
-        assert np.allclose(-c * m * m, yc), "cos coef. do not match for 1d ifft deriv=2"
-        assert np.allclose(-s * m * m, ys), "sin coef. do not match for 1d ifft deriv=2"
+        np.testing.assert_allclose(
+            -c * m * m,
+            yc,
+            **default_rtol_atol,
+            err_msg="cos coef. do not match for 1d ifft deriv=2",
+        )
+        np.testing.assert_allclose(
+            -s * m * m,
+            ys,
+            **default_rtol_atol,
+            err_msg="sin coef. do not match for 1d ifft deriv=2",
+        )
 
 
 def test_fft2d_modes(MN):
@@ -276,15 +334,20 @@ def test_fft2d_and_shift(MN, points2d, shift_theta, shift_zeta):
         x = fourier.shift_1d(x, z[0], 1)
 
     xc2, xs2 = fourier.fft2d(x)
-    assert np.allclose(xc, xc2) and np.allclose(xs, xs2)
+    np.testing.assert_allclose(xc, xc2, **default_rtol_atol, err_msg="Problem with 2d fft")
+    np.testing.assert_allclose(xs, xs2, **default_rtol_atol, err_msg="Problem with 2d fft")
 
     xM, xN = xc.shape[0] - 1, xc.shape[1] // 2
     assert xc.shape == xs.shape == (xM + 1, 2 * xN + 1)
 
     c = fourier.scale_modes2d(c, xM, xN)
     s = fourier.scale_modes2d(s, xM, xN)
-    assert np.allclose(c, xc)
-    assert np.allclose(s, xs)
+    np.testing.assert_allclose(
+        c, xc, **default_rtol_atol, err_msg="Problem with 2d scale modes"
+    )
+    np.testing.assert_allclose(
+        s, xs, **default_rtol_atol, err_msg="Problem with 2d scale modes"
+    )
 
 
 def test_ifft2d(MN):
@@ -307,7 +370,7 @@ def test_ifft2d(MN):
             for n in ns
         ]
     )
-    assert np.allclose(x, ref)
+    np.testing.assert_allclose(x, ref, **default_rtol_atol, err_msg="Problem with 2d ifft")
 
 
 def test_ifft2d_fft2d(MN):
@@ -320,8 +383,8 @@ def test_ifft2d_fft2d(MN):
 
     x = fourier.ifft2d(c, s)
     xc, xs = fourier.fft2d(x)
-    assert np.allclose(c, xc)
-    assert np.allclose(s, xs)
+    np.testing.assert_allclose(c, xc, **default_rtol_atol, err_msg="Problem with 2d ifft/fft")
+    np.testing.assert_allclose(s, xs, **default_rtol_atol, err_msg="Problem with 2d ifft/fft")
 
 
 def test_eval2d(MN, points2d):
@@ -342,7 +405,7 @@ def test_eval2d(MN, points2d):
         ]
     )
     xe = fourier.eval2d(c, s, T, Z)
-    assert np.allclose(x, xe)
+    np.testing.assert_allclose(x, xe, **default_rtol_atol, err_msg="Problem with 2d evaluation")
 
 
 def test_real_dft():
@@ -384,8 +447,27 @@ def test_real_dft():
 
     ddf3_1 = (B2 @ (dd_rdft["F"] @ f1)).real
 
-    assert np.allclose(f3, exfunc(zeta_up))
-    assert np.allclose(df3, exfuncd(zeta_up))
-    assert np.allclose(df3_1, exfuncd(zeta_up))
-    assert np.allclose(ddf3, exfuncdd(zeta_up))
-    assert np.allclose(ddf3_1, exfuncdd(zeta_up))
+    np.testing.assert_allclose(
+        f3, exfunc(zeta_up), **default_rtol_atol, err_msg="Problem with real DFT"
+    )
+    np.testing.assert_allclose(
+        df3,
+        exfuncd(zeta_up),
+        **default_rtol_atol,
+        err_msg="Problem with direct real DFT derivative",
+    )
+    np.testing.assert_allclose(
+        df3_1, exfuncd(zeta_up), **default_rtol_atol, err_msg="Problem with real DFT derivative"
+    )
+    np.testing.assert_allclose(
+        ddf3,
+        exfuncdd(zeta_up),
+        **default_rtol_atol,
+        err_msg="Problem with direct real DFT second derivative",
+    )
+    np.testing.assert_allclose(
+        ddf3_1,
+        exfuncdd(zeta_up),
+        **default_rtol_atol,
+        err_msg="Problem with real DFT second derivative",
+    )

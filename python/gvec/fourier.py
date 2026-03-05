@@ -97,7 +97,10 @@ def shift_1d(y: np.ndarray, x0, axis, newshape=None):
     if newshape is None:
         newshape = y.shape[axis]
     else:
-        assert newshape >= y.shape[axis], f"new shape must be >= y.shape[axis]={y.shape[axis]}"
+        if not newshape >= y.shape[axis]:
+            raise ValueError(
+                f"newshape must be >= input shape along the shifted axis, got {newshape} and {y.shape[axis]}"
+            )
     cshft = c * np.exp(-1j * ks * x0)
     yshft = np.fft.irfft(cshft, newshape, norm="forward", axis=axis)
     return yshft
@@ -134,7 +137,8 @@ def ifft1d(
     y : numpy.ndarray
         The values of the series evaluated at `x=np.linspace(0,2*np.pi,len(x),endpoint=False)`.
     """
-    assert c.shape == s.shape, "c and s must have the same shape"
+    if not c.shape == s.shape:
+        raise ValueError("c and s must have the same shape")
     if c.ndim == 1:
         _axis = 0
     else:
@@ -426,14 +430,18 @@ def real_dft_mat(x_in, x_out, nfp=1, modes=None, deriv=0):
     """
     if modes is None:
         modes = np.arange((len(x_in) - 1) // 2 + 1)  # all modes up to Nyquist
-    assert np.allclose(x_in[-1] + (x_in[1] - x_in[0]) - x_in[0], 2 * np.pi / nfp)
-    assert np.all(modes >= 0), "modes must be positive"
+    if not np.allclose(x_in[-1] + (x_in[1] - x_in[0]) - x_in[0], 2 * np.pi / nfp):
+        raise ValueError("x_in must be equidistant points in [0,2pi/nfp[ and exclude endpoint")
+    if not np.all(modes >= 0):
+        raise ValueError("modes must be positive")
     zeromode = np.where(modes == 0)
-    assert len(zeromode) <= 1, "only one zero mode allowed"
+    if not len(zeromode) <= 1:
+        raise ValueError("only one zero mode allowed")
     maxmode = np.amax(modes)
-    assert len(x_in) > 2 * maxmode, (
-        f"number of sampling points ({len(x_in)}) > 2*maxmodenumber ({maxmode})"
-    )
+    if not len(x_in) > 2 * maxmode:
+        raise ValueError(
+            f"number of sampling points ({len(x_in)}) > 2*maxmodenumber ({maxmode})"
+        )
     # matrix for forward transform
     Fmat = np.exp(1j * nfp * (modes[:, None] * x_in[None, :]))
     mass_re = Fmat.real @ Fmat.real.T

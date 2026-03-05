@@ -200,8 +200,12 @@ def test_frenet_trefoil():
                 f"Expected {key} to be None, but got {dict_frenet_exact[key]}"
             )
         else:
-            assert np.allclose(dict_frenet[key], dict_frenet_exact[key], atol=1e-8), (
-                f"Mismatch in {key}: max(|diff|) {np.max(np.abs(dict_frenet[key] - dict_frenet_exact[key]))}"
+            np.testing.assert_allclose(
+                dict_frenet[key],
+                dict_frenet_exact[key],
+                rtol=1e-5,
+                atol=1e-8,
+                err_msg=f"Mismatch in {key}",
             )
 
 
@@ -243,13 +247,25 @@ def test_writhe_trefoil(zscale):
             f"Writhe from {method} for trefoil not converging: |diff(Wr) = {Wr_diff[0]} -> {Wr_diff[1]} with reference high-res Wr={Wr_high}"
         )
 
-    assert np.allclose(Wr_frenet, Wr_high, atol=1e-8), (
-        f"writhe from frenet frame of trefoil not accurate, {Wr_frenet} - {Wr_high}> 1e-8"
+    np.testing.assert_allclose(
+        Wr_frenet,
+        Wr_high,
+        rtol=1e-5,
+        atol=1e-8,
+        err_msg="writhe from frenet frame of trefoil not accurate <1e-8",
     )
-    assert np.allclose(Wr_centroid, Wr_high, atol=1e-6), (
-        f"writhe from centroid frame of trefoil not accurate, {Wr_centroid} - {Wr_high}> 1e-6"
+    np.testing.assert_allclose(
+        Wr_centroid,
+        Wr_high,
+        rtol=1e-5,
+        atol=1e-6,
+        err_msg="writhe from centroid frame of trefoil not accurate <1e-6",
     )
 
-    assert np.allclose(Wr_high, Wr_from_polygon, atol=1e-3), (
-        "writhe from polygon for trefoil, not within 1e-3"
+    np.testing.assert_allclose(
+        Wr_high,
+        Wr_from_polygon,
+        rtol=1e-5,
+        atol=1e-3,
+        err_msg="writhe from polygon for trefoil not within 1e-3",
     )

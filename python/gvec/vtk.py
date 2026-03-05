@@ -65,19 +65,19 @@ def ev2vtk(
     # make sure dimensions are in the expected order
     dimension_order = ["xyz", "rad", "pol", "tor"]
     ds_out = xrds.copy()
-    assert (
-        "pos" in ds_out
-    ), """Expected 'pos' in 'xrds', please make sure you are working with a pygvec evaluation dataset
-    or rename your variable for the  cartesian components of grid points to 'pos'."""
+    if "pos" not in ds_out:
+        raise ValueError("""Expected 'pos' in 'xrds', please make sure you are working with a pygvec evaluation dataset
+    or rename your variable for the  cartesian components of grid points to 'pos'.""")
 
     # rename dimensions
     for dim, dimnew in (("rho", "rad"), ("theta", "pol"), ("zeta", "tor")):
         if dim in ds_out.pos.dims:
             ds_out = ds_out.rename_dims({dim: dimnew})
 
-    assert np.any([dim in ds_out.pos.dims for dim in ("rad", "pol", "tor")]), (
-        'pos data array must contain at least one of "rad", "pol", "tor" dimensions.'
-    )
+    if not np.any([dim in ds_out.pos.dims for dim in ("rad", "pol", "tor")]):
+        raise ValueError(
+            'pos data array must contain at least one of "rad", "pol", "tor" dimensions.'
+        )
     # add missing dimensions to pos
     expanded_dim = []
     for dim in ("rad", "pol", "tor"):
@@ -88,10 +88,9 @@ def ev2vtk(
     expected_dimension = {"rad": "radial", "pol": "poloidal", "tor": "toroidal"}
 
     for dim in expected_dimension:
-        assert (
-            dim in ds_out.dims
-        ), f"""Expected '{dim}' in 'xrds' dimensions, please make sure you are working with a pygvec evaluation dataset
-        or rename your {expected_dimension[dim]} dimension to '{dim}'."""
+        if dim not in ds_out.dims:
+            raise ValueError(f"""Expected '{dim}' in 'xrds' dimensions, please make sure you are working with a pygvec evaluation dataset
+        or rename your {expected_dimension[dim]} dimension to '{dim}'.""")
 
     outvars = []
     ignored_variables = []
@@ -260,7 +259,8 @@ def gframe_to_vtk(
 
     # optional box visualization
     if box_axis is not None:
-        assert len(box_axis) == 2, "box_axis input must be a list of two values"
+        if not len(box_axis) == 2:
+            raise ValueError("box_axis input must be a list of two values")
         X = np.array([-1, 1]) * box_axis[0]
         Y = np.array([-1, 1]) * box_axis[1]
 

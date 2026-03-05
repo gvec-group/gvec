@@ -1022,10 +1022,10 @@ def compute_FD(f: np.ndarray, pos, coefs, axis=0):
         - 8th order central FD: ``pos=[-4,-3,-2,-1,1,2,3,4]; coefs=[-1/560,8/315,-1/5,8/5,-205/72,8/5,-1/5,8/315,-1/560]/(dx**2)``
 
     """
-    assert axis < f.ndim, f"array does not have the requested dimension {axis}"
-    assert len(pos) == len(coefs), (
-        f"pos and coefs must have the same length, got {pos} and {coefs}"
-    )
+    if not axis < f.ndim:
+        raise ValueError(f"array does not have the requested dimension {axis}")
+    if not len(pos) == len(coefs):
+        raise ValueError(f"pos and coefs must have the same length, got {pos} and {coefs}")
     df = np.roll(f, -pos[0], axis=axis) * coefs[0]
     for roll, c in zip(pos[1:], coefs[1:]):
         df += np.roll(f, -roll, axis=axis) * c
@@ -1259,24 +1259,32 @@ def linking_number(curve_a: np.ndarray, curve_b: np.ndarray, tol=1e-15, endpoint
     Lk : float
         the linking number of the two curves
     """
-    assert curve_a.ndim == 2, "curve_a must be a 2D array"
-    assert curve_b.ndim == 2, "curve_b must be a 2D array"
-    assert curve_a.shape[1] == 3, "second dimension of curve_a must be of size 3"
-    assert curve_b.shape[1] == 3, "second dimension of curve_b must be of size 3"
+    if not curve_a.ndim == 2:
+        raise ValueError("curve_a must be a 2D array")
+    if not curve_b.ndim == 2:
+        raise ValueError("curve_b must be a 2D array")
+    if not curve_a.shape[1] == 3:
+        raise ValueError("second dimension of curve_a must be of size 3")
+    if not curve_b.shape[1] == 3:
+        raise ValueError("second dimension of curve_b must be of size 3")
     closed_a = np.allclose(curve_a[0, :], curve_a[-1, :])
     closed_b = np.allclose(curve_b[0, :], curve_b[-1, :])
     if endpoint:
-        assert closed_a, "first and last point of curve_a must coincide (closed curve)"
-        assert closed_b, "first and last point of curve_b must coincide (closed curve)"
+        if not closed_a:
+            raise ValueError("first and last point of curve_a must coincide (closed curve)")
+        if not closed_b:
+            raise ValueError("first and last point of curve_b must coincide (closed curve)")
         _curve_a = curve_a
         _curve_b = curve_b
     else:
-        assert not closed_a, (
-            "first and last point of curve_a coincide, but endpoint=False was chosen"
-        )
-        assert not closed_b, (
-            "first and last point of curve_b coincide, but endpoint=False was chosen"
-        )
+        if closed_a:
+            raise ValueError(
+                "first and last point of curve_a coincide, but endpoint=False was chosen"
+            )
+        if closed_b:
+            raise ValueError(
+                "first and last point of curve_b coincide, but endpoint=False was chosen"
+            )
         _curve_a = np.vstack([curve_a, curve_a[0, :]])
         _curve_b = np.vstack([curve_b, curve_b[0, :]])
     # nseg_a = curve_a.shape[0]-1
@@ -1332,12 +1340,13 @@ def writhe_from_polygon(curve: np.ndarray, endpoint=False):
     --------
     The algorithm converges very slowly with the number of line segments.
     """
-    assert curve.ndim == 2, "curve must be a 2D array"
-    assert curve.shape[1] == 3, "second dimension of curve must be of size 3"
+    if not curve.ndim == 2:
+        raise ValueError("curve must be a 2D array")
+    if not curve.shape[1] == 3:
+        raise ValueError("second dimension of curve must be of size 3")
     if endpoint:
-        assert np.allclose(curve[0, :], curve[-1, :]), (
-            "first and last point of curve must coincide (closed curve)"
-        )
+        if not np.allclose(curve[0, :], curve[-1, :]):
+            raise ValueError("first and last point of curve must coincide (closed curve)")
         _curve = curve
     else:
         _curve = np.vstack([curve, curve[0, :]])
