@@ -1065,40 +1065,40 @@ def to_RZ(
     tolerance: float = 1e-8,
 ):
     """
-        Cut a xyz surface to yield a R,Z positions on one field period.
+    Cut a xyz surface to yield a R,Z positions on one field period.
 
-        Parameters
-        ----------
-        xyz : ndarray
-            Boundary surface in cartesian coordinates, with shape ``(nzeta*nfp,ntheta,3)``
-        nfp : int
-            Number of field periods
-        zeta0 : float, optional
-            First point in logical zeta direction where xyz was sampled. Defaults to 0.
-        theta0 : float, optional
-            First point in logical theta direction where xyz was sampled. Defaults to 0.
-        nzeta : int, optional
-            Number of zeta positions (=geometric angle -phi) for the output, to sample on one field period. Defaults to 81.
-        ntheta : int, optional
-            Number of theta positions for the output. Defaults to 81.
-        tolerance : float, optional
-            Tolerance for finding minimal mode numbers. Defaults to 1e-8.
+    Parameters
+    ----------
+    xyz : ndarray
+        Boundary surface in cartesian coordinates, with shape ``(nzeta*nfp,ntheta,3)``
+    nfp : int
+        Number of field periods
+    zeta0 : float, optional
+        First point in logical zeta direction where xyz was sampled. Defaults to 0.
+    theta0 : float, optional
+        First point in logical theta direction where xyz was sampled. Defaults to 0.
+    nzeta : int, optional
+        Number of zeta positions (=geometric angle -phi) for the output, to sample on one field period. Defaults to 81.
+    ntheta : int, optional
+        Number of theta positions for the output. Defaults to 81.
+    tolerance : float, optional
+        Tolerance for finding minimal mode numbers. Defaults to 1e-8.
 
-        Returns
-        -------
-        dict
-            Dictionary with:
-            - ``zeta`` : zeta positions on one field period, length ``nzeta``
-            - ``theta`` : theta positions, length ``ntheta``
-            - ``R`` : R positions on one field period, with shape ``(ntheta,nzeta)``
-            - ``Z`` : Z positions on one field period, with shape ``(ntheta,nzeta)``
-            - ``nfp`` : number of field periods
-            - ``lasym`` : logical for asymmetry, ``=False`` if stellarator symmetry is found
-            - ``Mmax``,``Nmax`` : maximum mode numbers needed for the given tolerance
-            - ``Rc``,``Rs``,``Zc``,``Zs`` : R and Z cosine and sine Fourier mode coefficients,  shape is ``(Mmax+1,2*Nmax+1)``
-            - ``m_modes``: poloidal mode numbers (m) in first dimension of ``Rc, Rs,Zc, Zs``
-            - ``n_modes``: toroidal mode numbers (n) in second dimension of ``Rc, Rs,Zc, Zs``
-            - ``tolerance``: input ``tolerance``
+    Returns
+    -------
+    dict
+        Dictionary with:
+        - ``zeta`` : zeta positions on one field period, length ``nzeta``
+        - ``theta`` : theta positions, length ``ntheta``
+        - ``R`` : R positions on one field period, with shape ``(ntheta,nzeta)``
+        - ``Z`` : Z positions on one field period, with shape ``(ntheta,nzeta)``
+        - ``nfp`` : number of field periods
+        - ``lasym`` : logical for asymmetry, ``=False`` if stellarator symmetry is found
+        - ``Mmax``,``Nmax`` : maximum mode numbers needed for the given tolerance
+        - ``Rc``,``Rs``,``Zc``,``Zs`` : R and Z cosine and sine Fourier mode coefficients,  shape is ``(Mmax+1,2*Nmax+1)``
+        - ``m_modes``: poloidal mode numbers (m) in first dimension of ``Rc, Rs,Zc, Zs``
+        - ``n_modes``: toroidal mode numbers (n) in second dimension of ``Rc, Rs,Zc, Zs``
+        - ``tolerance``: input ``tolerance``
     """
     assert xyz.shape[2] == 3, "xyz must have shape [nzeta*nfp, ntheta, 3]"
     nzetafull_in, ntheta_in = xyz.shape[0], xyz.shape[1]
