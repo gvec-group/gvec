@@ -205,6 +205,19 @@ def test_frenet_trefoil():
             )
 
 
+def test_frenet_zero_curvature():
+    # test that for a closed curve with zero curvature, the frenet frame detects it.
+    zeta = np.linspace(0, 2 * np.pi, 2 * 11, endpoint=False)
+    x = np.sin(zeta)
+    y = np.sin(zeta) * np.cos(zeta)
+    z = np.sin(zeta)
+    X0 = np.stack([x, y, z], axis=-1)
+    dict_frenet = gvec.gframe.frenet_frame(X0)
+    assert (
+        dict_frenet["N"] is None and dict_frenet["B"] is None and dict_frenet["tau"] is None
+    ), "Expected N,B,tau to be None for zero curvature"
+
+
 @pytest.mark.parametrize("zscale", [-1.0, -0.45, -0.1, 0.05, 0.1, 0.5, 1.0])
 def test_writhe_trefoil(zscale):
     dict_frenet_high = get_frenet_trefoil(3 * 81, zscale=zscale)
@@ -233,8 +246,8 @@ def test_writhe_trefoil(zscale):
     assert np.allclose(Wr_frenet, Wr_high, atol=1e-8), (
         f"writhe from frenet frame of trefoil not accurate, {Wr_frenet} - {Wr_high}> 1e-8"
     )
-    assert np.allclose(Wr_centroid, Wr_high, atol=1e-8), (
-        f"writhe from centroid frame of trefoil not accurate, {Wr_centroid} - {Wr_high}> 1e-8"
+    assert np.allclose(Wr_centroid, Wr_high, atol=1e-6), (
+        f"writhe from centroid frame of trefoil not accurate, {Wr_centroid} - {Wr_high}> 1e-6"
     )
 
     assert np.allclose(Wr_high, Wr_from_polygon, atol=1e-3), (

@@ -1304,7 +1304,7 @@ def twist_of_ribbon(X0: np.ndarray, N: np.ndarray, nint: int = None) -> float:
     N  : np.ndarray
         linearly independent, non-normalized "normal" vector at curve positions, in cartesian coordinates, same shape as ``X0``
     nint : int, optional
-        number of points for integration, None sets default ``=npoints``
+        number of points for integration, ``None`` sets default ``=npoints``
 
     Returns
     -------
@@ -1366,7 +1366,7 @@ def writhe(X0: np.ndarray, N: np.ndarray = None, width: float = 1e-6, nint: int 
     X0 : np.ndarray
         positions along closed curve, in cartesian coordinates, shape ``(npoints,3)``,  excluding periodic endpoint!
     N  : np.ndarray, optional
-        linearly independent, non-normalized "normal" vector at curve positions, in cartesian coordinates, same shape as ``X0``. If   not provided, `N` is computed from the centroid frame of ``X0``
+        linearly independent, non-normalized "normal" vector at curve positions, in cartesian coordinates, shape ``(npoints,3)``. If   not provided, `N` is computed from the centroid frame of ``X0``
     width : float, optional
         In order to compute the linking number, the width of the ribbon must be specified, generating a second curve `X0+N*width`. Default width is `1e-6`
     nint : int, optional
@@ -1382,18 +1382,21 @@ def writhe(X0: np.ndarray, N: np.ndarray = None, width: float = 1e-6, nint: int 
         twist of the ribbon defined by ``X0`` and ``N``
     """
     if N is None:
-        N = X0 - np.mean(X0, axis=0)  # centroid frame
+        # use centroid frame
+        N = X0 - np.mean(X0, axis=0)
+        # normalize to max length 1 (not unit length, can be represented with same resolution as X0)
+        N /= np.amax(np.sqrt(np.sum(N**2, axis=-1)))
     Tw = twist_of_ribbon(X0, N, nint=nint)
     Lk = linking_number(X0, X0 + N * width)
     Wr = Lk - Tw
     return Wr, Lk, Tw
 
 
-def frenet_frame(X0: np.ndarray) -> dict:
+def frenet_frame(X0: np.ndarray, nzeta: int = None) -> dict:
     r"""
     Compute the Frenet frame of a closed (!) curve defined by $X_0(\zeta)$, by computing the tangent vector $T$, normal vector $N$ and binormal vector $B$.
 
-    Derivatives of $X_0$ are computed via fft, so the curve is assumed to be given on an equispaced grid in ``zeta=zeta0+np.linspace(0,2*np.pi,npoints,endpoint=False)``, excluding the endpoint.
+    Derivatives of $X_0$ are computed via dft, so the curve is assumed to be given on an equispaced grid in ``zeta=zeta0+np.linspace(0,2*np.pi,npoints,endpoint=False)``, excluding the endpoint.
 
     Warnings
     --------
@@ -1405,6 +1408,8 @@ def frenet_frame(X0: np.ndarray) -> dict:
     ----------
     X0 : np.ndarray
         closed curve positions, in cartesian coordinates, shape ``(npoints,3)``,  excluding periodic endpoint!
+    nzeta : int, optional
+        number of points for the output, default is None, which then uses ``npoints``.
 
     Returns
     -------
@@ -1420,11 +1425,26 @@ def frenet_frame(X0: np.ndarray) -> dict:
         - ``tau``: torsion, shape ``(npoints,)``. If curvature is zero at any point, ``None`` is returned
 
     """
-    X0_c, X0_s = fourier.fft1d(X0, axis=0)
-    Xp = fourier.ifft1d(X0_c, X0_s, axis=0, deriv=1)
-    Xpp = fourier.ifft1d(X0_c, X0_s, axis=0, deriv=2)
-    Xppp = fourier.ifft1d(X0_c, X0_s, axis=0, deriv=3)
-    return frenet_frame_evaluate(X0, Xp, Xpp, Xppp)
+    zeta_in = np.linspace(0, 2 * np.pi, X0.shape[0], endpoint=False)
+    if nzeta is None:
+        zeta_out = zeta_in
+    else:
+        zeta_out = np.linspace(0, 2 * np.pi, nzeta, endpoint=False)
+
+    zdft = fourier.real_dft_mat(zeta_in, zeta_out, nfp=1)
+    B1 = fourier.get_B_dft(x_out=zdft["x_out"], deriv=1, nfp=1, modes=zdft["modes"])
+    B2 = fourier.get_B_dft(x_out=zdft["x_out"], deriv=2, nfp=1, modes=zdft["modes"])
+    B3 = fourier.get_B_dft(x_out=zdft["x_out"], deriv=3, nfp=1, modes=zdft["modes"])
+    X0_c = zdft["F"] @ X0  # forward dft
+    if nzeta is None:
+        X0_out = X0
+    else:
+        X0_out = zdft["BF"] @ X0
+
+    Xp = (B1 @ X0_c).real
+    Xpp = (B2 @ X0_c).real
+    Xppp = (B3 @ X0_c).real
+    return frenet_frame_evaluate(X0_out, Xp, Xpp, Xppp)
 
 
 def frenet_frame_evaluate(X0, X0p, X0pp, X0ppp) -> dict:
