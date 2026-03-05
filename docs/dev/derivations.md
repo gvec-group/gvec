@@ -55,7 +55,7 @@ $$
                                         &+ 2 \left(\pdv{B^\thet}{\alpha} B^\zeta + B^\thet \pdv{B^\zeta}{\alpha}\right) g_{\thet\zeta}
                                         + B^\thet B^\zeta \pdv{g_{\thet\zeta}}{\alpha} \\
                                         &+ 2 B^\zeta \pdv{B^\zeta}{\alpha} g_{\zeta\zeta} + B^\zeta B^\zeta \pdv{g_{\zeta\zeta}}{\alpha} \\
-\pdv{\modB}{\alpha} &= \frac{1}{2\modB} \pdv{\modB^2}{\alpha} \\
+\pdv{\modB}{\alpha} &= \frac{1}{2\modB} \pdv{\modB^2}{\alpha} = \frac{\vec{B}}{\modB} \cdot \pdv{\vec{B}}{\alpha} \\
 \nabla \modB &= \pdv{\modB}{\rho} \nabla\rho + \pdv{\modB}{\thet} \nabla\thet + \pdv{\modB}{\zeta} \nabla\zeta \\
 \end{align}
 $$
@@ -148,8 +148,9 @@ Its gradient (a matrix) is then:
 
 $$
 \begin{align}
-\grad\vec{b} = \sum_\alpha \grad\alpha \otimes \pdv{\vec{b}}{\alpha} \\
-\pdv{\vec{b}}{\alpha} = \frac{1}{\modB}\pdv{\vec{B}}{\alpha} - \frac{\vec{B}}{\modB^2}\pdv{\modB}{\alpha} \\
+\grad\vec{b} &= \sum_\alpha \grad\alpha \otimes \pdv{\vec{b}}{\alpha} \\
+\pdv{\vec{b}}{\alpha} &= \frac{1}{\modB}\pdv{\vec{B}}{\alpha} - \frac{\vec{B}}{\modB^2}\pdv{\modB}{\alpha} \\
+&= \frac{1}{\modB}\qty(\pdv{\vec{B}}{\alpha} - \vec{b} \qty(\vec{b} \cdot \pdv{\vec{B}}{\alpha})) \\
 \end{align}
 $$
 
