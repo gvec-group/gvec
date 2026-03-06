@@ -1298,7 +1298,9 @@ def plot_cross_section_comparison(dict_surf, dict_RZ, step=1, halfperiod=True):
     return fig
 
 
-def twist_of_ribbon(X0: np.ndarray, N: np.ndarray, nint: int = None) -> float:
+def twist_of_ribbon(
+    X0: np.ndarray, N: np.ndarray, nint: int = None, return_integrand: bool = False
+) -> float:
     r"""
     Compute the twist of a closed (!) ribbon defined by a centerline curve $X_0(\zeta)$ and non-vanishing "normal" vector $N(\zeta)$. The vector ``N`` only needs to be linearly independent of the tangent vector $|X_0^\prime(\zeta) \times N| >0$
 
@@ -1315,10 +1317,12 @@ def twist_of_ribbon(X0: np.ndarray, N: np.ndarray, nint: int = None) -> float:
     X0 : np.ndarray
         positions along closed curve, in cartesian coordinates, shape ``(npoints,3)``,  excluding periodic endpoint!
     N  : np.ndarray
-        linearly independent, non-normalized "normal" vector at curve positions, in cartesian coordinates, same shape as ``X0``
+        linearly independent, "normal" vector at curve positions, in cartesian coordinates, same shape as ``X0``. Does not need to be normalized.
     nint : int, optional
-        number of points for integration, ``None`` sets default ``=npoints``
-
+        number of itnegration points, ``None`` sets default ``=npoints``. Only used if ``nint > npoints``, to upsample ``X0`` and ``N`` for more accurate integration.
+    return_integrand : bool, optional
+        If ``True``, the point values of the integrand of the twist integral is returned.
+        If ``False``, the integral result, `np.average(integrand)` is returned. Default is ``False``.
     Returns
     -------
     Tw : float
@@ -1363,8 +1367,12 @@ def twist_of_ribbon(X0: np.ndarray, N: np.ndarray, nint: int = None) -> float:
 
     num = np.vecdot(np.cross(N_f, (Np * X0p_dot_X0p[:, None] - N_dot_X0p[:, None] * X0pp)), X0p)
     denom = np.sum((N_f * X0p_dot_X0p[:, None] - N_dot_X0p[:, None] * X0p) ** 2, axis=-1)
-    # intergate over zeta and divide by 2pi, using trapezoidal rule
-    return np.average(num / denom * np.sqrt(X0p_dot_X0p))
+    integrand = num / denom * np.sqrt(X0p_dot_X0p)
+    if not return_integrand:
+        # intergate over zeta and divide by 2pi (=average), using trapezoidal rule
+        return np.average(integrand)
+    else:
+        return integrand
 
 
 def writhe(X0: np.ndarray, N: np.ndarray = None, width: float = 1e-6, nint: int = None):

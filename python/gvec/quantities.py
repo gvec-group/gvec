@@ -808,32 +808,19 @@ def _dmod_B_factory(a):
     @register(
         quantities=[f"dmod_B_d{a}"],
         requirements=[
+            "B",
             "mod_B",
-            "B_contra_t",
-            "B_contra_z",
-            f"dB_contra_t_d{a}",
-            f"dB_contra_z_d{a}",
-            "g_tt",
-            "g_tz",
-            "g_zz",
-        ]
-        + [f"dg_{ij}_d{a}" for ij in ["tt", "tz", "zz"]],
+            f"dB_d{a}",
+        ],
         attrs=dict(
             long_name=derivative_name_smart("modulus of the magnetic field", a),
             symbol=latex_partial(r"\left|\mathbf{B}\right|", a),
         ),
     )
     def _dmod_B(ds: xr.Dataset):
-        dmod_B2_da = (
-            2 * ds[f"dB_contra_t_d{a}"] * ds.B_contra_t * ds.g_tt
-            + ds.B_contra_t**2 * ds[f"dg_tt_d{a}"]
-            + 2 * ds[f"dB_contra_z_d{a}"] * ds.B_contra_t * ds.g_tz
-            + 2 * ds[f"dB_contra_t_d{a}"] * ds.B_contra_z * ds.g_tz
-            + 2 * ds.B_contra_t * ds.B_contra_z * ds[f"dg_tz_d{a}"]
-            + 2 * ds[f"dB_contra_z_d{a}"] * ds.B_contra_z * ds.g_zz
-            + ds.B_contra_z**2 * ds[f"dg_zz_d{a}"]
-        )
-        ds[f"dmod_B_d{a}"] = dmod_B2_da / (2 * ds.mod_B)
+        ds[f"dmod_B_d{a}"] = xr.dot(ds[f"dB_d{a}"], ds.B, dim="xyz") / ds.mod_B
+
+    return _dmod_B
 
 
 # generate functions from factory function
@@ -852,6 +839,30 @@ def grad_mod_B(ds: xr.Dataset):
     ds["grad_mod_B"] = (
         ds.dmod_B_dr * ds.grad_rho + ds.dmod_B_dt * ds.grad_theta + ds.dmod_B_dz * ds.grad_zeta
     )
+
+
+def _db_factory(a):
+    @register(
+        quantities=[f"db_d{a}"],
+        requirements=[
+            f"dB_d{a}",
+            "mod_B",
+        ],
+        attrs=dict(
+            long_name=derivative_name_smart("normalized magnetic field", a),
+            symbol=latex_partial(r"\mathbf{b}", a),
+        ),
+    )
+    def _db(ds: xr.Dataset):
+        b = ds.B / ds.mod_B
+        ds[f"db_d{a}"] = (ds[f"dB_d{a}"] - b * xr.dot(ds[f"dB_d{a}"], b, dim="xyz")) / ds.mod_B
+
+    return _db
+
+
+# generate functions from factory function
+for a in "rtz":
+    globals()[f"db_d{a}"] = _db_factory(a)
 
 
 @register(
@@ -1919,3 +1930,45 @@ def L_gradB(ds: xr.Dataset):
     # frobenius norm
     gradB_normF = np.sqrt(sum(gradB[i, j] ** 2 for i in "xyz" for j in "xyz"))
     ds["L_gradB"] = np.sqrt(2) * ds.mod_B / gradB_normF
+
+
+@register(
+    requirements=(
+        "B",
+        "db_dr",
+        "db_dt",
+        "db_dz",
+        "grad_rho",
+        "grad_theta",
+        "grad_zeta",
+        "mod_B",
+    ),
+    attrs=dict(
+        long_name="field line curvature",
+        symbol=r"\mathbf{\kappa}_B",
+    ),
+)
+def kappa_B(ds: xr.Dataset):
+    b = ds.B / ds.mod_B
+    ds["kappa_B"] = (
+        xr.dot(b, ds.grad_rho, dim="xyz") * ds.db_dr
+        + xr.dot(b, ds.grad_theta, dim="xyz") * ds.db_dt
+        + xr.dot(b, ds.grad_zeta, dim="xyz") * ds.db_dz
+    )
+
+
+@register(
+    requirements=(
+        "kappa_B",
+        "grad_rho",
+        "B",
+        "mod_B",
+    ),
+    attrs=dict(
+        long_name="geodesic curvature",
+        symbol=r"\kappa_G",
+    ),
+)
+def kappa_G(ds: xr.Dataset):
+    b = ds.B / ds.mod_B
+    ds["kappa_G"] = xr.dot(ds.kappa_B, xr.cross(ds.grad_rho, b, dim="xyz"), dim="xyz")

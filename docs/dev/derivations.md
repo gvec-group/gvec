@@ -2,6 +2,34 @@
 
 This page collects some derivations for computable quantities:
 
+Throughout this document we use $\alpha,\beta$ as generic indices for the coordinates $\rho,\theta,\zeta$ unless otherwise specified.
+
+## Flux aligned coordinates
+
+$$
+\begin{align}
+\vec{e}_\alpha &= \pdv{\vec{x}}{\alpha} \\
+\vec{e}^\alpha &= \grad \alpha \\
+\Jac &= \vec{e}_\rho \cdot (\vec{e}_\theta \times \vec{e}_\zeta) \\
+\Jac &= \qty(\grad \rho \cdot \grad \theta \times \grad \zeta)^{-1} \\
+\end{align}
+$$
+
+$$
+\begin{align}
+\vec{e}_\rho &= \Jac \grad\theta \times \grad\zeta \\
+\vec{e}_\theta &= \Jac \grad\zeta \times \grad\rho \\
+\vec{e}_\zeta &= \Jac \grad\rho \times \grad\theta \\
+\end{align}
+$$
+
+$$
+\begin{align}
+\vec{k}_{\alpha\beta} &:= \pdv[2]{\vec{x}}{\alpha}{\beta} \\
+&= \pdv{\vec{e}_\alpha}{\beta} = \pdv{\vec{e}_\beta}{\alpha} \\
+\end{align}
+$$
+
 ## Magnetic field $\vec{B}$
 
 
@@ -27,7 +55,7 @@ $$
                                         &+ 2 \pqty{\pdv{B^\thet}{\alpha} B^\zeta + B^\thet \pdv{B^\zeta}{\alpha}} g_{\thet\zeta}
                                         + B^\thet B^\zeta \pdv{g_{\thet\zeta}}{\alpha} \\
                                         &+ 2 B^\zeta \pdv{B^\zeta}{\alpha} g_{\zeta\zeta} + B^\zeta B^\zeta \pdv{g_{\zeta\zeta}}{\alpha} \\
-\pdv{\modB}{\alpha} &= \frac{1}{2\modB} \pdv{\modB^2}{\alpha} \\
+\pdv{\modB}{\alpha} &= \frac{1}{2\modB} \pdv{\modB^2}{\alpha} = \frac{\vec{B}}{\modB} \cdot \pdv{\vec{B}}{\alpha} \\
 \nabla \modB &= \pdv{\modB}{\rho} \nabla\rho + \pdv{\modB}{\thet} \nabla\thet + \pdv{\modB}{\zeta} \nabla\zeta \\
 \end{align}
 $$
@@ -39,24 +67,25 @@ $\Rightarrow$ `dmodB_dr`, `dmodB_dt`, `dmodB_dz`, `grad_modB`
 
 ## Derivatives of $\vec{B}$
 
+As $\vec{B}$ is a vector, its derivative $\grad\vec{B}$ is a matrix, which complicates things a bit, as the matrix product is not commutative. We denote the *outer product* with $\otimes$.
+
 $$
 \begin{align}
-\nabla \vec{B} &:= \pdv{\vec{B}}{\vec{x}}
-= \sum_\alpha \pdv{\vec{B}}{\alpha} \nabla\alpha
-= \pdv{\vec{B}}{\rho} \nabla\rho + \pdv{\vec{B}}{\thet} \nabla\thet + \pdv{\vec{B}}{\zeta} \nabla\zeta \\
-\pdv{\vec{B}}{\alpha} &:= \sum_\beta \pdv{B^\beta}{\alpha} \vec{e}_\beta + B^\beta \vec{k}_{\beta\alpha} \\
+\grad \vec{B} &:= \grad \otimes \vec{B} \\
+&= \sum_\alpha \grad\alpha \otimes \pdv{\vec{B}}{\alpha} \\
+&= \grad\rho \otimes \pdv{\vec{B}}{\rho} + \grad\thet \otimes \pdv{\vec{B}}{\thet} + \grad\zeta \otimes \pdv{\vec{B}}{\zeta} \\
+\pdv{\vec{B}}{\alpha} &:= \sum_\beta \pdv{\qty(B^\beta \vec{e}_\beta)}{\alpha} \\
+&= \sum_\beta \pdv{B^\beta}{\alpha} \vec{e}_\beta + B^\beta \vec{k}_{\beta\alpha} \\
 &= \cancel{\pdv{B^\rho}{\alpha}} \erho + \cancel{B^\rho} \vec{k}_{\rho\alpha}
 + \pdv{B^\thet}{\alpha} \ethet + B^\thet \vec{k}_{\thet\alpha}
 + \pdv{B^\zeta}{\alpha} \ezeta + B^\zeta \vec{k}_{\zeta\alpha} \\
-\nabla \vec{B} &= \sum_{\alpha\beta} \pqty{\pdv{B^\beta}{\alpha} \vec{e}_\beta + B^\beta \vec{k}_{\beta\alpha} } \nabla\alpha
+\nabla \vec{B} &= \sum_{\alpha\beta} \grad\alpha \otimes \pqty{\pdv{B^\beta}{\alpha} \vec{e}_\beta + B^\beta \vec{k}_{\beta\alpha} }
 \end{align}
 $$
 
 for $\alpha,\beta\in\left\{\rho,\thet,\zeta\right\}$.
 
-Note that $\vec{e}_\beta \nabla\alpha$ and $\vec{k}_{\beta\alpha} \nabla\alpha$ are *outer products* (?) and $\nabla\vec{B} \in  \R^3\times\R^3$ (?).
-
-Due to `xarray`'s limitations with multiple dimensions of the same name, $\nabla\vec{B}$ is not directly available as a computable quantitiy, and its components should be used instead.
+Due to `xarray`'s limitations with multiple dimensions of the same name, $\grad\vec{B}$ is not directly available as a computable quantity, and its components should be used instead.
 
 $\Rightarrow$ `dB_dr`, `dB_dt`, `dB_dz`
 
@@ -104,7 +133,58 @@ $\Rightarrow$ `dB_contra_t_dr`, `dB_contra_t_dt`, `dB_contra_t_dz`, `dB_contra_z
 
 The gradient $\nabla\vec{B}$ can be used to compute the *magnetic gradient length scale* $L_{\nabla\vec{B}}$ (`L_gradB`). Details are found in *John Kappel et al 2024 PPCF 66 025018* [DOI:10.1088/1361-6587/ad1a3e](https://www.doi.org/10.1088/1361-6587/ad1a3e).
 
-## effective geometric quantities
+
+## Normalized magnetic field
+
+The normalized magnetic field (i.e. the unit vector along the magnetic field) is defined as
+
+$$
+\begin{align}
+\vec{b} &:= \frac{\vec{B}}{\modB} \\
+\end{align}
+$$
+
+Its gradient (a matrix) is then:
+
+$$
+\begin{align}
+\grad\vec{b} &= \sum_\alpha \grad\alpha \otimes \pdv{\vec{b}}{\alpha} \\
+\pdv{\vec{b}}{\alpha} &= \frac{1}{\modB}\pdv{\vec{B}}{\alpha} - \frac{\vec{B}}{\modB^2}\pdv{\modB}{\alpha} \\
+&= \frac{1}{\modB}\qty(\pdv{\vec{B}}{\alpha} - \vec{b} \qty(\vec{b} \cdot \pdv{\vec{B}}{\alpha})) \\
+\end{align}
+$$
+
+$\Rightarrow$ `db_dr`, `db_dt`, `db_dz`
+
+## Geodesic curvature
+
+The fieldline curvature vector $\vec{\kappa}_B$ is defined as
+
+$$
+\begin{align}
+\vec{\kappa}_B &:= \vec{b} \cdot \grad\vec{b} \\
+&= \sum_\alpha \qty(\frac{\vec{B}}{\modB} \cdot \grad\alpha) \pdv{\vec{b}}{\alpha} \\
+\end{align}
+$$
+
+The geodesic curvature $\kappa_G$ is defined as
+
+$$
+\kappa_G &:= \vec{\kappa}_B \cdot \qty(\grad\rho \times \vec{b}) \\
+$$
+
+Which could be rewritten as
+
+$$
+\begin{align}
+\kappa_G &= \vec{b} \cdot \qty(\grad \vec{b}) \cdot \qty(\grad\rho \times \vec{b}) \\
+&= \sum_\alpha \qty(\frac{\vec{B}}{\modB} \cdot \grad\alpha) \pdv{\vec{b}}{\alpha} \cdot \qty(\grad\rho \times \vec{b}) \\
+\end{align}
+$$
+
+$\Rightarrow$ `kappa_B`, `kappa_G`
+
+## Effective geometric quantities
 
 The plasma volume $V$, surface are $A_\text{surface}$ and length of the magnetic axis $L_\text{axis}$ are defined as
 

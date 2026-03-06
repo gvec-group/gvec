@@ -5,6 +5,7 @@ from warnings import warn
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib import cm, colors
 
 from gvec.core.state import State
 from gvec.plotting.utils import _design_subgrid, _subplots, _symbol_check
@@ -123,6 +124,7 @@ def plot_poloidal_plane(
         # All plots will share the same colour scale
         plotting_quantity = ev_contour[quantity].broadcast_like(ev_contour.X1)
         colour_scale = (plotting_quantity.min().item(), plotting_quantity.max().item())
+        colour_norm = colors.Normalize(vmin=colour_scale[0], vmax=colour_scale[1])
 
         # Make sure we are not trying to plot a vector field
         if "xyz" in plotting_quantity.coords:
@@ -134,11 +136,10 @@ def plot_poloidal_plane(
     for i, ax in enumerate(np.asarray(axs).flat):
         if quantity is not None:
             f_ax = ax.contourf(
-                ev_contour.X1.isel(tor=i),  # .flatten(),
-                ev_contour.X2.isel(tor=i),  # .flatten(),
+                ev_contour.X1.isel(tor=i),
+                ev_contour.X2.isel(tor=i),
                 plotting_quantity.isel(tor=i),
-                vmin=colour_scale[0],
-                vmax=colour_scale[1],
+                norm=colour_norm,
             )
         if share_axis:
             ax.label_outer()  # Removes any axis labels on subplots on the interior of the grid
@@ -162,16 +163,7 @@ def plot_poloidal_plane(
 
         # The slice label will be added as an annotation to the top right of the subplot
         zeta_angle = zeta_eval[i] / np.pi
-        # ax.annotate(
-        #     f"$\\zeta={zeta_angle:.2f} \\pi$",
-        #     xy=(1, 1),
-        #     xycoords="axes fraction",
-        #     xytext=(-0.6, -0.6),
-        #     textcoords="offset fontsize",
-        #     verticalalignment="top",
-        #     horizontalalignment="right",
-        #     bbox=dict(facecolor="white", edgecolor="black"),
-        # )
+
         ax.set_title(f"$\\zeta={zeta_angle:.2f} \\pi$")
 
         # Remove interior axis labels and add axis labels to the boundary plots
@@ -199,7 +191,9 @@ def plot_poloidal_plane(
         # Adding colourbar
         ev_contour = _symbol_check(ev_contour, [quantity])
         fig.colorbar(
-            f_ax, ax=np.asarray(axs).ravel().tolist(), label=f"${ev_contour[quantity].symbol}$"
+            cm.ScalarMappable(colour_norm, cmap=f_ax.cmap),
+            ax=np.asarray(axs).ravel().tolist(),
+            label=f"${ev_contour[quantity].symbol}$",
         )
 
     return fig, axs
@@ -315,6 +309,14 @@ def plot_on_flux_surface(
 
     evaluations = _symbol_check(evaluations, quantities_eval)
 
+    if isinstance(quantities, str) and share_contours:
+        # Ensure the colourmap is consistent across plots
+        plotting_quantity = evaluations[quantities]
+        colour_scale = (plotting_quantity.min().item(), plotting_quantity.max().item())
+        colour_norm = colors.Normalize(vmin=colour_scale[0], vmax=colour_scale[1])
+    else:
+        colour_norm = None
+
     # The actual plotting bit
     for i, ax in enumerate(np.asarray(axs).flat):
         # We should not change the slice if we are plotting multiple quantities
@@ -349,6 +351,7 @@ def plot_on_flux_surface(
             theta_vals.data / (2 * np.pi),
             evaluations_i[quantity].transpose("pol", "tor").data,
             levels=levels,
+            norm=colour_norm,
         )
 
         if isinstance(quantities, list):
@@ -371,7 +374,11 @@ def plot_on_flux_surface(
 
     if isinstance(quantities, str) and share_contours:
         # Adding colourbar if single quantity was requested
-        fig.colorbar(f_ax, ax=axs.ravel().tolist(), label=f"${evaluations[quantity].symbol}$")
+        fig.colorbar(
+            cm.ScalarMappable(colour_norm, cmap=f_ax.cmap),
+            ax=np.asarray(axs).ravel().tolist(),
+            label=f"${evaluations[quantity].symbol}$",
+        )
 
     return fig, axs
 
