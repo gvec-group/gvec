@@ -12,7 +12,7 @@ try:
 except ImportError:
     pass  # tests will be skipped via the `check_import` fixture
 
-
+default_rtol_atol = dict(rtol=1e-5, atol=1e-8)
 # === Fixtures === #
 
 
@@ -227,8 +227,8 @@ def test_evaluate_base_tens(teststate):
     assert not np.any(np.isnan(X2))
     assert not np.any(np.isnan(LA))
     # magnetic axis collapses to a line
-    assert np.allclose(np.std(X1[0, ...], axis=0), 0.0)
-    assert np.allclose(np.std(X2[0, ...], axis=0), 0.0)
+    np.testing.assert_allclose(np.std(X1[0, ...], axis=0), 0.0, **default_rtol_atol)
+    np.testing.assert_allclose(np.std(X2[0, ...], axis=0), 0.0, **default_rtol_atol)
 
 
 def test_evaluate_base_tens_vectorize(teststate):
@@ -238,10 +238,10 @@ def test_evaluate_base_tens_vectorize(teststate):
     X1_212 = teststate.evaluate_base_tens("X1", None, [0.5, 0.6], [0.1], [0, 0.1])
     X1_221 = teststate.evaluate_base_tens("X1", None, [0.5, 0.6], [0, 0.1], [0.1])
     X1_112 = teststate.evaluate_base_tens("X1", None, [0.5], [0.1], [0, 0.1])
-    assert np.allclose(X1_222[0, :, :], X1_122[0, :, :])
-    assert np.allclose(X1_222[:, 1, :], X1_212[:, 0, :])
-    assert np.allclose(X1_222[:, :, 1], X1_221[:, :, 0])
-    assert np.allclose(X1_222[0, 1, :], X1_112[0, 0, :])
+    np.testing.assert_allclose(X1_222[0, :, :], X1_122[0, :, :], **default_rtol_atol)
+    np.testing.assert_allclose(X1_222[:, 1, :], X1_212[:, 0, :], **default_rtol_atol)
+    np.testing.assert_allclose(X1_222[:, :, 1], X1_221[:, :, 0], **default_rtol_atol)
+    np.testing.assert_allclose(X1_222[0, 1, :], X1_112[0, 0, :], **default_rtol_atol)
 
 
 def test_evaluate_base_tens_bounds(teststate):
@@ -320,7 +320,7 @@ def test_evaluate_base_all_compare(teststate):
     tens = teststate.evaluate_base_tens_all("X1", rho, theta, zeta)
     list_tz = teststate.evaluate_base_list_tz_all("X1", rho, thetazeta)
     for qt, ql in zip(tens, list_tz, strict=True):
-        assert np.allclose(qt, ql.reshape(6, 32, 10))
+        np.testing.assert_allclose(qt, ql.reshape(6, 32, 10), **default_rtol_atol)
 
 
 def test_evaluate_hmap(teststate):

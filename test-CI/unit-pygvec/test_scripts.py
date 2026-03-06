@@ -21,6 +21,7 @@ except ImportError:
 
 
 DATA = Path(__file__).parent / "../data"
+default_rtol_atol = dict(rtol=1e-5, atol=1e-8)
 
 # === FIXTURES === #
 
@@ -340,8 +341,11 @@ def test_quasr_file(QUASR_ID, opts, tmp_path, util):
         # now compare the boundary computed from the Gframe file that was started with the TEST2-boundary.nc
         dict_out2 = gvec.gframe.read_Gframe_ncfile(hmap2)
         dict_surf2 = gvec.gframe.to_surface(dict_out)
-        assert np.allclose(dict_surf["xyz"], dict_surf2["xyz"]), (
-            f"xyz boundary after rerun does not match. max|diff|={np.max(np.abs(dict_surf['xyz'] - dict_surf2['xyz']))}"
+        np.testing.assert_allclose(
+            dict_surf["xyz"],
+            dict_surf2["xyz"],
+            **default_rtol_atol,
+            err_msg="xyz boundary after rerun does not match.",
         )
         # run conversion to RZ
         dict_RZ = gvec.gframe.to_RZ(
@@ -456,12 +460,15 @@ def test_quasr_post(QUASR_ID, nt, nz, tmp_path, util):
         for key, val in dict_out["axis"].items():
             assert key in dict_out2["axis"], f"variable 'axis/{key}' not found"
             val2 = dict_out2["axis"][key]
-            assert np.allclose(val, val2), (
-                f"variable 'axis/{key}' does not match. max|diff|={np.max(np.abs(val - val2))}"
+            np.testing.assert_allclose(
+                val, val2, **default_rtol_atol, err_msg=f"variable 'axis/{key}' does not match."
             )
         for key, val in dict_out["boundary"].items():
             assert key in dict_out2["boundary"], f"variable 'boundary/{key}' not found"
             val2 = dict_out2["boundary"][key]
-            assert np.allclose(val, val2), (
-                f"variable 'boundary/{key}' does not match. max|diff|={np.max(np.abs(val - val2))}"
+            np.testing.assert_allclose(
+                val,
+                val2,
+                **default_rtol_atol,
+                err_msg=f"variable 'boundary/{key}' does not match.",
             )

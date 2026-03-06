@@ -1,4 +1,5 @@
 import pytest
+from pathlib import Path
 
 try:
     import numpy as np
@@ -9,6 +10,8 @@ except ImportError:
     # therefore we skip the whole module
     pytest.skip("Skipping test_gframe.py: gvec package not available", allow_module_level=True)
 
+
+DATA = Path(__file__).parent / "../data"
 
 # === Fixtures === #
 
@@ -85,4 +88,184 @@ def test_gframe_boundary(case, nz_nt, shft, nfp):
 
     assert M <= M_in and N <= N_in, (
         f"gframe boundary surface '{case}' X1,X2 (M={M},N={N}) is larger than the input surface (M={M_in},N={N_in})"
+    )
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "ellip_cyl",
+        "ellip_cyl_rot",
+        "ellip_cyl_rot2",
+        "ellip_cyl_helix",
+        "ellip_cyl_helix_rot2",
+        "ellip_cyl_helix_rot",
+    ],
+)
+@pytest.mark.parametrize("nfp", [1, 2, 3])
+def test_writhe_boundary(case, nfp):
+    params = gvec.util.boundary_generator(case, X1_00=1.0 + 0.25 * nfp)
+    params["nfp"] = nfp
+    theta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
+
+    zeta = np.linspace(0, 2 * np.pi, nfp * 200, endpoint=False)
+    X1, X2 = gvec.util.evaluate_boundary(theta, zeta, params)
+    xyz_surf = np.zeros((len(zeta), len(theta), 3))
+    xyz_surf[:, :, 0] = X1.T * np.cos(zeta[:, None])
+    xyz_surf[:, :, 1] = X1.T * np.sin(zeta[:, None])
+    xyz_surf[:, :, 2] = X2.T
+
+    # X0 = 0.5*(xyz_surf[:, len(theta) // 2, :]+ xyz_surf[:, 0, :]) # mid-curve
+    C_a = xyz_surf[:, 0, :]
+    C_b = xyz_surf[:, len(theta) // 2, :]
+
+    Lk = gvec.util.linking_number(C_a, C_b, endpoint=False)
+    # "exact" writhe from linking - twist
+    Tw = gvec.gframe.twist_of_ribbon(C_a, C_b - C_a)
+    # approximate writhe
+    Wr_polygon = gvec.util.writhe_from_polygon(C_a, endpoint=False)
+    assert np.abs(Wr_polygon - (Lk - Tw)) < 1e-3, (
+        f"Compare writhe from polygon {Wr_polygon:5.2e} with writhe from riboon, (Lk - Tw). Lk = {Lk:.0f} Tw={Tw:5.2e} ... Difference: {Wr_polygon - (Lk - Tw):5.2e}"
+    )
+
+
+@pytest.mark.parametrize(
+    "gframe_ncfile",
+    [
+        "2022_QH_nfp7.nc",
+        "brezellator-Gframe.nc",
+        "brezellator-stellsym-scaled-Gframe.nc",
+        "N2.12-v3.1-hi.nc",
+        "N2.12-v3.1-lo.nc",
+        "N2-63.nc",
+        "N3.471-v3.1-lo.nc",
+        "N3.Knot-v3.1-lo.nc",
+    ],
+)
+def test_gframe_files_writhe(gframe_ncfile):
+    gframe_ncfile = DATA / gframe_ncfile
+    dict_gframe = gvec.gframe.read_Gframe_ncfile(gframe_ncfile)
+    assert "axis" in dict_gframe and "boundary" in dict_gframe, (
+        f"Expected 'axis' and 'boundary' in gframe dict, but not found. Keys: {dict_gframe.keys()}"
+    )
+    dict_highres = gvec.gframe.to_axis(dict_gframe, nzeta=201)
+    xyz = dict_highres["axis"]["xyz"].T
+    Nxyz = dict_highres["axis"]["Nxyz"].T
+    Wr_polygon = gvec.util.writhe_from_polygon(xyz)
+    Wr_gframe = gvec.gframe.writhe(xyz, N=Nxyz)[0]
+    assert np.isclose(Wr_polygon, Wr_gframe, atol=1e-3), (
+        f"Writhe from polygon {Wr_polygon} and from gframe {Wr_gframe} differ by more than 1e-3 for file {gframe_ncfile}"
+    )
+
+
+def trefoil(t, scale=3.0, zscale=1.0):
+    x = np.sin(t) + 2 * np.sin(2 * t)
+    y = np.cos(t) - 2 * np.cos(2 * t)
+    z = -np.sin(3 * t) * zscale
+    X0 = np.stack((x, y, z), axis=1)
+
+    xp = np.cos(t) + 4 * np.cos(2 * t)
+    yp = -np.sin(t) + 4 * np.sin(2 * t)
+    zp = -3 * np.cos(3 * t) * zscale
+    X0p = np.stack((xp, yp, zp), axis=1)
+
+    xpp = -np.sin(t) - 8 * np.sin(2 * t)
+    ypp = -np.cos(t) + 8 * np.cos(2 * t)
+    zpp = 9 * np.sin(3 * t) * zscale
+    X0pp = np.stack((xpp, ypp, zpp), axis=1)
+
+    xppp = -np.cos(t) - 16 * np.cos(2 * t)
+    yppp = np.sin(t) - 16 * np.sin(2 * t)
+    zppp = 27 * np.cos(3 * t) * zscale
+    X0ppp = np.stack((xppp, yppp, zppp), axis=1)
+
+    return scale * X0, scale * X0p, scale * X0pp, scale * X0ppp
+
+
+def get_frenet_trefoil(nz, scale=3.0, zscale=1.0):
+    t = np.linspace(0, 2 * np.pi, nz, endpoint=False)
+    X0, X0p, X0pp, X0ppp = trefoil(t, scale=scale, zscale=zscale)
+    return gframe.frenet_frame_evaluate(X0, X0p, X0pp, X0ppp)
+
+
+def test_frenet_trefoil():
+    dict_frenet_exact = get_frenet_trefoil(3 * 51)
+    dict_frenet = gframe.frenet_frame(dict_frenet_exact["X0"])
+    for key in dict_frenet_exact.keys():
+        assert key in dict_frenet, (
+            f"Expected key '{key}' in frenet dict, but not found. Keys: {dict_frenet.keys()}"
+        )
+        if dict_frenet[key] is None:
+            assert dict_frenet_exact[key] is None, (
+                f"Expected {key} to be None, but got {dict_frenet_exact[key]}"
+            )
+        else:
+            np.testing.assert_allclose(
+                dict_frenet[key],
+                dict_frenet_exact[key],
+                rtol=1e-5,
+                atol=1e-8,
+                err_msg=f"Mismatch in {key}",
+            )
+
+
+def test_frenet_zero_curvature():
+    # test that for a closed curve with zero curvature, the frenet frame detects it.
+    zeta = np.linspace(0, 2 * np.pi, 2 * 11, endpoint=False)
+    x = np.sin(zeta)
+    y = np.sin(zeta) * np.cos(zeta)
+    z = np.sin(zeta)
+    X0 = np.stack([x, y, z], axis=-1)
+    dict_frenet = gvec.gframe.frenet_frame(X0)
+    assert (
+        dict_frenet["N"] is None and dict_frenet["B"] is None and dict_frenet["tau"] is None
+    ), "Expected N,B,tau to be None for zero curvature"
+
+
+@pytest.mark.parametrize("zscale", [-1.0, -0.45, -0.1, 0.05, 0.1, 0.5, 1.0])
+def test_writhe_trefoil(zscale):
+    dict_frenet_high = get_frenet_trefoil(3 * 81, zscale=zscale)
+    Wr_high, Lk_high, Tw_high = gvec.gframe.writhe(
+        dict_frenet_high["X0"], N=dict_frenet_high["N"], nint=481
+    )
+    nzetas = [3 * 10, 3 * 21]
+    Wr_from_polygon = np.zeros_like(nzetas, dtype=float)
+    Wr_frenet = np.zeros_like(nzetas, dtype=float)
+    Wr_centroid = np.zeros_like(nzetas, dtype=float)
+    for i, nz in enumerate(nzetas):
+        dict_frenet_x10 = get_frenet_trefoil(nz * 10, zscale=zscale)
+        Wr_from_polygon[i] = gvec.util.writhe_from_polygon(dict_frenet_x10["X0"])
+        dict_frenet = get_frenet_trefoil(nz, zscale=zscale)
+        Wr_centroid[i], _, _ = gvec.gframe.writhe(dict_frenet["X0"])
+        Wr_frenet[i], _, _ = gvec.gframe.writhe(dict_frenet["X0"], N=dict_frenet["N"])
+
+    for method, Wr in zip(
+        ["centroid", "frenet", "polygon"], [Wr_centroid, Wr_frenet, Wr_from_polygon]
+    ):
+        Wr_diff = np.abs(Wr - Wr_high)
+        assert Wr_diff[0] > Wr_diff[1], (
+            f"Writhe from {method} for trefoil not converging: |diff(Wr) = {Wr_diff[0]} -> {Wr_diff[1]} with reference high-res Wr={Wr_high}"
+        )
+
+    np.testing.assert_allclose(
+        Wr_frenet,
+        Wr_high,
+        rtol=1e-5,
+        atol=1e-8,
+        err_msg="writhe from frenet frame of trefoil not accurate <1e-8",
+    )
+    np.testing.assert_allclose(
+        Wr_centroid,
+        Wr_high,
+        rtol=1e-5,
+        atol=1e-6,
+        err_msg="writhe from centroid frame of trefoil not accurate <1e-6",
+    )
+
+    np.testing.assert_allclose(
+        Wr_high,
+        Wr_from_polygon,
+        rtol=1e-5,
+        atol=1e-3,
+        err_msg="writhe from polygon for trefoil not within 1e-3",
     )

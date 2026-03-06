@@ -16,16 +16,18 @@ import numpy as np
 # === Transform functions === #
 
 
-def fft1d(x: Iterable, angle0=0.0):
+def fft1d(y: Iterable, x0=0.0, axis=None):
     """
-    Compute the Fourier transform of a 1D array.
+    Compute the Fourier transform in 1d from data values at equidistant points $y(x_i)$, along a given axis of an array.
 
     Parameters
     ----------
-    x :  Iterable
-        Input array to transform, assumed to be sampled on ``angle=angle0+np.linspace(0,2*np.pi,len(x),endpoint=False)``.
-    angle0: float
-        starting value of angle, where x was sampled, in ``[0,2pi]`` , defaults to ``0.0``.
+    y
+        Input array to transform $y(x_i)$, assumed to be sampled on `x=x0+np.linspace(0,2*np.pi,len(x),endpoint=False)`.
+        y is allowed to have multiple dimensions, but the fft will be applied only along the given `axis`.
+    x0: starting value of angle, where x was sampled, in [0,2pi] , defaults to 0.
+    axis : int
+        Axis along which to compute the fft. None by default. Becomes mandatory if y is multi-dimensional.
 
     Returns
     -------
@@ -38,16 +40,27 @@ def fft1d(x: Iterable, angle0=0.0):
     -----
     The function uses the real-input fast Fourier transform (rfft) from numpy.
     """
-    x = np.asarray(x)
-    xf = np.fft.rfft(x, norm="forward")
-    if angle0 != 0.0:
-        ks = np.arange(xf.shape[0])
-        xf *= np.exp(-1j * angle0 * ks)
+    y = np.asarray(y)
+    if y.ndim == 1:
+        _axis = 0
+    else:
+        if axis is None:
+            raise ValueError("axis must be specified if x is multi-dimensional")
+        _axis = axis
 
-    c = xf.real
-    c[1:] *= 2
-    s = -2 * xf.imag
-    s[0] = 0
+    cs = np.fft.rfft(y, norm="forward", axis=_axis)
+    if x0 != 0.0:
+        ks = np.expand_dims(
+            np.arange(cs.shape[_axis]), axis=tuple(i for i in np.arange(y.ndim) if i != _axis)
+        )
+        cs *= np.exp(-1j * x0 * ks)
+    # select 1: along given _axis with a slice
+    c = cs.real
+    sl = tuple(slice(0, None) if i != _axis else slice(1, None) for i in np.arange(y.ndim))
+    c[sl] *= 2
+    s = -2 * cs.imag
+    sl = tuple(slice(0, None) if i != _axis else slice(0, 1) for i in np.arange(y.ndim))
+    s[sl] = 0
     return c, s
 
 
@@ -84,10 +97,68 @@ def shift_1d(y: np.ndarray, x0, axis, newshape=None):
     if newshape is None:
         newshape = y.shape[axis]
     else:
-        assert newshape >= y.shape[axis], f"new shape must be >= y.shape[axis]={y.shape[axis]}"
+        if not newshape >= y.shape[axis]:
+            raise ValueError(
+                f"newshape must be >= input shape along the shifted axis, got {newshape} and {y.shape[axis]}"
+            )
     cshft = c * np.exp(-1j * ks * x0)
     yshft = np.fft.irfft(cshft, newshape, norm="forward", axis=axis)
     return yshft
+
+
+def ifft1d(
+    c: np.ndarray,
+    s: np.ndarray,
+    npoints: int = None,
+    deriv: str | None = None,
+    nfp: int = 1,
+    axis=None,
+) -> np.ndarray:
+    r"""
+    Compute the inverse Fast-Fourier-Transform of a 1D Fourier series.
+
+    Parameters
+    ----------
+    c : numpy.ndarray
+        Cosine coefficients of the Fourier series.
+    s : numpy.ndarray
+        Sine coefficients of the Fourier series.
+    npoints : int
+        Number of points at which to evaluate the series. If None, n=2*m_max+1 is used
+    deriv : int, optional
+        Derivative to evaluate, by default None.
+    nfp : int, optional
+        Number of field periods, by default 1. Only used for derivatives, the data itself is always assumed to be in a single field period.
+    axis: int, optional
+        Axis along which to compute the ifft, by default None. Becomes mandatory if c,s are multi-dimensional.
+
+    Returns
+    -------
+    y : numpy.ndarray
+        The values of the series evaluated at `x=np.linspace(0,2*np.pi,len(x),endpoint=False)`.
+    """
+    if not c.shape == s.shape:
+        raise ValueError("c and s must have the same shape")
+    if c.ndim == 1:
+        _axis = 0
+    else:
+        if axis is None:
+            raise ValueError("axis must be specified if c,s are multi-dimensional")
+        _axis = axis
+    m_max = c.shape[_axis] - 1
+
+    cs = c - 1j * s
+    sl = tuple(slice(0, None) if i != _axis else slice(1, None) for i in np.arange(c.ndim))
+    cs[sl] *= 0.5
+    npts = 2 * m_max + 1 if npoints is None else npoints
+    if deriv is None:
+        y = np.fft.irfft(cs, n=npts, norm="forward", axis=_axis)
+    else:
+        ms = np.expand_dims(
+            np.arange(m_max + 1) * nfp, axis=tuple(i for i in np.arange(c.ndim) if i != _axis)
+        )
+        y = np.fft.irfft((1j * ms) ** deriv * (cs), n=npts, norm="forward", axis=_axis)
+    return y
 
 
 def fft2d(x: np.ndarray, theta0=0.0, zeta0=0.0):
@@ -359,14 +430,18 @@ def real_dft_mat(x_in, x_out, nfp=1, modes=None, deriv=0):
     """
     if modes is None:
         modes = np.arange((len(x_in) - 1) // 2 + 1)  # all modes up to Nyquist
-    assert np.allclose(x_in[-1] + (x_in[1] - x_in[0]) - x_in[0], 2 * np.pi / nfp)
-    assert np.all(modes >= 0), "modes must be positive"
+    if not np.allclose(x_in[-1] + (x_in[1] - x_in[0]) - x_in[0], 2 * np.pi / nfp):
+        raise ValueError("x_in must be equidistant points in [0,2pi/nfp[ and exclude endpoint")
+    if not np.all(modes >= 0):
+        raise ValueError("modes must be positive")
     zeromode = np.where(modes == 0)
-    assert len(zeromode) <= 1, "only one zero mode allowed"
+    if not len(zeromode) <= 1:
+        raise ValueError("only one zero mode allowed")
     maxmode = np.amax(modes)
-    assert len(x_in) > 2 * maxmode, (
-        f"number of sampling points ({len(x_in)}) > 2*maxmodenumber ({maxmode})"
-    )
+    if not len(x_in) > 2 * maxmode:
+        raise ValueError(
+            f"number of sampling points ({len(x_in)}) > 2*maxmodenumber ({maxmode})"
+        )
     # matrix for forward transform
     Fmat = np.exp(1j * nfp * (modes[:, None] * x_in[None, :]))
     mass_re = Fmat.real @ Fmat.real.T
