@@ -25,12 +25,7 @@ def ev2vtk(
     xrds : xr.Dataset
         The dataset containing the evaluation data.
     quiet : bool, optional
-        If False, return the path to the output file, by default True.
-
-    Returns
-    -------
-    Path
-        The path to the output file.
+        If ``False``, print information on the output file, by default ``True``.
 
     Notes
     -----
@@ -182,10 +177,10 @@ def gframe_to_vtk(
     prefix="visu",
     zeta_visu: np.ndarray = None,
     theta_visu: np.ndarray = None,
-    phi_visu: np.ndarray = None,
     box_axis=None,
     visu_boundary=True,
     filetype="vts",
+    quiet: bool = True,
 ):
     """
     Reads a netcdf file that defines the G-Frame and possibly the boundary X1,X2 in that frame.
@@ -212,6 +207,8 @@ def gframe_to_vtk(
         if True, visualize the boundary surface
     filetype : str
         can be ``"vts"`` (default, VTK structured format) or ``"nc"`` (netcdf)
+    quiet : bool, optional
+        If ``False``, print information on the output files, by default ``True``.
     """
     dnc = gframe.read_Gframe_ncfile(file)
     nfp = dnc["nfp"]
@@ -251,9 +248,11 @@ def gframe_to_vtk(
         ),
     )
     if filetype == "vts":
-        ev2vtk(f"{prefix}_axis", xr_axis)
+        ev2vtk(f"{prefix}_axis", xr_axis, quiet=quiet)
     elif filetype == "nc":
         xr_axis.to_netcdf(f"{prefix}_axis.nc", mode="w", engine="netcdf4")
+        if not quiet:
+            print(f"File output to '{prefix}_axis.nc'")
     else:
         raise ValueError(f"unknown filetype {filetype}, only 'vts' and 'nc' supported.")
 
@@ -281,9 +280,11 @@ def gframe_to_vtk(
             ),
         )
         if filetype == "vts":
-            ev2vtk(f"{prefix}_box_axis", xr_box)
+            ev2vtk(f"{prefix}_box_axis", xr_box, quiet=quiet)
         elif filetype == "nc":
             xr_box.to_netcdf(f"{prefix}_box_axis.nc", mode="w", engine="netcdf4")
+            if not quiet:
+                print(f"File output to '{prefix}_box_axis.nc'")
 
     # read boundary group
     if not visu_boundary:
@@ -291,7 +292,7 @@ def gframe_to_vtk(
     if "boundary" in dnc:
         d_bnd = dnc["boundary"]
     else:
-        raise RuntimeError(f"Could not open boundary group in {file}")
+        raise RuntimeError(f"Could not open boundary group in {file}, boundary not visualized.")
 
     theta_bnd = d_bnd["theta"]
     zeta_bnd = d_bnd["zeta"]
@@ -355,6 +356,8 @@ def gframe_to_vtk(
     )
     # write visualization file
     if filetype == "vts":
-        ev2vtk(f"{prefix}_boundary", xr_bnd)
+        ev2vtk(f"{prefix}_boundary", xr_bnd, quiet=quiet)
     elif filetype == "nc":
         xr_bnd.to_netcdf(f"{prefix}_boundary.nc", mode="w", engine="netcdf4")
+        if not quiet:
+            print(f"File output to '{prefix}_boundary.nc'")

@@ -997,13 +997,13 @@ class Run:
             self.diagnostics_minimizer.total_iteration,
             self.diagnostics_minimizer.force_X1,
             color="C0",
-            label=r"$X_1$",
+            label=r"$X^1$",
         )
         axf.plot(
             self.diagnostics_minimizer.total_iteration,
             self.diagnostics_minimizer.force_X2,
             color="C1",
-            label=r"$X_2$",
+            label=r"$X^2$",
         )
         axf.plot(
             self.diagnostics_minimizer.total_iteration,

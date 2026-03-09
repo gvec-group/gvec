@@ -5,15 +5,15 @@
     "url": "https://gvec.readthedocs.io/develop/"
   },
   {
-    "name": "v1.3.x",
-    "version": "v1.3.x",
-    "url": "https://gvec.readthedocs.io/v1.3.x/"
-  },
-  {
-    "name": "v1.3.1 (latest)",
+    "name": "v1.4 (latest)",
     "version": "latest",
     "url": "https://gvec.readthedocs.io/latest/",
     "preferred": true
+  },
+  {
+    "name": "v1.3.x",
+    "version": "v1.3.x",
+    "url": "https://gvec.readthedocs.io/v1.3.x/"
   },
   {
     "name": "v1.2.0",
