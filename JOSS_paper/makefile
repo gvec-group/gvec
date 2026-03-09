@@ -1,5 +1,5 @@
 
-paper.pdf: paper.md
+paper.pdf: paper.md paper.bib
 	apptainer run --env JOURNAL=joss docker://openjournals/inara
 
 clean:
