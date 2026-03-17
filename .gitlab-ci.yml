@@ -1220,6 +1220,24 @@ include:
       env: .mpcdfci_ifx-latest
       rules: .rules_pypi
 
+joss-paper:
+  variables:
+    DOCUMENT: JOSS_paper/paper.md
+  stage: publish
+  image:
+    name: openjournals/inara
+    entrypoint: [""]
+  script:
+    - inara -p -o pdf ${DOCUMENT}
+  artifacts:
+    paths:
+      - ${DOCUMENT%.md}.pdf
+  rules:
+    - if: "$CI_COMMIT_REF_NAME =~ /joss/"
+      when: always
+    - when: never
+
+
 # =================================================================================================================================
 # TEMPLATES INDEPENDENT OF STAGE
 # =================================================================================================================================
@@ -1244,6 +1262,8 @@ include:
     # disable for tag pipelines
     - if: $CI_COMMIT_TAG
       when: never
+    - if: $CI_COMMIT_REF_NAME =~ /joss/
+      when: never
     - when: on_success
 
 .rules_minimal:
@@ -1256,6 +1276,8 @@ include:
       when: on_success
     # disable for tag pipelines
     - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_REF_NAME =~ /joss/
       when: never
     - when: on_success
 
@@ -1277,6 +1299,8 @@ include:
       when: never
     # disable for tag pipelines
     - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_REF_NAME =~ /joss/
       when: never
     # only run this job in the nightly pipeline
     - if: $NIGHTLY_PIPELINE == "true"
