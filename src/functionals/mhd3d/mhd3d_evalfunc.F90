@@ -71,6 +71,10 @@ MODULE MODgvec_MHD3D_evalFunc
   ! Free boundary  vars
   REAL(wp), ALLOCATABLE :: X1_boundary(:)
   REAL(wp), ALLOCATABLE :: X2_boundary(:)
+  REAL(wp), ALLOCATABLE :: X1_prefactor_spec_cond(:)
+  REAL(wp), ALLOCATABLE :: X2_prefactor_spec_cond(:)
+  REAL(wp)              :: spectral_width
+
   REAL(wp), ALLOCATABLE :: dX1_dthet_boundary(:)
   REAL(wp), ALLOCATABLE :: dX2_dthet_boundary(:)
 
@@ -148,7 +152,7 @@ SUBROUTINE InitializeMHD3D_evalFunc()
 
   IF(FreeBoundary)THEN
     ALLOCATE(X1_boundary(1:mn_IP))
-    ALLOCATE(X2_boundary, dX1_dthet_boundary, dX2_dthet_boundary, mold=X1_boundary)
+    ALLOCATE(X2_boundary, dX1_dthet_boundary, dX2_dthet_boundary, X1_prefactor_spec_cond, X2_prefactor_spec_cond, mold=X1_boundary)
   END IF
 
   IF(PrecondType.GT.0)THEN
@@ -1501,7 +1505,7 @@ END SUBROUTINE ApplyPrecond
 !===================================================================================================================================
 SUBROUTINE EvalBoundaryForce(dofs_in,F_b_X1,F_b_X2)
 ! MODULES
-  USE MODgvec_MHD3D_Vars, ONLY: X1_base,X2_base,LA_base,hmap,Phi_profile,chi_profile, Bext_squared
+  USE MODgvec_MHD3D_Vars, ONLY: X1_base,X2_base,LA_base,hmap,Phi_profile,chi_profile, Bext_squared,epsilon_spectral,Q_spectral
   USE MODgvec_MHD3D_Vars, ONLY: Fnorm_X1_b_IP, Fnorm_X2_b_IP, Fnorm_X1_b_modes, Fnorm_X2_b_modes ! DIAGNOSTICS
   USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
   IMPLICIT NONE
@@ -1514,24 +1518,61 @@ SUBROUTINE EvalBoundaryForce(dofs_in,F_b_X1,F_b_X2)
   REAL(wp),INTENT(OUT)  :: F_b_X2(1:X2_base%f%modes) !! force on X2 at the  boundary from the exterior
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER   :: i_mn
-  REAL(wp)  :: qloc(3)
-  REAL(wp),DIMENSION(1:mn_IP)  :: J_h_boundary,coefY
+  INTEGER   :: i_mn, i_modes, q, p
+  REAL(wp)  :: qloc(3), spectral_width_numerator, spectral_width_denominator, epsilon_m
+  REAL(wp),DIMENSION(1:mn_IP)  :: J_h_boundary,coefY, X1_condensed, X2_condensed, I_spectral
 !===================================================================================================================================
+  q = 1
+  p = Q_spectral-q
 
-  DO i_mn=1,mn_IP
-    qloc(  1:3) = (/ X1_boundary(i_mn), X2_boundary(i_mn),zeta_IP(i_mn)/)
-    J_h_boundary( i_mn) = hmap%eval_Jh(qloc)
-  END DO
+  ASSOCIATE(m_X1 => X1_base%f%Xmn(1,:), m_X2 => X2_base%f%Xmn(1,:))
+    spectral_width_denominator = 0.0_wp
+    spectral_width_numerator = 0.0_wp
 
-  coefY(:) = -0.5*Bext_squared(:)*J_h_boundary(:)*dX2_dthet_boundary(:)
-  Fnorm_X1_b_IP = SUM(coefY**2)
-  CALL X1_base%f%projectIPtoDOF(.FALSE.,dthet_dzeta,   0,coefY(     :),F_b_X1(:))
-  Fnorm_X1_b_modes = SUM(F_b_X1**2)
-  coefY(:) =  0.5*Bext_squared(:)*J_h_boundary(:)*dX1_dthet_boundary(:)
-  Fnorm_X2_b_IP = SUM(coefY**2)
-  CALL X2_base%f%projectIPtoDOF(.FALSE.,dthet_dzeta,   0,coefY(     :),F_b_X2(:))
-  Fnorm_X2_b_modes = SUM(F_b_X2**2)
+    ! SUM in do loop to exclude m=0
+    DO i_modes=1,X1_base%f%modes
+      IF (m_X1(i_modes).NE.0) THEN
+        spectral_width_numerator = spectral_width_numerator + m_X1(i_modes)**(q+p)*dofs_in%X1(X1_Base%s%nBase,i_modes)**2
+        spectral_width_denominator = spectral_width_denominator + m_X1(i_modes)**(p)*dofs_in%X1(X1_Base%s%nBase,i_modes)**2
+      END IF
+    END DO
+
+    ! SUM in do loop to exclude m=0
+    DO i_modes=1,X2_base%f%modes
+      IF (m_X2(i_modes).NE.0) THEN
+        spectral_width_numerator = spectral_width_numerator + m_X2(i_modes)**(q+p)*dofs_in%X2(X2_Base%s%nBase,i_modes)**2
+        spectral_width_denominator = spectral_width_denominator + m_X2(i_modes)**(p)*dofs_in%X2(X2_Base%s%nBase,i_modes)**2
+      END IF
+    END DO
+
+    ! set to lower bound = 1, excludes m=0 and m=1 modes
+    spectral_width = 1.0_wp!spectral_width_numerator / spectral_width_denominator
+
+    ! corresponds to X and Y in Spectral Condensation paper:
+    ! X = SUM_mn  m^p*(m^q-M) X1_mn cos(theta-Nfp*n*zeta)
+    ! Y = SUM_mn  m^p*(m^q-M) X2_mn sin(theta-Nfp*n*zeta)
+    X1_prefactor_spec_cond = m_X1**p*(m_X1**q-spectral_width)
+    X2_prefactor_spec_cond = m_X2**p*(m_X2**q-spectral_width)
+    X1_condensed = X1_base%f%evalDOF_IP(0,X1_prefactor_spec_cond*dofs_in%X1(X1_Base%s%nBase,:))
+    X2_condensed = X2_base%f%evalDOF_IP(0,X2_prefactor_spec_cond*dofs_in%X2(X2_Base%s%nBase,:))
+    I_spectral = X1_condensed*dX1_dthet_boundary + X2_condensed*dX2_dthet_boundary
+
+    epsilon_m = epsilon_spectral / spectral_width_denominator
+
+    DO i_mn=1,mn_IP
+      qloc(  1:3) = (/ X1_boundary(i_mn), X2_boundary(i_mn),zeta_IP(i_mn)/)
+      J_h_boundary( i_mn) = hmap%eval_Jh(qloc)
+    END DO
+
+    coefY(:) = -0.5*Bext_squared(:)*J_h_boundary(:)*dX2_dthet_boundary(:) - epsilon_m*dX1_dthet_boundary(:)*I_spectral(:)
+    Fnorm_X1_b_IP = SUM(coefY**2)
+    CALL X1_base%f%projectIPtoDOF(.FALSE.,dthet_dzeta,   0,coefY(     :),F_b_X1(:))
+    Fnorm_X1_b_modes = SUM(F_b_X1**2)
+    coefY(:) =  0.5*Bext_squared(:)*J_h_boundary(:)*dX1_dthet_boundary(:) - epsilon_m*dX2_dthet_boundary(:)*I_spectral(:)
+    Fnorm_X2_b_IP = SUM(coefY**2)
+    CALL X2_base%f%projectIPtoDOF(.FALSE.,dthet_dzeta,   0,coefY(     :),F_b_X2(:))
+    Fnorm_X2_b_modes = SUM(F_b_X2**2)
+  END ASSOCIATE
 END SUBROUTINE EvalBoundaryForce
 
 !===================================================================================================================================
@@ -1603,6 +1644,9 @@ SUBROUTINE FinalizeMHD3D_EvalFunc()
   SDEALLOCATE(X2_boundary)
   SDEALLOCATE(dX1_dthet_boundary)
   SDEALLOCATE(dX2_dthet_boundary)
+  SDEALLOCATE(X1_prefactor_spec_cond)
+  SDEALLOCATE(X2_prefactor_spec_cond)
+
 
 
 

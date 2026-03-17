@@ -4,12 +4,6 @@
 !===================================================================================================================================
 #include "defines.FPP"
 
-!===================================================================================================================================
-!>
-!!# Module ** polyProfile **
-!!
-!! Defines a 1-D profile in rho^2 via a power polynomial.
-!===================================================================================================================================
 MODULE MODgvec_free_b_minimizer_ADAM
   ! MODULES
   USE MODgvec_Globals ,ONLY: wp
@@ -57,6 +51,7 @@ MODULE MODgvec_free_b_minimizer_ADAM
         sf%dt_initial = 1e-3_wp
     END IF
     sf%dt =  sf%dt_initial
+    sf%max_dt = sf%dt
 
     ALLOCATE(sf%momentum(sf%n_dofs))
     ALLOCATE(sf%velocity(sf%n_dofs))

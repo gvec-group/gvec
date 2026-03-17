@@ -486,6 +486,7 @@ MODULE MODgvec_MHD3D_minimize
                         IF(ALL(vars%Fnorm.LE.abstol))THEN
                             CALL sf%Logging(.FALSE.)
                             SWRITE(UNIT_stdOut,'(4x,A)')'==>Iteration finished, |force| in relative tolerance'
+                            vars%iter=vars%iter+1
                             EXIT !DO LOOP
                         END IF
                         vars%iter=vars%iter+1

@@ -173,6 +173,30 @@ FUNCTION get_outputlevel() RESULT(outid)
   outid = outputLevel
 END FUNCTION get_outputlevel
 
+FUNCTION get_X1_n_modes() RESULT(n_modes)
+  USE MODgvec_MHD3D_Vars, ONLY: X1_base
+  INTEGER :: n_modes
+  n_modes = X1_base%f%modes
+END FUNCTION
+
+FUNCTION get_X2_n_modes() RESULT(n_modes)
+  USE MODgvec_MHD3D_Vars, ONLY: X2_base
+  INTEGER :: n_modes
+  n_modes = X2_base%f%modes
+END FUNCTION
+
+SUBROUTINE get_boundary_forces(modes_X1, modes_X2, forces_inout)
+  USE MODgvec_MHD3D_Vars, ONLY: Force_b_X1, Force_b_X2, X1_base, X2_base
+  INTEGER, INTENT(IN) :: modes_X1, modes_X2
+  REAL(wp), INTENT(INOUT) :: forces_inout(3,modes_X1 + modes_X1)
+
+  forces_inout(1:2,:X1_base%f%modes) = REAL(X1_base%f%Xmn)
+  forces_inout(3,:X1_base%f%modes) = Force_b_X1
+
+  forces_inout(1:2,X1_base%f%modes+1:) = REAL(X2_base%f%Xmn)
+  forces_inout(3,X1_base%f%modes+1:) = Force_b_X2
+END SUBROUTINE get_boundary_forces
+
 SUBROUTINE save_statefile()
   USE MODgvec_Analyze, ONLY: Analyze
   USE MODgvec_Restart, ONLY: WriteState

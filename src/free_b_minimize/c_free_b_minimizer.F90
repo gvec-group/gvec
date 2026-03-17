@@ -4,12 +4,6 @@
 !===================================================================================================================================
 #include "defines.FPP"
 
-!===================================================================================================================================
-!>
-!!# Module ** rProfile **
-!!
-!! Abstract class for radial profiles
-!===================================================================================================================================
 MODULE MODgvec_free_b_minimizer_base
   ! MODULES
   USE MODgvec_Globals ,ONLY: wp, abort
@@ -20,6 +14,7 @@ MODULE MODgvec_free_b_minimizer_base
   TYPE, ABSTRACT :: c_free_b_minimizer
       REAL(wp) :: dt_initial ! initial time-step
       REAL(wp) :: dt ! current time step
+      REAL(wp) :: max_dt ! relevant for BFGS
       INTEGER  :: n_dofs ! number of degrees of freedom
       INTEGER  :: n_updates ! number of calls to get_update
       contains

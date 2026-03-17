@@ -263,6 +263,15 @@ class FreeBoundaryState(State):
             "iteration",
             np.full(shape=self.fb_updates, fill_value=np.nan),
         )
+
+        m, n, F = self._get_boundary_forces()
+        diagnostics["m_modes"] = ("mode", m)
+        diagnostics["n_modes"] = ("mode", n)
+        diagnostics["boundary_forces"] = (
+            ("modes", "iteration"),
+            np.full(shape=(len(m), self.fb_updates), fill_value=np.nan),
+        )
+
         self.diagnostics = diagnostics
 
     @with_binding
@@ -394,6 +403,7 @@ class FreeBoundaryState(State):
         maxUpdates : int, optional
             Maximum number of iota-updates per stage, by default 30
         """
+        t0 = time.time()
         log_minimize_target = np.log10(minimize_target)
         log_iota_target = np.log10(iota_target)
         n_stages = max(int(max(-2 - log_minimize_target, log_minimize_target)), 1)
@@ -431,8 +441,9 @@ class FreeBoundaryState(State):
                     maxUpdates=maxUpdates,
                 )
                 iters_used = self.get_iterations() - iters_used_start
+        t1 = time.time()
         logger.info(
-            f"Terminated current minimization with Δiota = {rms_iota:.3e}, Δiota = {iota_tol:.3e}. Used {iters_used} / {maxIter} iterations."
+            f"Terminated current minimization after {t1 - t0:.2}s with Δiota = {rms_iota:.3e}, Δiota = {iota_tol:.3e}. Used {iters_used} / {maxIter} iterations."
         )
         self.save()
 
@@ -457,7 +468,10 @@ class FreeBoundaryState(State):
         )
         B_gvec_2 = (ev_gvec.B**2).sum(dim="xyz")
         force_balance = (B_gvec_2 - B_ext_2) / 2 + mu_0 * ev_gvec.p
-        free_boundary_target = fluxsurface_integral(abs(force_balance))
+        # flux surface average
+        free_boundary_target = fluxsurface_integral(
+            abs(force_balance) * ev_gvec.Jac
+        ) / fluxsurface_integral(ev_gvec.Jac)
         return free_boundary_target, force_balance, ev_gvec
 
     @with_binding
@@ -468,9 +482,11 @@ class FreeBoundaryState(State):
         cut_fb = fourier_force_balance.where(
             (fourier_force_balance.m <= self.m_max), drop=True
         ).where(np.abs(fourier_force_balance.n) <= self.n_max, drop=True)
-        full_force = (fourier_force_balance.force_balance_mns**2).sum().item() + (
-            fourier_force_balance.force_balance_mnc**2
-        ).sum().item()
+        full_force = max(
+            (fourier_force_balance.force_balance_mns**2).sum().item()
+            + (fourier_force_balance.force_balance_mnc**2).sum().item(),
+            1e-12,
+        )
         cut_force = (cut_fb.force_balance_mns**2).sum().item() + (
             cut_fb.force_balance_mnc**2
         ).sum().item()
@@ -521,6 +537,8 @@ class FreeBoundaryState(State):
         self.free_boundary_target = free_boundary_target.item()
         self._update_force_ratio(iteration)
         self.diagnostics.resolved_force_ratio[iteration] = self._resolved_force_ratio
+
+        self.diagnostics.boundary_forces[:, iteration] = self._get_boundary_forces()[2]
 
     @with_binding
     def _free_boundary_update(
@@ -575,6 +593,8 @@ class FreeBoundaryState(State):
         save_diagnostics: bool = False,
         force_ratio_limit: float = 1e-1,
         ramp_force_tol=True,
+        ramp_force_tol_start: float = 1e-3,
+        alpha: float = 10.0,
     ):
         """Perform the free-boundary run.
 
@@ -589,22 +609,11 @@ class FreeBoundaryState(State):
 
         # start with a fixed boundary equilibrium
         minimize_tol_min = self.get_minimize_tol()
-        log_minimize_target = np.log10(minimize_tol_min)
         if ramp_force_tol:
-            n_fb_stages = max(int(max(-2 - log_minimize_target, log_minimize_target)), 1)
-            minimize_tols = np.logspace(
-                max(-3, log_minimize_target), log_minimize_target, n_fb_stages
-            )
-            minimize_tol = minimize_tols[0]
+            minimize_tol = ramp_force_tol_start
         else:
             minimize_tol = minimize_tol_min
-            n_fb_stages = 1
-        fb_stage = 0
-        do_update = True
         reset_minimizer = False  # Flag to restart minimizers after a stage.
-        force_ratio_limit_init = force_ratio_limit
-        if n_fb_stages > 1:
-            force_ratio_limit = max(5e-1, force_ratio_limit)
 
         if self.current_constraint:
             self._minimize_current_constraint(
@@ -629,6 +638,10 @@ class FreeBoundaryState(State):
                 max_iter_per_update_aux = min(
                     self.totalIter - self.iters_used, self.max_iter_per_update
                 )
+
+                # TODO: use the consistent current or the prescribed current?
+                # if self.current_constraint:
+                #     self.I_tor_boundary = self.evaluate("I_tor", rho=1.0).squeeze().I_tor.item()
 
                 # whether to interpolate the external field or not
                 if i < 2:
@@ -666,39 +679,30 @@ class FreeBoundaryState(State):
                             self.B2_history[:, 1] - self.B2_history[:, 0]
                         ) / (self.iter_B2_history[1] - self.iter_B2_history[0])
 
-                # check if stage is convergeded
-                if (self.free_boundary_target <= self.free_boundary_tolerance) or (
-                    self._resolved_force_ratio <= force_ratio_limit
+                if ramp_force_tol:
+                    # minimize_tol is ahead of
+                    minimize_tol = np.max(
+                        [
+                            np.min([self.free_boundary_target / alpha, ramp_force_tol_start]),
+                            minimize_tol_min,
+                        ]
+                    )
+                    logger.info(f"Setting gvec minimize_tol: {minimize_tol:.2e}")
+                if (self.free_boundary_target > self.free_boundary_tolerance) or (
+                    self._resolved_force_ratio > force_ratio_limit
                 ):
-                    # move to next stage or finish
-                    if minimize_tol > minimize_tol_min:
-                        reset_minimizer = True
-                        fb_stage += 1
-                        minimize_tol = minimize_tols[fb_stage]
-                        self.free_boundary_target = 1e30
-                        self._resolved_force_ratio = 1.0
-
-                        # for final stage reduce the ratio limit
-                        if fb_stage == n_fb_stages - 1:
-                            force_ratio_limit = force_ratio_limit_init
-                        logger.info(
-                            "\n-----------------------------------------------------------------\n"
-                            + f"Free-boundary stage {fb_stage} / {n_fb_stages} converged! Set minimize_tol to {minimize_tol}\n"
-                            + "-----------------------------------------------------------------"
-                        )
-                    else:
-                        do_update = False
-
-                if do_update:
                     logger.info(
                         f"force ratio {self._resolved_force_ratio:.2}, limit {force_ratio_limit:.2}"
                     )
+                    t_fb_0 = time.time()
                     self._free_boundary_update(
                         maxIter=max_iter_per_update_aux,
                         B2=B2,
                         tol=minimize_tol,
                         reset_minimizer=reset_minimizer,
                     )
+                    t_fb_1 = time.time()
+                    logger.info(f"Time for free boundary update: {t_fb_1 - t_fb_0:.4}s")
                     reset_minimizer = False
                     self.iters_used = self.get_iterations()
                     if not self.current_constraint:
@@ -924,7 +928,7 @@ def _get_B2_fp(
         state.nfp,
         B_coils_biest,
         I_tor * mu_0,
-        digits=10,
+        digits=14,
     )
     time_1 = time.time()
     logger.info(f"time for BIEST: {time_1 - time_0:.3}s for {ntheta * nzeta} points")

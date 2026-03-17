@@ -4,12 +4,6 @@
 !===================================================================================================================================
 #include "defines.FPP"
 
-!===================================================================================================================================
-!>
-!!# Module ** polyProfile **
-!!
-!! Defines a 1-D profile in rho^2 via a power polynomial.
-!===================================================================================================================================
 MODULE MODgvec_free_b_minimizer_acc_GD
   ! MODULES
   USE MODgvec_Globals ,ONLY: wp
@@ -55,6 +49,8 @@ MODULE MODgvec_free_b_minimizer_acc_GD
     ELSE
         sf%dt_initial = 1e-3_wp
     END IF
+
+    sf%max_dt = sf%dt
 
     IF (PRESENT(n_tau_hist)) THEN
         sf%n_tau_hist = n_tau_hist

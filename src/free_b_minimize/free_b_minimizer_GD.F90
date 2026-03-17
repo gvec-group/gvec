@@ -4,12 +4,6 @@
 !===================================================================================================================================
 #include "defines.FPP"
 
-!===================================================================================================================================
-!>
-!!# Module ** polyProfile **
-!!
-!! Defines a 1-D profile in rho^2 via a power polynomial.
-!===================================================================================================================================
 MODULE MODgvec_free_b_minimizer_GD
   ! MODULES
   USE MODgvec_Globals ,ONLY: wp
@@ -48,6 +42,7 @@ MODULE MODgvec_free_b_minimizer_GD
         sf%dt_initial = 1e-3_wp
     END IF
     sf%dt =  sf%dt_initial
+    sf%max_dt = dt
     sf%n_updates = 0
   END FUNCTION GD_new
 
