@@ -932,6 +932,7 @@ def construct_gframe_from_surface(
             coefs=[0.0],
         ),
         picard_current="auto",
+        init_average_axis=True,
     )
     if boundary_coefficients:
         if not lasym:
