@@ -678,7 +678,9 @@ def test_compute_grad_mod_B(teststate, ev_boozer_drho):
         ["grad_mod_B"]
         + [f"dmod_B_d{i}" for i in "rtz"]
         + [f"dmod_B_d{i}_B" for i in "rtz"]
+        + [f"dmod_B_d{i}_P" for i in "rtz"]
         + ["grad_rho", "grad_theta_B", "grad_zeta_B", "e_rho_B", "e_theta_B", "e_zeta_B"]
+        + ["grad_rho", "grad_theta_P", "grad_zeta", "e_rho_P", "e_theta_P", "e_zeta_P"]
     )
     compute(ds, *Qs, state=teststate)
 
@@ -709,6 +711,16 @@ def test_compute_grad_mod_B(teststate, ev_boozer_drho):
     np.testing.assert_allclose(ds.dmod_B_dr_B, xr.dot(ds.grad_mod_B, ds.e_rho_B, dim="xyz"))
     np.testing.assert_allclose(ds.dmod_B_dt_B, xr.dot(ds.grad_mod_B, ds.e_theta_B, dim="xyz"))
     np.testing.assert_allclose(ds.dmod_B_dz_B, xr.dot(ds.grad_mod_B, ds.e_zeta_B, dim="xyz"))
+
+    grad_mod_B_P = (
+        ds.dmod_B_dr_P * ds.grad_rho
+        + ds.dmod_B_dt_P * ds.grad_theta_P
+        + ds.dmod_B_dz_P * ds.grad_zeta
+    )
+    np.testing.assert_allclose(ds.grad_mod_B, grad_mod_B_P)
+    np.testing.assert_allclose(ds.dmod_B_dr_P, xr.dot(ds.grad_mod_B, ds.e_rho_P, dim="xyz"))
+    np.testing.assert_allclose(ds.dmod_B_dt_P, xr.dot(ds.grad_mod_B, ds.e_theta_P, dim="xyz"))
+    np.testing.assert_allclose(ds.dmod_B_dz_P, xr.dot(ds.grad_mod_B, ds.e_zeta_P, dim="xyz"))
 
 
 @pytest.mark.parametrize(
