@@ -1960,7 +1960,7 @@ def kappa_B(ds: xr.Dataset):
 @register(
     requirements=(
         "kappa_B",
-        "grad_rho",
+        "normal",
         "B",
         "mod_B",
     ),
@@ -1971,4 +1971,4 @@ def kappa_B(ds: xr.Dataset):
 )
 def kappa_G(ds: xr.Dataset):
     b = ds.B / ds.mod_B
-    ds["kappa_G"] = xr.dot(ds.kappa_B, xr.cross(ds.grad_rho, b, dim="xyz"), dim="xyz")
+    ds["kappa_G"] = xr.dot(ds.kappa_B, xr.cross(ds.normal, b, dim="xyz"), dim="xyz")
