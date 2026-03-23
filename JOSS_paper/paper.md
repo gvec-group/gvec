@@ -41,7 +41,7 @@ authors: #CHECK THE AVAILABLE INPUTS
   # - name: Maurice Maurer (1 commit) -> converter -> ack
   # - name: Rohan Ramasamy (2 commits) -> converter, JOREK -> ack
 affiliations:
-  - name: Max Plank Institute for Plasma Physics, Germany
+  - name: Max Planck Institute for Plasma Physics, Germany
     index: 1
     ror: 00hx57361
   - name: Department of Mathematics, Technical University of Munich, Germany
@@ -66,7 +66,7 @@ A distinct feature of GVEC is a flexible coordinate frame, which can represent c
 
 # Statement of need
 
-MHD equilibrium solutions are the basis for a number of high fidelity plasma physics models and associated codes.
+MHD equilibrium solutions are the basis for a number of high-fidelity plasma physics models and associated codes.
 For example, they provide the initial conditions for linear and nonlinear MHD solvers (e.g. CASTOR3D [@puchmayr2023helical], CAS3D [@nuehrenberg1991], Jorek3D [@nikulsin2022jorek3d], Struphy [@holderied_possanner_wang_2021], M3D-C1 [@jardinTriangularFiniteElement2004]), or the magnetic field for particle orbit tracing (e.g. SIMPLE [@albert_kasilov_kernbichler_2020]) and turbulence simulations (e.g. BOUT++ [@Shanahan_Bold_Dudson_2024], GENE [@navarro2020global]).
 
 3D MHD equilibria are directly used to analyse potential stellarator configurations in optimisation frameworks, such as SIMSOPT [@Landreman2021] or STELLOPT [@doecode_12551].
@@ -89,11 +89,12 @@ In each planar cross-section $\zeta=\text{const}$, a $(\rho,\vartheta)$ grid (bl
 
 In GVEC, the flux surface geometry can be represented in the usual cylindrical coordinates, but also in a flexible coordinate frame, enabling cross-sections to be aligned with the boundary shape, as shown in \autoref{fig:frame}. Details are found in @Hindenlang_2025.
 
-Furthermore, the unknowns of the solution in GVEC are represented using a tensor-product of B-splines in the radial direction and Fourier series in the two angular directions.
+Furthermore, the unknowns of the solution in GVEC are represented using a tensor product of B-splines in the radial direction and Fourier series in the two angular directions.
 A linear constraint ensures that the solution remains smooth across the polar singularity at $\rho=0$.
 It is also possible to impose axisymmetry (tokamaks), stellarator-symmetry and discrete rotational symmetry (number of field periods). Both configurations shown in \autoref{fig:frame} have three field periods and are stellarator-symmetric.
 
-GVEC is provided as a python package with core routines written in modern Fortran and parallelised with OpenMP and MPI. The python package allows for simplified installation, execution and post-processing. It can be controlled via the command line or using a python API.
+GVEC is provided as a Python package with core routines written in modern Fortran and parallelised with OpenMP and MPI.
+The Python package allows for simplified installation, execution and post-processing. It can be controlled via the command line or using a Python API.
 
 Additional features are:
 
@@ -112,10 +113,10 @@ Other MHD equilibrium solvers exist that do not rely on flux-aligned coordinates
 
 # Acknowledgements
 
-The authors would like to thank the MPCDF team for their services and constant support. We thank the stellarator theory group at IPP in Greifswald for their advice and close collaboration, in particular G. Plunk, C. Nührenberg, A. Goodman, J. Geiger and M. Borchardt. We also like to thank A. Banon Navarro, D. Jarema, M. Maurer, R. Ramasamy, E. Strumberger and J. Puchmayr for their contributions, in particular to the interfaces with other codes.
+The authors would like to thank the MPCDF team for their services and constant support. We thank the stellarator theory group at IPP in Greifswald for their advice and close collaboration, in particular G. Plunk, C. Nührenberg, A. Goodman, J. Geiger and M. Borchardt. We also would like to thank A. Banon Navarro, D. Jarema, M. Maurer, R. Ramasamy, E. Strumberger and J. Puchmayr for their contributions, in particular to the interfaces with other codes.
 
 The authors are also grateful to the contributors to the open source software projects f90wrap [@f90wrap], Xarray [@xarray] and SeLaLib [@selalib], without which this project would not have been possible in this way.
 
-Parts of this work has been carried out within the framework of the EUROfusion Consortium, funded by the European Union via the Euratom Research and Training Programme (Grant Agreement No 101052200 — EUROfusion). Views and opinions expressed are however those of the author(s) only and do not necessarily reflect those of the European Union or the European Commission. Neither the European Union nor the European Commission can be held responsible for them.
+Parts of this work have been carried out within the framework of the EUROfusion Consortium, funded by the European Union via the Euratom Research and Training Programme (Grant Agreement No 101052200 — EUROfusion). Views and opinions expressed are however those of the author(s) only and do not necessarily reflect those of the European Union or the European Commission. Neither the European Union nor the European Commission can be held responsible for them.
 
 # References
