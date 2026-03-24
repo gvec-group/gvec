@@ -364,7 +364,7 @@ class Run:
                 from scipy.interpolate import make_splrep
 
                 y_vals = np.array(params["I_tor"]["vals"], dtype=float)
-                rho2_vals = np.sqrt(np.array(params["I_tor"]["rho2"], dtype=float))
+                rho2_vals = np.array(params["I_tor"]["rho2"], dtype=float)
                 if min(np.sqrt(rho2_vals)) > 1e-4:
                     rho2_vals = np.append([0], rho2_vals)
                     y_vals = np.append([0], y_vals)
