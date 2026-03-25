@@ -44,7 +44,7 @@ Use of modern object-oriented Fortran
 :width: 70 %
 :align: center
 
-The magnetic field of a two-fieldperiod QI-stellarator configuration (configuration taken from [[HPM25]](https://doi.org/10.1088/1361-6587/adba11)).
+The magnetic field of a two-fieldperiod QI-stellarator configuration (configuration taken from [Hindenlang et al. (2025)](https://doi.org/10.1088/1361-6587/adba11)).
 ```
 
 ```{grid} 2 2 2 4
@@ -76,6 +76,14 @@ The magnetic field of a two-fieldperiod QI-stellarator configuration (configurat
 :img-top: static/fa-terminal-solid-full.svg
 :::
 ```
+
+## Statement of need
+
+MHD equilibrium solutions are the basis for a number of high fidelity plasma physics models and associated codes.
+For example, they provide the initial conditions for linear and nonlinear MHD solvers (e.g. CASTOR3D ([Puchmayr et al., 2023](https://doi.org/10.1088/1741-4326/acdd12)), CAS3D ([Schwab, 1993](https://doi.org/10.1063/1.860656)), Jorek3D ([Nikulsin et al., 2022](https://doi.org/10.1063/5.0087104)), Struphy ([Holderied et al., 2022](https://doi.org/10.1016/j.jcp.2021.110143)), M3D-C1 ([Jardin, 2004](https://doi.org/10.1016/j.jcp.2004.04.004))), or the magnetic field for particle orbit tracing (e.g. SIMPLE ([Albert et al., 2020](https://doi.org/10.1016/j.jcp.2019.109065))) and turbulence simulations (e.g. BOUT++ ([Shanahan et al., 2024]()), GENE ([Bañón Navarro et al., 2020](https://doi.org/10.1088/1361-6587/aba858))).
+3D MHD equilibria are directly used to analyse potential stellarator configurations in optimisation frameworks, such as SIMSOPT ([Landreman et al., 2021](https://doi.org/10.21105/joss.03525)) or STELLOPT ([Lazerson et al., 2020](https://doi.org/10.11578/dc.20180627.6)).
+
+GVEC has a flexible coordinate frame, allowing it to represent boundary shapes beyond those possible with the standard cylindrical coordinates used by many equilibrium codes. This can be used for example to optimise the boundary shape of the figure-8 stellarator in [Plunk et al. (2025)](https://doi.org/10.1088/1361-6587/adb64b).
 
 ## Contact
 

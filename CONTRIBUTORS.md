@@ -4,6 +4,8 @@ GVEC is being developed and maintained by
 
 * Florian Hindenlang (2017.. )
 * Robert Babin (2024.. )
+* Robert Köberl (2023.. )
+* Dean Muir (2025.. )
 
 with additional contributions (both theoretical and code) from
 
@@ -19,6 +21,4 @@ with additional contributions (both theoretical and code) from
 * Markus Rampp (2020)
 * Tiago Tamissa Ribeiro (2021.. )
 * Rohan Ramasamy (2021)
-* Robert Köberl (2023.. )
 * Gabriel Plunk (2024.. )
-* Dean Muir (2025.. )

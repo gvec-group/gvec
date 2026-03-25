@@ -22,6 +22,7 @@ quantities
 /tutorials/notebooks/040_current
 /tutorials/notebooks/050_pygvec
 /tutorials/notebooks/051_plotting
+/tutorials/notebooks/052_gframe
 /tutorials/notebooks/060_coils
 /tutorials/notebooks/061_coils
 ```

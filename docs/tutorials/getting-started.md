@@ -45,6 +45,7 @@ The available tutorials are:
    * [](/tutorials/notebooks/040_current)
    * [](/tutorials/notebooks/050_pygvec)
    * [](/tutorials/notebooks/051_plotting)
+   * [](/tutorials/notebooks/052_gframe)
    * [](/tutorials/notebooks/060_coils)
    * [](/tutorials/notebooks/061_coils)
 
@@ -56,7 +57,7 @@ You can however also follow along with a normal python script.
 
 To use the notebooks you need to have the following packages installed:
 ```bash
-pip install jupyter ipykernel ipympl ipywidgets matplotlib "plotly<6.0"
+pip install jupyter ipykernel ipympl ipywidgets matplotlib "plotly<6.0" simsopt
 ```
 
 We recommend two options for running Jupyter notebooks:

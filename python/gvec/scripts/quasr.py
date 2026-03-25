@@ -270,8 +270,8 @@ def save_xyz(xyz: np.ndarray, nfp: int, filename: Path | str, attrs: dict = {}):
 
     >>> theta = np.linspace(0, 2 * np.pi, ntheta, endpoint=False)
     >>> zeta = np.linspace(0, 2 * np.pi, nzeta * nfp, endpoint=False)
-    >>> xyz = np.zeros((nzeta, ntheta, 3))
-    >>> for j in range(nzeta):
+    >>> xyz = np.zeros((nzeta * nfp, ntheta, 3))
+    >>> for j in range(nzeta * nfp):
     ...     for i in range(ntheta):
     ...         xyz[j,i,:] = eval_surface(theta[i], zeta[j])
     >>> save_xyz(xyz, nfp, "example-boundary.nc")

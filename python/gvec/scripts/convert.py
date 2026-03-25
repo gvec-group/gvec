@@ -2,11 +2,12 @@
 # License: MIT
 """convert.py - convert GVEC (& VMEC) parameterfiles between different formats & conventions"""
 
-import platform
 from pathlib import Path
 import logging
 import argparse
 from collections.abc import Sequence
+
+import f90nml
 
 import gvec
 
@@ -64,10 +65,14 @@ verbosity.add_argument(
 )
 verbosity.add_argument("-q", "--quiet", action="store_true", help="suppress output")
 
-logger = logging.getLogger(__name__)
 
-
+@gvec.errors.without_traceback
 def main(args: Sequence[str] | argparse.Namespace | None = None):
+    if not isinstance(args, argparse.Namespace):
+        args = parser.parse_args(args)
+
+    gvec.util.logging_setup()
+    logger = logging.getLogger("gvec")
     if args.quiet:
         logging.disable()
     elif args.verbose >= 2:
@@ -77,12 +82,6 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
     logger.debug(f"parsed args: {args}")
 
     if args.vmec:
-        try:
-            import f90nml
-        except ImportError as e:
-            logger.debug(f"caught exception: {e}")
-            logger.error("reading VMEC namelists requires 'f90nml' to be installed.")
-            return
         with open(args.input, "r") as file:
             content = file.read()
         content = content.strip()

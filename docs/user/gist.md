@@ -20,7 +20,7 @@ The interface is installed automatically with pyGVEC and available with `pygvec 
 The options for `pygvec to-gist` are:
 ```
 $ pygvec to-gist --help
-usage: pygvec to-gist [-h] [--rundir RUNDIR] (-s S | -r RHO) [--npol NPOL]
+usage: pygvec to-gist [-h] [--rundir RUNDIR] (-s S | -r RHO) [-a ALPHA] [--npol NPOL]
                       [--gridpoints GRIDPOINTS] [--MNfactor MNFACTOR]
                       [-x {auto,none,pol,tor,both}] [-o OUTPUTFILE] [-p]
                       [--projectname PROJECTNAME] [-v | -q]
@@ -30,29 +30,21 @@ Produce a GENE-GIST input file from a GVEC state.
 options:
   -h, --help            show this help message and exit
   --rundir RUNDIR       GVEC run directory
-  -s S                  position of the target flux surface (in normalized
-                        toroidal flux, 0 < s <= 1)
-  -r RHO, --rho RHO     position of the target flux surface (in square root of
-                        the normalized toroidal flux, 0 < rho <= 1)
+  -s S                  position of the target flux surface (in normalized toroidal flux, 0 < s <= 1)
+  -r RHO, --rho RHO     position of the target flux surface (in square root of the normalized toroidal flux, 0 < rho <= 1)
+  -a ALPHA, --alpha ALPHA
+                        fieldline label as float or multiple of pi (e.g. '0.0', '2pi', 'pi/2', default 0.0)
   --npol NPOL           number of poloidal turns (default 1)
   --gridpoints GRIDPOINTS
-                        number of grid points along the fieldline (default
-                        128)
-  --MNfactor MNFACTOR   multiplication factor for the maximum fourier modes
-                        for the boozer transform (default 3)
+                        number of grid points along the fieldline (default 128)
+  --MNfactor MNFACTOR   multiplication factor for the maximum fourier modes for the boozer transform (default 3)
   -x {auto,none,pol,tor,both}, --flip {auto,none,pol,tor,both}
-                        flip the poloidal or toroidal direction with respect
-                        to GVEC's Boozer coordinates; 'auto' determines the
-                        necessary flips to get positive toroidal and poloidal
-                        flux (default: 'auto')
+                        flip the poloidal or toroidal direction with respect to GVEC's Boozer coordinates; 'auto' determines the necessary flips to get positive toroidal and poloidal flux (default: 'auto')
   -o OUTPUTFILE, --outputfile OUTPUTFILE
-                        output file name (default:
-                        '{projectname}_s{s}.gist.txt')
-  -p, --plot            plot the output quantities
-                        ('{projectname}_s{s}.gist.png')
+                        output file name (default: '{projectname}_s{s}.gist.txt')
+  -p, --plot            plot the output quantities ('{projectname}_s{s}.gist.png')
   --projectname PROJECTNAME
-                        override the project name for the output files
-                        (default: use GVEC state name)
+                        override the project name for the output files (default: use GVEC state name)
   -v, --verbose         verbosity level: -v for info, -vv for debug
   -q, --quiet           suppress output
 ```

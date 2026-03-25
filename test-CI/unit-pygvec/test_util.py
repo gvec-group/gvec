@@ -188,3 +188,64 @@ def test_boundary_direction():
     s2 = util.check_boundary_direction(flipped_parameters)
     assert s2 and not s1
     assert A1 < 0 and A2 > 0
+
+
+@pytest.mark.parametrize("npoints", [(21, 31), (31, 30), (201, 101)])
+@pytest.mark.parametrize("endpoint", [False, True])
+def test_linking_number(npoints, endpoint):
+    npoints_a = npoints[0]
+    curve_a = np.zeros((npoints_a, 3))
+    theta = np.linspace(0, 2 * np.pi, npoints_a, endpoint=endpoint)
+    curve_a[:, 0] = 1.01 * np.cos(theta)
+    curve_a[:, 1] = 0.99 * np.sin(theta)
+    curve_a[:, 2] = 0.01
+    npoints_b = npoints[1]
+    curve_b = np.zeros((npoints_b, 3))
+    theta = np.linspace(0, 2 * np.pi, npoints_b, endpoint=endpoint)
+    curve_b[:, 1] = -0.01
+    curve_b[:, 2] = 0.49 * np.sin(theta)
+
+    curve_b[:, 0] = 1.4 - 0.51 * np.cos(theta)
+    assert np.isclose(util.linking_number(curve_a, curve_b, endpoint=endpoint), 1.0), (
+        "linking number of two linked circles should be 1.0"
+    )
+
+    curve_b[:, 0] = 1.4 + 0.51 * np.cos(theta)
+    assert np.isclose(util.linking_number(curve_a, curve_b, endpoint=endpoint), -1.0), (
+        "linking number of two linked circles with opposite orientation should be -1.0"
+    )
+
+    curve_b[:, 0] = 1.6 - 0.51 * np.cos(theta)
+    assert np.isclose(util.linking_number(curve_a, curve_b, endpoint=endpoint), 0.0), (
+        "linking number of two unlinked circles should be 0.0"
+    )
+
+
+@pytest.mark.parametrize(
+    "case, Lk_expected",
+    [
+        ("ellip_cyl_helix", 0),
+        ("ellip_cyl_helix_rot", 1),
+        ("ellip_cyl_helix_rot2", 0),
+    ],
+    ids=["no_link", "link", "no_link2"],
+)
+@pytest.mark.parametrize("endpoint", [False, True])
+def test_linking_number_boundary(case, Lk_expected, endpoint):
+    params = gvec.util.boundary_generator(case)
+    nfp = 3
+    params["nfp"] = nfp
+    theta = np.linspace(0, 2 * np.pi, 21, endpoint=False)
+    for phi_dir in [-1, 1]:
+        zeta = np.linspace(0, 2 * np.pi, params["nfp"] * 81, endpoint=endpoint)
+        X1, X2 = gvec.util.evaluate_boundary(theta, zeta, params)
+        xyz_surf = np.zeros((len(zeta), len(theta), 3))
+        xyz_surf[:, :, 0] = X1.T * np.cos(phi_dir * zeta[:, None])
+        xyz_surf[:, :, 1] = X1.T * np.sin(phi_dir * zeta[:, None])
+        xyz_surf[:, :, 2] = X2.T
+        Lk = gvec.util.linking_number(
+            xyz_surf[:, 0, :], xyz_surf[:, len(theta) // 2, :], endpoint=endpoint
+        )
+        assert np.abs(Lk - phi_dir * Lk_expected * nfp) < 1e-8, (
+            f"Linking number of the surface is not as expected! Got {Lk}, expected {phi_dir * Lk_expected * nfp}, for phi direction {-phi_dir}"
+        )

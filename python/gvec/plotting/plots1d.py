@@ -8,7 +8,6 @@ import numpy as np
 
 from gvec.core.state import State
 from gvec.plotting.utils import (
-    _deco_usetex,
     _design_subgrid,
     _extrapolate_axis,
     _subplots,
@@ -51,7 +50,6 @@ def _plot_line_quantities_from_xarray(
     return fig, axs
 
 
-@_deco_usetex
 def plot_radial_profile(
     state: State,
     quantities: str | list[str] = ["iota", "p", "I_tor", "I_pol"],
@@ -103,10 +101,10 @@ def plot_radial_profile(
     rho = evaluations.rho.data
 
     if xaxis == "rho_squared":
-        xlabel = "$\\rho^2$"
+        xlabel = r"\rho^2"
         rho = rho**2
     elif xaxis == "rho":
-        xlabel = "$\\rho$"
+        xlabel = r"\rho"
     else:
         raise ValueError("xaxis must be 'rho' or 'rho_squared'.")
 
@@ -122,7 +120,6 @@ def plot_radial_profile(
     return fig, axs
 
 
-@_deco_usetex
 def plot_on_axis(
     state: State,
     quantities: str | list[str] = "mod_B",
@@ -171,7 +168,7 @@ def plot_on_axis(
     zeta = evaluations.zeta.data
 
     fig, axs = _plot_line_quantities_from_xarray(
-        evaluations, zeta, quantities, subplot_grid, "$\\zeta$", plot_kwargs
+        evaluations, zeta, quantities, subplot_grid, r"\zeta", plot_kwargs
     )
 
     return fig, axs
