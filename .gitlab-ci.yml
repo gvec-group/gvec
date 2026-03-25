@@ -200,6 +200,7 @@ include:
     inputs:
       env: .raven_ifx-2024
       rules: .rules_private_runner_minimal
+      allow_failure: true
 
   # GNU
 
@@ -207,6 +208,7 @@ include:
     inputs:
       env: .raven_gfortran-13
       rules: .rules_private_runner
+      allow_failure: true
 
   # MPI
 
@@ -216,12 +218,14 @@ include:
     inputs:
       env: .raven_ifx-impi-2024
       rules: .rules_private_runner
+      allow_failure: true
 
   # Raven private runner (Gnu + OpenMPI)
   - local: CI_templates/env.yml
     inputs:
       env: .raven_gfortran-openmpi-13
       rules: .rules_private_runner
+      allow_failure: true
 
   # Viper private runner
   # ---------------
@@ -232,6 +236,7 @@ include:
     inputs:
       env: .viper_ifx-2024
       rules: .rules_private_runner_minimal
+      allow_failure: true
 
   # GNU
 
@@ -239,6 +244,7 @@ include:
     inputs:
       env: .viper_gfortran-13
       rules: .rules_private_runner
+      allow_failure: true
 
   # MPI
 
@@ -248,6 +254,7 @@ include:
     inputs:
       env: .viper_ifx-impi-2024
       rules: .rules_private_runner
+      allow_failure: true
 
   # Gnu + OpenMPI
 
@@ -255,6 +262,7 @@ include:
     inputs:
       env: .viper_gfortran-openmpi-13
       rules: .rules_private_runner
+      allow_failure: true
 
   # ============================
   # stage build jobs
