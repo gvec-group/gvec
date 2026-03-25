@@ -492,24 +492,27 @@ SUBROUTINE InitMHD3D(sf)
 END SUBROUTINE InitMHD3D
 
 SUBROUTINE InitFreeBoundary(sf)
-  USE MODgvec_ReadInTools, ONLY: GETREAL, GETINT
+  USE MODgvec_ReadInTools, ONLY: GETREAL, GETINT, GETLOGICAL
   USE MODgvec_MHD3D_Vars, ONLY: free_b_minimizer_type, free_b_minimizer, beta1, beta2
-  USE MODgvec_MHD3D_Vars, ONLY: Bext_squared, Force_b_X1, Force_b_X2
+  USE MODgvec_MHD3D_Vars, ONLY: Bext_squared, Force_b_X1, Force_b_X2, Precond_b_X1, Precond_b_X2, precond_boundary
   USE MODgvec_MHD3D_Vars, ONLY: epsilon_spectral, Q_spectral
   USE MODgvec_MHD3D_Vars, ONLY: X1_base, X2_base
+  USE MODgvec_MHD3D_Vars, ONLY: Precond_b_X1, Precond_b_X2
   USE MODgvec_free_b_minimizer_GD, ONLY: t_free_b_minimizer_GD
   USE MODgvec_free_b_minimizer_moment_GD, ONLY: t_free_b_minimizer_moment_GD
   USE MODgvec_free_b_minimizer_acc_GD, ONLY: t_free_b_minimizer_acc_GD
   USE MODgvec_free_b_minimizer_ADAM, ONLY: t_free_b_minimizer_ADAM
   USE MODgvec_free_b_minimizer_LBFGS, ONLY: t_free_b_minimizer_LBFGS
   USE MODgvec_free_b_minimizer_BFGS, ONLY: t_free_b_minimizer_BFGS
+  USE MODgvec_free_b_minimizer_damped_BFGS, ONLY: t_free_b_minimizer_damped_BFGS
+  USE MODgvec_free_b_minimizer_SR1, ONLY: t_free_b_minimizer_SR1
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER  :: n_grad_steps
-  REAL(wp) :: max_dt
+  REAL(wp) :: max_dt, M
   REAL(wp) :: mn_X1X2(2,X1_base%f%modes+X2_base%f%modes)
 !-----------------------------------------------------------------------------------------------------------------------------------
   free_b_minimizer_type = GETINT("free_b_minimizer_type", Proposal=0)
@@ -520,6 +523,13 @@ SUBROUTINE InitFreeBoundary(sf)
   ASSOCIATE(modes_X1 => X1_base%f%modes, modes_X2 => X2_base%f%modes)
     ALLOCATE(Force_b_X1(1:modes_X1))
     ALLOCATE(Force_b_X2(1:modes_X2))
+    precond_boundary = GETLOGICAL("precond_boundary", Proposal=.FALSE.)
+    ALLOCATE(Precond_b_X1(1:modes_X1))
+    ALLOCATE(Precond_b_X2(1:modes_X2))
+
+    Precond_b_X1 = 1.0_wp
+    Precond_b_X2 = 1.0_wp
+
     SELECT CASE(free_b_minimizer_type)
     CASE(0)
       free_b_minimizer = t_free_b_minimizer_GD(modes_X1 + modes_X2)
@@ -534,11 +544,19 @@ SUBROUTINE InitFreeBoundary(sf)
       free_b_minimizer = t_free_b_minimizer_acc_GD(modes_X1 + modes_X2)
     CASE(4)
       n_grad_steps = GETINT("n_grad_steps", Proposal=0)
-      max_dt = GETREAL("max_dt_BFGS", Proposal=0.1_wp)
-      mn_X1X2(:,1:modes_X1) = REAL(X1_base%f%Xmn(:,:))
-      mn_X1X2(:,modes_X1+1:) = REAL(X2_base%f%Xmn(:,:))
-      free_b_minimizer = t_free_b_minimizer_BFGS(modes_X1 + modes_X2, n_grad_steps=n_grad_steps, max_dt=max_dt, mn_X1X2=mn_X1X2)
+      max_dt = GETREAL("max_dt", Proposal=0.1_wp)
+      M = GETREAL("M_BFGS", Proposal=0.001_wp)
+      free_b_minimizer = t_free_b_minimizer_BFGS(modes_X1 + modes_X2, n_grad_steps=n_grad_steps, max_dt=max_dt,M=M)
     CASE(5)
+      n_grad_steps = GETINT("n_grad_steps", Proposal=0)
+      max_dt = GETREAL("max_dt", Proposal=0.1_wp)
+      M = GETREAL("M_BFGS", Proposal=0.001_wp)
+      free_b_minimizer = t_free_b_minimizer_damped_BFGS(modes_X1 + modes_X2, n_grad_steps=n_grad_steps, max_dt=max_dt,M=M)
+    CASE(6)
+      n_grad_steps = GETINT("n_grad_steps", Proposal=0)
+      max_dt = GETREAL("max_dt", Proposal=0.1_wp)
+      free_b_minimizer = t_free_b_minimizer_SR1(modes_X1 + modes_X2, n_grad_steps=n_grad_steps, max_dt=max_dt)
+    CASE(7)
       free_b_minimizer = t_free_b_minimizer_LBFGS(modes_X1 + modes_X2)
     CASE DEFAULT
       CALL abort(__STAMP__,&
@@ -1353,6 +1371,7 @@ END SUBROUTINE
 SUBROUTINE update_boundary_MHD3D(sf, dt_in, reset_minimizer)
   USE MODgvec_MHD3D_Vars, ONLY: free_b_minimizer, FreeBoundary
   USE MODgvec_MHD3D_Vars, ONLY: X1_b, X2_b, X1_base, X2_base, X1pert_b, X2pert_b ! for boundary perturbation
+  USE MODgvec_MHD3D_Vars, ONLY: Precond_b_X1, Precond_b_X2, precond_boundary
   USE MODgvec_MHD3D_Vars, ONLY: Force_b_X1, Force_b_X2
   USE MODgvec_MHD3D_evalFunc, ONLY : EvalForce, EvalEnergy
 
@@ -1374,7 +1393,6 @@ SUBROUTINE update_boundary_MHD3D(sf, dt_in, reset_minimizer)
   IF (reset_minimizer) THEN
     CALL free_b_minimizer%reset()
   END IF
-
   dt = dt_in
   free_b_minimizer%dt = dt_in
   free_b_minimizer%dt_initial = dt_in
@@ -1392,15 +1410,17 @@ SUBROUTINE update_boundary_MHD3D(sf, dt_in, reset_minimizer)
   max_step_decreases = 130
   ASSOCIATE(vars => sf%minimizer%vars)
     CALL EvalForce(vars%dofs(0),.TRUE., vars%JacCheck,vars%force(0))
-
-    DO WHILE((perform_update.AND.(step_decreases.LE.max_step_decreases)))
-      ! NOTE: negative sign of forces since the optimizers expect gadW and not -gradW
+    IF (.NOT.precond_boundary) THEN
       Force_b_X1X2(1:X1_base%f%modes) = Force_b_X1
       Force_b_X1X2(X1_base%f%modes+1:) = Force_b_X2
-
-      X1X2pert_b = free_b_minimizer%get_update(-Force_b_X1X2)
-      X1pert_b(1:X1_base%f%modes) = X1X2pert_b(1:X1_base%f%modes)
-      X2pert_b(1:X2_base%f%modes) = X1X2pert_b(X1_base%f%modes+1:)
+    ELSE
+      Force_b_X1X2(1:X1_base%f%modes) = Force_b_X1 / Precond_b_X1
+      Force_b_X1X2(X1_base%f%modes+1:) = Force_b_X2 / Precond_b_X2
+    END IF
+    X1X2pert_b = free_b_minimizer%get_update(-Force_b_X1X2)
+    X1pert_b(1:X1_base%f%modes) = X1X2pert_b(1:X1_base%f%modes)
+    X2pert_b(1:X2_base%f%modes) = X1X2pert_b(X1_base%f%modes+1:)
+    DO WHILE((perform_update.AND.(step_decreases.LE.max_step_decreases)))
       X1_b = vars%dofs(0)%X1(X1_base%s%nBase,:)
       X2_b = vars%dofs(0)%X2(X2_base%s%nBase,:)
 
@@ -1417,12 +1437,10 @@ SUBROUTINE update_boundary_MHD3D(sf, dt_in, reset_minimizer)
            ' ... during free boundary update: maximum number of step-size decreases reached !!!')
         END IF
 
-        ! this allo resets the time-step to dt_initial
-        CALL free_b_minimizer%reset()
-
         dt = 0.9*dt
+        X1pert_b = 0.9*X1pert_b
+        X2pert_b = 0.9*X2pert_b
         free_b_minimizer%dt = dt
-        free_b_minimizer%max_dt = dt
 
         JacCheck = 2
         SWRITE(UNIT_stdOut,'(8X,I8,A,E11.4,A)')vars%iter,' ... during free boundary update: detJac<0, decrease stepsize to dt=',free_b_minimizer%dt
@@ -1541,6 +1559,8 @@ SUBROUTINE FinalizeMHD3D(sf)
   SDEALLOCATE(Bext_squared)
   SDEALLOCATE(Force_b_X1)
   SDEALLOCATE(Force_b_X2)
+  SDEALLOCATE(Precond_b_X1)
+  SDEALLOCATE(Precond_b_X2)
   SDEALLOCATE(free_b_minimizer)
 
   CALL exit_subregion("finalize-MHD3D")

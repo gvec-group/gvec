@@ -19,8 +19,10 @@ MODULE MODgvec_free_b_minimizer_BFGS
     REAL(wp), ALLOCATABLE :: p_k (:) ! search direction => -H_k grad f(x_k)
     REAL(wp), ALLOCATABLE :: gradf_old(:) ! gradient of step k
     REAL(wp), ALLOCATABLE :: H_k(:,:) ! approximate inverse Hessian
+    REAL(wp), ALLOCATABLE :: B_k(:,:) ! approximate Hessian
     REAL(wp), ALLOCATABLE :: I(:,:)
     INTEGER  :: n_grad_steps
+    REAL(wp) :: M ! stepsize controll parameter / self-concordance
 
     CONTAINS
     PROCEDURE :: get_update => BFGS_get_update
@@ -35,13 +37,13 @@ MODULE MODgvec_free_b_minimizer_BFGS
 
   CONTAINS
 
-  FUNCTION BFGS_new(n_dofs, dt, n_grad_steps, max_dt, mn_X1X2) RESULT(sf)
+  FUNCTION BFGS_new(n_dofs, dt, n_grad_steps, max_dt, M) RESULT(sf)
     ! INPUT VARIABLES -------------------------!
     INTEGER, INTENT(IN)            :: n_dofs  ! number of degrees of freedom
     REAL(wp), INTENT(IN), OPTIONAL :: dt ! initial / default time step
     REAL(wp), INTENT(IN), OPTIONAL :: max_dt
     INTEGER, INTENT(IN), OPTIONAL  :: n_grad_steps
-    REAL(wp), INTENT(IN) :: mn_X1X2(2,n_dofs)
+    REAL(wp), INTENT(IN), OPTIONAL  :: M
 
     ! OUTPUT VARIABLES -------------------------!
     TYPE(t_free_b_minimizer_BFGS) :: sf
@@ -61,6 +63,12 @@ MODULE MODgvec_free_b_minimizer_BFGS
         sf%dt_initial = 1e-3_wp
     END IF
 
+    IF (PRESENT(M)) THEN
+        sf%M = M
+    ELSE
+        sf%M = 1e-3_wp
+    END IF
+
     IF (PRESENT(max_dt)) THEN
         sf%max_dt = max_dt
     ELSE
@@ -72,6 +80,7 @@ MODULE MODgvec_free_b_minimizer_BFGS
     ALLOCATE(sf%p_k(1:sf%n_dofs))
     ALLOCATE(sf%gradf_old(1:sf%n_dofs))
     ALLOCATE(sf%H_k(1:sf%n_dofs, 1:sf%n_dofs))
+    ALLOCATE(sf%B_k(1:sf%n_dofs, 1:sf%n_dofs))
     ALLOCATE(sf%I(1:sf%n_dofs, 1:sf%n_dofs))
 
     sf%s_k = 0.0_wp
@@ -79,9 +88,11 @@ MODULE MODgvec_free_b_minimizer_BFGS
     sf%p_k = 0.0_wp
     sf%gradf_old = 0.0_wp
     sf%H_k = 0.0_wp
+    sf%B_k = 0.0_wp
     sf%I = 0.0_wp
     DO i=1,sf%n_dofs
         sf%H_k(i,i) = 1.0_wp
+        sf%B_k(i,i) = 1.0_wp
         sf%I(i,i) = 1.0_wp
     END DO
 
@@ -118,30 +129,53 @@ MODULE MODgvec_free_b_minimizer_BFGS
   END FUNCTION OUTER_PRODUCT
 
   FUNCTION BFGS_get_update(sf, force_in) RESULT(push_out)
+    USE MODgvec_MHD3D_Vars, ONLY: Precond_b_X1, Precond_b_X2, X1_base, X2_base
     ! INPUT VARIABLES -------------------------!
     CLASS(t_free_b_minimizer_BFGS), INTENT(INOUT) :: sf
     REAL(wp)                      , INTENT(IN) :: force_in(sf%n_dofs)
     ! OUTPUT VARIABLES -------------------------!
     REAL(wp) :: push_out(sf%n_dofs)
     ! LOCAL VARIABLES
-    REAL(wp) :: dot_sy, norm_p_k, p_k(sf%n_dofs), g_k(sf%n_dofs)
+    REAL(wp) :: dot_sy, norm_p_k, p_k(sf%n_dofs), g_k(sf%n_dofs), dot_gp
+    INTEGER :: i
     ! CODE --------------------------------------------------------------------------------------------------------------------------!
     g_k = force_in
 
     IF (sf%n_updates.LE.sf%n_grad_steps) THEN
         p_k = -g_k
+        DO i=1,X1_base%f%modes
+            sf%B_k(i,i) = Precond_b_X1(i)
+            sf%H_k(i,i) = 1 / Precond_b_X1(i)
+        END DO
+
+        DO i=1,X2_base%f%modes
+            sf%B_k(X1_base%f%modes+i,X1_base%f%modes+i) = Precond_b_X2(i)
+            sf%H_k(X1_base%f%modes+i,X1_base%f%modes+i) = 1 / Precond_b_X2(i)
+        END DO
     ELSE
+        ! update s_k with the actual used dt
+        sf%s_k = sf%dt*sf%s_k
         sf%y_k = g_k - sf%gradf_old
         dot_sy = DOT_PRODUCT(sf%s_k,sf%y_k)
-        sf%H_k = OUTER_PRODUCT(sf%s_k,sf%s_k) / dot_sy + MATMUL(sf%I-OUTER_PRODUCT(sf%s_k,sf%y_k) / dot_sy,MATMUL(sf%H_k, sf%I-OUTER_PRODUCT(sf%y_k,sf%s_k) / dot_sy))
+
+        ! only update valid stepsizes
+        IF (dot_sy>0.0_wp) THEN
+          sf%B_k = sf%B_k - MATMUL(sf%B_k,OUTER_PRODUCT(sf%s_k,MATMUL(sf%s_k,sf%B_k))) / (DOT_PRODUCT(sf%s_k,MATMUL(sf%B_k,sf%s_k))) &
+            + OUTER_PRODUCT(sf%y_k,sf%y_k) / dot_sy
+          sf%H_k = OUTER_PRODUCT(sf%s_k,sf%s_k) / dot_sy + MATMUL(sf%I-OUTER_PRODUCT(sf%s_k,sf%y_k) / dot_sy,MATMUL(sf%H_k, sf%I-OUTER_PRODUCT(sf%y_k,sf%s_k) / dot_sy))
+        END IF
+
         p_k = -MATMUL(sf%H_k,g_k)
+        dot_gp = DOT_PRODUCT(g_k,p_k)
+        norm_p_k = SQRT(DOT_PRODUCT(p_k,MATMUL(sf%B_k,p_k)))
+        sf%dt = MIN(-dot_gp / (norm_p_k*(norm_p_k-dot_gp)),sf%max_dt)
     END IF
     sf%gradf_old = g_k
 
     push_out = sf%dt*p_k
-    sf%s_k = push_out
+    ! update after adapting dt outside
+    sf%s_k = p_k
     sf%n_updates = sf%n_updates+1
-    push_out =  push_out
   END FUNCTION BFGS_get_update
 
   !===================================================================================================================================
@@ -157,6 +191,7 @@ MODULE MODgvec_free_b_minimizer_BFGS
     SDEALLOCATE(sf%p_k)
     SDEALLOCATE(sf%gradf_old)
     SDEALLOCATE(sf%H_k)
+    SDEALLOCATE(sf%B_k)
   END SUBROUTINE BFGS_free
 
 END MODULE MODgvec_free_b_minimizer_BFGS

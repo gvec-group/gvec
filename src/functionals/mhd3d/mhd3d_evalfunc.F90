@@ -1083,6 +1083,7 @@ SUBROUTINE BuildPrecond()
   USE MODgvec_MPI,        ONLY : par_AllReduce
   USE MODgvec_MHD3D_Vars, ONLY : X1_base,X2_base,LA_base, hmap
   USE MODgvec_MHD3D_Vars, ONLY : X1_BC_Type,X2_BC_Type,LA_BC_type
+  USE MODgvec_MHD3D_Vars, ONLY : FreeBoundary, Bext_squared, Precond_b_X1, Precond_b_X2
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -1111,6 +1112,23 @@ SUBROUTINE BuildPrecond()
   !WHEN COMM CHANGED TO GATHER, ZEROING NOT NEEDED ANYMORE
   D_buf=0.0_wp
   smn_IP=1.0_wp/REAL(mn_IP,wp)
+  IF (FreeBoundary) THEN
+    ! NOTE: This is experimental!
+    ! Includes one part of the radial preconditioner for the free boundary term:
+    ! <B_ext/2 * dJh/dq1 dX2/dtheta> Y_1*Y_1 - <B_ext/2 * dJh/dq2 dX1/dtheta>Y_2*Y_2
+    DX1_nn = 0.0_wp
+    DX2_nn = 0.0_wp
+
+    DO i_mn=1,mn_IP
+      qloc(  1:3) = (/ X1_boundary(i_mn), X2_boundary(i_mn),zeta_IP(i_mn)/)
+      dJh_dq1 = hmap%eval_Jh_dq(qloc, (/1.0_wp,0.0_wp,0.0_wp/))
+      dJh_dq2 = hmap%eval_Jh_dq(qloc, (/0.0_wp,1.0_wp,0.0_wp/))
+      DX1_nn = DX1_nn + Bext_squared(i_mn)*dJh_dq1*dX2_dthet_boundary(i_mn)
+      DX2_nn = DX2_nn + Bext_squared(i_mn)*dJh_dq2*dX1_dthet_boundary(i_mn)
+    END DO
+    DX1_nn = -0.5*smn_IP*DX1_nn
+    DX2_nn =  0.5*smn_IP*DX2_nn
+  END IF
 
 !$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED)   &
@@ -1234,6 +1252,11 @@ SUBROUTINE BuildPrecond()
         END DO !i=0,deg
         iGP=iGP+(degGP+1)
       END DO !iElem=1,nElems
+
+      IF (FreeBoundary) THEN
+        Precond_b_X1(iMode)=precond_X1(iMode)%get_element(nBase,nBase) + DX1_nn*norm_mn
+      END IF
+
       !ACCOUNT FOR BOUNDARY CONDITIONS!
       P_BCaxis=0.0_wp; P_BCedge=0.0_wp
       tBC = X1_BC_Type(BC_AXIS,iMode)
@@ -1312,6 +1335,11 @@ SUBROUTINE BuildPrecond()
         END DO !i=0,deg
         iGP=iGP+(degGP+1)
       END DO !iElem=1,nElems
+
+      IF(FreeBoundary) THEN
+        Precond_b_X2(iMode)=precond_X2(iMode)%get_element(nBase,nBase) + DX2_nn*norm_mn
+      END IF
+
       !ACCOUNT FOR BOUNDARY CONDITIONS!
       P_BCaxis=0.0_wp; P_BCedge=0.0_wp
       tBC = X2_BC_Type(BC_AXIS,iMode)

@@ -103,6 +103,9 @@ REAL(wp), ALLOCATABLE :: Bext_squared(:) ! external magnetic field
 LOGICAL               :: FreeBoundary
 REAL(wp), ALLOCATABLE :: Force_b_X1(:) ! Force on X1 at the boundary
 REAL(wp), ALLOCATABLE :: Force_b_X2(:) ! Force on X2 at the boundary
+REAL(wp), ALLOCATABLE :: Precond_b_X1(:) ! Preconditioner on X1 at the boundary
+REAL(wp), ALLOCATABLE :: Precond_b_X2(:) ! Preconditioner on X2 at the boundary
+LOGICAL               :: precond_boundary
 REAL(wp)              :: beta1 ! decay rate for the free boundary update using ADAM / moment GD
 REAL(wp)              :: beta2 ! decay rate for the free boundary update using ADAM
 INTEGER               :: free_b_minimizer_type ! 0=gradient descent, 1 = ADAM

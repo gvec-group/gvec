@@ -106,7 +106,9 @@ class FreeBoundaryState(State):
             self.current_constraint = False
             self.rho_iota = None
             self.I_tor = None
-            self.I_tor_boundary = self.evaluate("I_tor", rho=1.0).I_tor.item()
+            self.I_tor_boundary = (
+                self.I_tor_boundary
+            )  # self.evaluate("I_tor", rho=1.0).I_tor.item()
 
         # initialize diagnostics dataset for quantities at the boundary for each free-boundary update
 
@@ -611,6 +613,7 @@ class FreeBoundaryState(State):
         minimize_tol_min = self.get_minimize_tol()
         if ramp_force_tol:
             minimize_tol = ramp_force_tol_start
+            current_lowest_min_tol = ramp_force_tol_start
         else:
             minimize_tol = minimize_tol_min
         reset_minimizer = False  # Flag to restart minimizers after a stage.
@@ -680,13 +683,17 @@ class FreeBoundaryState(State):
                         ) / (self.iter_B2_history[1] - self.iter_B2_history[0])
 
                 if ramp_force_tol:
-                    # minimize_tol is ahead of
+                    # minimize_tol is ahead of free boundary target
                     minimize_tol = np.max(
                         [
                             np.min([self.free_boundary_target / alpha, ramp_force_tol_start]),
                             minimize_tol_min,
                         ]
                     )
+                    # this is to ensure that minimize tol never increases
+                    if minimize_tol < current_lowest_min_tol:
+                        current_lowest_min_tol = minimize_tol
+                    minimize_tol = np.min([minimize_tol, current_lowest_min_tol])
                     logger.info(f"Setting gvec minimize_tol: {minimize_tol:.2e}")
                 if (self.free_boundary_target > self.free_boundary_tolerance) or (
                     self._resolved_force_ratio > force_ratio_limit

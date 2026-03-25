@@ -42,7 +42,7 @@ MODULE MODgvec_free_b_minimizer_GD
         sf%dt_initial = 1e-3_wp
     END IF
     sf%dt =  sf%dt_initial
-    sf%max_dt = dt
+    sf%max_dt = sf%dt_initial
     sf%n_updates = 0
   END FUNCTION GD_new
 
