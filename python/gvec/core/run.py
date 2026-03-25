@@ -714,7 +714,7 @@ class Run:
             final_iota_str,
         )
         if self.quiet:
-            self.logger.info(*final_message)
+            self.logger.info("".join(final_message))
         else:
             print(*final_message)
         final_statefile = Path(self._state_parameters["ProjectName"] + "_State_final.dat")
