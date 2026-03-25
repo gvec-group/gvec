@@ -160,4 +160,4 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
 
 
 if __name__ == "__main__":
-    main()
+    exit(main())
