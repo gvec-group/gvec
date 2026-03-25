@@ -557,6 +557,7 @@
     - python -m venv venv
     - source venv/bin/activate
     # prepare & build
+    - pip install --upgrade pip
     - pip install twine build
     - python -m build --sdist
     - ls -alH dist/
@@ -567,7 +568,7 @@
     - ls -alH dist/
     - python -m twine upload dist/*
   artifacts:
-    expire_in: 3 days
+    expire_in: 1 week
     paths:
       - dist
     when: always
