@@ -23,6 +23,10 @@ from gvec.lib import modgvec_py_binding as _binding
 from gvec.lib import modgvec_py_run as _run
 from gvec.util import CaseInsensitiveDict as cidict
 
+DEFAULT_MINIMIZE_TOL = 1e-6  # different to default `minimize_tol` in fortran
+DEFAULT_TOTALITER = 10**5  # different to default `maxIter` in fortran
+AUTO_IOTA_TARGET = 1e-10
+
 
 def run(
     parameters: Mapping | Path | str,
@@ -170,13 +174,16 @@ class Run:
         self.GVEC_iter_used = 0
         self.redirect_gvec_stdout = redirect_gvec_stdout
 
-        self.totaliter = self.parameters.get("totaliter", int(1e5))
+        self.totaliter = self.parameters.get("totaliter", DEFAULT_TOTALITER)
         if "maxIter" not in self.parameters:
             self.parameters["maxIter"] = self.totaliter
         if self.parameters["maxIter"] <= 0:
             raise ValueError(
                 f"Value 'maxIter' must be greater than 0 (current value is {self.parameters['maxIter']})."
             )
+
+        if "minimize_tol" not in self.parameters:
+            self.parameters["minimize_tol"] = DEFAULT_MINIMIZE_TOL
 
         picard_current = self.parameters.get("picard_current", "off")
 
@@ -221,8 +228,8 @@ class Run:
             if picard_current == "auto":
                 self.logger.info("Using `picard_current` automatic mode. Generating stages ...")
 
-                minimize_tol = self.parameters.get("minimize_tol", 1e-6)
-                self.stages += auto_generate_stages(minimize_tol, 1e-10)
+                minimize_tol = self.parameters.get("minimize_tol", DEFAULT_MINIMIZE_TOL)
+                self.stages += auto_generate_stages(minimize_tol, AUTO_IOTA_TARGET)
                 self.parameters["picard_current"] = cidict()
                 self.stages[0]["picard_current"] = "off"
             else:  # ensure at least one stage beyond initial stage
@@ -415,8 +422,8 @@ class Run:
         iterations = int(re.match(r".*State.*_(\d+)\.dat", self.state.statefile.name).group(1))
         iteration_offset = self.GVEC_iter_used
         self.GVEC_iter_used += iterations
-        max_iterations = self._state_parameters.get("maxIter")
-        tolerance = self._state_parameters.get("minimize_tol")
+        max_iterations = self._state_parameters["maxIter"]
+        tolerance = self._state_parameters["minimize_tol"]
         self.logger.debug(f"Postprocessing statefile {self.state.statefile}")
 
         quantities = ["F_r_avg"]
@@ -714,7 +721,7 @@ class Run:
             final_iota_str,
         )
         if self.quiet:
-            self.logger.info(*final_message)
+            self.logger.info("".join(final_message))
         else:
             print(*final_message)
         final_statefile = Path(self._state_parameters["ProjectName"] + "_State_final.dat")
