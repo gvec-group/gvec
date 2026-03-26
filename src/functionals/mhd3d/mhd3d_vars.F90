@@ -116,6 +116,7 @@ REAL(wp)              :: Fnorm_X1_b_modes ! L2 norm of the forces on X1 at the b
 REAL(wp)              :: Fnorm_X2_b_modes ! L2 norm of the forces on X1 at the boundary, after projection onto the modes
 REAL(wp)              :: epsilon_spectral
 INTEGER               :: Q_spectral
+REAL(wp)              :: spectral_width
 
 !===================================================================================================================================
 

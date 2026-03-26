@@ -10,6 +10,8 @@ import shutil
 from tqdm import tqdm
 from typing import Callable
 
+from gvec.lib import modgvec_py_state as _state
+
 import time
 import logging
 from pathlib import Path
@@ -245,6 +247,11 @@ class FreeBoundaryState(State):
             np.full(shape=self.fb_updates, fill_value=np.nan),
         )
         diagnostics["Fnorm_X2_b_modes"] = (
+            "iteration",
+            np.full(shape=self.fb_updates, fill_value=np.nan),
+        )
+
+        diagnostics["spectral_width"] = (
             "iteration",
             np.full(shape=self.fb_updates, fill_value=np.nan),
         )
@@ -534,6 +541,8 @@ class FreeBoundaryState(State):
         self.diagnostics.Fnorm_X2_b_modes[iteration] = Fnorm[3]
         self.diagnostics.Fnorm_X1_b[iteration] = Fnorm[4]
         self.diagnostics.Fnorm_X2_b[iteration] = Fnorm[4]
+
+        self.diagnostics.spectral_width[iteration] = _state.get_spectral_width()
 
         self.diagnostics.dt[iteration] = self.dt
         self.free_boundary_target = free_boundary_target.item()

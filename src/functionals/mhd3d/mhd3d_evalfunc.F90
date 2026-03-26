@@ -73,7 +73,6 @@ MODULE MODgvec_MHD3D_evalFunc
   REAL(wp), ALLOCATABLE :: X2_boundary(:)
   REAL(wp), ALLOCATABLE :: X1_prefactor_spec_cond(:)
   REAL(wp), ALLOCATABLE :: X2_prefactor_spec_cond(:)
-  REAL(wp)              :: spectral_width
 
   REAL(wp), ALLOCATABLE :: dX1_dthet_boundary(:)
   REAL(wp), ALLOCATABLE :: dX2_dthet_boundary(:)
@@ -1534,7 +1533,7 @@ END SUBROUTINE ApplyPrecond
 SUBROUTINE EvalBoundaryForce(dofs_in,F_b_X1,F_b_X2)
 ! MODULES
   USE MODgvec_MHD3D_Vars, ONLY: X1_base,X2_base,LA_base,hmap,Phi_profile,chi_profile, Bext_squared,epsilon_spectral,Q_spectral
-  USE MODgvec_MHD3D_Vars, ONLY: Fnorm_X1_b_IP, Fnorm_X2_b_IP, Fnorm_X1_b_modes, Fnorm_X2_b_modes ! DIAGNOSTICS
+  USE MODgvec_MHD3D_Vars, ONLY: Fnorm_X1_b_IP, Fnorm_X2_b_IP, Fnorm_X1_b_modes, Fnorm_X2_b_modes, spectral_width ! DIAGNOSTICS
   USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -1574,7 +1573,7 @@ SUBROUTINE EvalBoundaryForce(dofs_in,F_b_X1,F_b_X2)
     END DO
 
     ! set to lower bound = 1, excludes m=0 and m=1 modes
-    spectral_width = 1.0_wp!spectral_width_numerator / spectral_width_denominator
+    spectral_width = spectral_width_numerator / spectral_width_denominator
 
     ! corresponds to X and Y in Spectral Condensation paper:
     ! X = SUM_mn  m^p*(m^q-M) X1_mn cos(theta-Nfp*n*zeta)
