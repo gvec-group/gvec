@@ -380,12 +380,34 @@ class CoilSet(Coil, Mapping):
         if coil_names is None:
             coil_names = [f"coil_{i}" for i in range(len(coils))]
         coils_dict = {}
-        counter = 0
-        for coil_name, coil in zip(coil_names, coils):
+
+        # names with _f indicate variables needed for the fortran part
+        # NOTE: using a wrapped fortran type resulted in issues with multiprocessing.
+        # all relevant arrays for the fortran evaluation of the B-field are saved here.
+        # this avoids a loop over the coil-set dict which improves performance in the fieldline tracing
+        # TODO: inefficient memory usage as coil-points are basically stored twice
+        self._coil_points_f = np.asfortranarray(
+            np.concatenate([coil.coil_points for coil in coils], axis=1)
+        )
+        self._n_coils_f = len(coils)
+        self._coil_currents_f = np.empty(self._n_coils_f)
+        self._n_points_f = self._coil_points_f.shape[1]
+        self._n_points_per_coil_f = np.empty(self._n_coils_f)
+        self._coil_points_offsets_f = np.zeros(self._n_coils_f + 1)
+        self._n_coil_points_f = np.sum(self._coil_points_f.shape[1])
+
+        for i, (coil_name, coil) in enumerate(zip(coil_names, coils)):
             if not isinstance(coil, Coil):
-                raise TypeError(f"Entry {counter} in coils is not of type Coil!")
+                raise TypeError(f"Entry {i} in coils is not of type Coil!")
             coils_dict[coil_name] = coil
-            counter += 1
+            self._coil_currents_f[i] = coil.prefactor
+            self._n_points_per_coil_f[i] = coil.n_points
+        self._coil_points_offsets_f[1:] = np.cumsum(self._n_points_per_coil_f)
+
+        self._coil_currents_f = np.asfortranarray(self._coil_currents_f)
+        self._coil_points_offsets_f = np.asfortranarray(self._coil_points_offsets_f)
+        self._n_points_per_coil_f = np.asfortranarray(self._n_points_per_coil_f)
+
         self.coils = coils_dict
 
     @classmethod
@@ -554,20 +576,18 @@ class CoilSet(Coil, Mapping):
             )
 
         n_positions = pos.shape[1]
-        B = np.zeros(pos.shape)
-        B_aux = np.asfortranarray(np.zeros(pos.shape))
-        for coil_name in self.coils:
-            coil = self.coils[coil_name]
-            _BS.biotsavart(
-                n_positions=n_positions,
-                xyz=np.asfortranarray(pos),
-                n_points=coil.n_points,
-                coil_points=np.asfortranarray(coil.coil_points),
-                prefactor=coil.prefactor,
-                b=B_aux,
-            )
-            B += B_aux
-            B_aux *= 0.0
+        B = np.asfortranarray(np.zeros(pos.shape))
+        _BS.coilset_eval_b(
+            self._n_coils_f,
+            self._coil_points_offsets_f,
+            self._n_points_per_coil_f,
+            self._n_coil_points_f,
+            self._coil_points_f,
+            self._coil_currents_f,
+            n_positions,
+            np.asfortranarray(pos),
+            B,
+        )
         return B
 
     def plot(self, ax=None, show=True, **kwargs):
@@ -870,6 +890,130 @@ def trace_fieldlines(
                 )
                 pass
             dt[f"fieldline_{fieldline}"] = ds
+        return dt
+
+
+def trace_fieldlines_RZphi(
+    starts_RZ: np.ndarray,
+    coils: CoilSet,
+    turns: int,
+    start_phi: float = 0.0,
+    phis: float | np.ndarray | list | None = None,
+    n_jobs: int = 1,
+    return_solves: bool = False,
+    verbosity: Literal["WARNING", "INFO", "DEBUG"] = "INFO",
+    **kwargs,
+):
+    """Trace magnetic fieldlines in RZphi
+
+    Parameters
+    ----------
+    starts_RZ : np.ndarray
+        Initial RZ positions of shape `[2,n_fieldlines]` at the `start_phi`.
+    coils : CoilSet
+        Coils set used for evaluating the magnetic field.
+    turns : int
+        Number of troidal turns to trace.
+    start_phi : float, optional
+        Initial starting phi position, by default 0.0
+    phis : float | np.ndarray | list | None, optional
+        phi positions where the fieldline is saved, by default None. Should be in `[0,2*pi)`
+    n_jobs : int, optional
+        Number of jobs for parallelization over fieldlines, by default 1.
+    return_solves : bool, optional
+        Whether to return a list of solve_ivp objects or an xarray datatree, by default False
+    verbosity : Literal[&quot;WARNING&quot;, &quot;INFO&quot;, &quot;DEBUG&quot;], optional
+        Level of the logger, by default "INFO"
+    """
+    logging_setup()
+    logger = getLogger("gvec_fieldlines")
+    logger.setLevel(verbosity)
+    if n_jobs > 1 and not has_joblib:
+        logger.warning(
+            "n_jobs > 1 but joblib not installed, parallelization over fieldlines is not possible. Falling back to n_jobs=1."
+        )
+        n_jobs = 1
+
+    e_rho = np.zeros(3)
+    e_phi = np.zeros(3)
+    B = np.zeros(3)
+    B_out = np.zeros(2)
+
+    def _push_cyl(t, R):
+        e_rho[:] = [np.cos(t), np.sin(t), 0]
+        e_phi[:] = [-np.sin(t), np.cos(t), 0]
+
+        B[:] = coils._eval_B_direct([R[0] * np.cos(t), R[0] * np.sin(t), R[1]])[:, 0]
+        B_rho = np.dot(B, e_rho)
+        B_phi = np.dot(B, e_phi)
+
+        B_out[:] = [R[0] * B_rho / B_phi, R[0] * B[2] / B_phi]
+        return B_out
+
+    if phis is None:
+        phis = np.array([0.0])
+    if any(phis >= 2 * np.pi):
+        raise ValueError(f"The provided Phis have to be >= 0 and < 2*pi. phis={phis}")
+    phis[phis == 0.0] = 2 * np.pi
+    phis = np.sort(phis)
+
+    time = 2 * np.pi * turns + start_phi
+    n_phis = len(phis)
+    t_evals = np.zeros(turns * n_phis)
+    offset = 0
+    for i in range(turns):
+        t_evals[offset : offset + n_phis] = i * 2 * np.pi + phis
+        offset += n_phis
+    t_evals = t_evals[np.where(t_evals >= start_phi)]
+
+    solves = []
+    logger.info("Tracing fieldlines using n_jobs=%d", n_jobs)
+    if n_jobs > 1:  # embarrassingly parallel over fieldlines
+        with parallel_config(n_jobs=n_jobs):
+            solves = ProgressParallel(total=starts_RZ.shape[1])(
+                delayed(solve_ivp)(
+                    fun=_push_cyl,
+                    y0=starts_RZ[:, i],
+                    t_span=[start_phi, time],
+                    t_eval=t_evals,
+                    **kwargs,
+                )
+                for i in range(starts_RZ.shape[1])
+            )
+    else:  # serial over fieldlines but still OMP parallelization for magnetic field evaluation
+        for i in tqdm(range(starts_RZ.shape[1])):
+            solve = solve_ivp(
+                fun=_push_cyl,
+                y0=starts_RZ[:, i],
+                t_span=[0, time],
+                t_eval=t_evals,
+                **kwargs,
+            )
+            solves.append(solve)
+    if return_solves:
+        return solves
+    else:
+        dt = xr.DataTree()
+        for fieldline, output in enumerate(solves):
+            try:
+                coords = {
+                    "phi": output.t,
+                    "RZ": ["R", "Z"],
+                }
+                ds = xr.Dataset(
+                    {
+                        "pos": (("RZ", "phi"), output.y),
+                    },
+                    coords=coords,
+                )
+                ds["n_phis"] = n_phis
+                ds["phis_input"] = phis
+                dt[f"fieldline_{fieldline}"] = ds
+            except ValueError:
+                logger.warning(
+                    f"ValueError when gathering data for fieldline {fieldline}. Maybe no intersection occurred."
+                )
+                pass
         return dt
 
 
