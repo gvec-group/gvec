@@ -1817,10 +1817,10 @@ def vacuum_magnetic_well_depth(ds: xr.Dataset, state: State):
         "diota_dr",
         "dp_dr",
         "Phi",
-        "chi",
         "Jac",
         "dJac_dr",
         "grad_rho",
+        "B_zeta_avg",
         "dB_theta_avg_dr",
         "mu0",
         "J",
@@ -1855,12 +1855,12 @@ def D_Merc(ds: xr.Dataset):
     twopi = 2 * np.pi
     diota_dPhi = ds.diota_dr / ds.dPhi_dr
     dp_dPhi = ds.dp_dr / ds.dPhi_dr
-    s_chi = np.sign(ds.chi)
+    s_G = np.sign(ds.B_zeta_avg)
     s_Phi = np.sign(ds.Phi)
     dV_dr = fluxsurface_integral(ds.Jac)
     dV_drr = fluxsurface_integral(ds.dJac_dr)
     d2V_dPhi2 = dV_drr / ds.dPhi_dr**2 - dV_dr * ds.dPhi_drr / ds.dPhi_dr**3
-    ngradPhi = np.sqrt(xr.dot(ds.grad_rho, ds.grad_rho, dim="xyz")) * ds.dPhi_dr
+    ngradPhi = np.sqrt(xr.dot(ds.grad_rho, ds.grad_rho, dim="xyz")) * np.abs(ds.dPhi_dr)
     dB_theta_avg_dPhi = ds.dB_theta_avg_dr / ds.dPhi_dr
     # dS = xr.cross(ds.e_theta, ds.e_zeta, dim="xyz")
     dS = np.sqrt(xr.dot(ds.grad_rho, ds.grad_rho, dim="xyz")) * ds.Jac
@@ -1871,7 +1871,7 @@ def D_Merc(ds: xr.Dataset):
         dS * (ds.mu0 * xr.dot(ds.J, ds.B, dim="xyz") / ds.mod_B) ** 2 / ngradPhi**3
     )
     ds["D_Merc_Shear"] = 1 / (16 * np.pi**2) * diota_dPhi**2
-    ds["D_Merc_Curr"] = -s_chi / twopi**4 * diota_dPhi * (JBint - dB_theta_avg_dPhi * B2int)
+    ds["D_Merc_Curr"] = -s_G / twopi**4 * diota_dPhi * (JBint - dB_theta_avg_dPhi * B2int)
     ds["D_Merc_Well"] = (
         ds.mu0 / twopi**6 * dp_dPhi * (s_Phi * d2V_dPhi2 - ds.mu0 * dp_dPhi * Bi2int) * B2int
     )

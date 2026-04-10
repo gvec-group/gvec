@@ -263,7 +263,7 @@ where a positive value of $D_\text{Merc}$ indicates stability and
 $$
 \begin{align}
 D_\text{M,Shear} &= \frac{1}{16\pi^2} \pqty{\dv{\iota}{\Phi}}^2 \\
-D_\text{M,Curr} &= -\frac{s_\chi}{\pqty{2\pi}^4} \dv{\iota}{\Phi} \int\dd S \frac{\vec{\Xi} \cdot \vec{B}}{\abs{\grad\Phi}^3} \\
+D_\text{M,Curr} &= -\frac{s_G}{\pqty{2\pi}^4} \dv{\iota}{\Phi} \int\dd S \frac{\vec{\Xi} \cdot \vec{B}}{\abs{\grad\Phi}^3} \\
 D_\text{M,Well} &= \frac{\mu_0}{\pqty{2\pi}^6} \dv{p}{\Phi} \pqty{s_\Phi \dv[2]{V}{\Phi} - \mu_0 \dv{p}{\Phi} \int dS \frac{1}{\modB^2 \abs{\grad\Phi}}}\int\dd S \frac{\modB^2}{\abs{\grad\Phi}^3} \\
 D_\text{M,Geod} &= \frac{1}{\pqty{2\pi}^6} \bqty{
     \pqty{\int\dd S \frac{\mu_0 \vec{J}\cdot\vec{B}}{\abs{\grad\Phi}^3}}^2
@@ -277,7 +277,7 @@ with
 
 $$
 \begin{align}
-s_\chi &= \text{sgn}{\chi} \\
+s_G &= \text{sgn}{\langle B_\zeta \rangle} \\
 s_\Phi &= \text{sgn}{\Phi} \\
 \dd S &= \abs{\grad\rho} \abs{\Jac} \dd\theta \dd\zeta = \abs{\vec{e}_\theta \times \vec{e}_\zeta} \dd\theta \dd\zeta\\
 \vec{\Xi} &= \mu_0 \vec{J} - \dv{\aqty{B_\theta}}{\Phi} \vec{B} \\
