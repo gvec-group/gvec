@@ -20,3 +20,4 @@ publish.pypi:
     - .before_script_modules
     - .script_publish_pypi
     - $[[ inputs.rules ]]
+  needs: []
