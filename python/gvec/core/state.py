@@ -297,29 +297,6 @@ class State:
         """The name of the configuration / `ProjectName` in the parameter file."""
         return self.parameters.get("ProjectName", "GVEC")
 
-    # === Minimization for free-boundary === #
-    @with_binding
-    def _minimize(self, dt=None, logfinaliter=True, maxIter=None, minimize_tol=None):
-        """Minimize the MHD functional for the current state."""
-        logger.debug("Minimizing MHD functional.")
-        with gvec.util.chdir(self.rundir):
-            _state.minimize(dt, logfinaliter, maxIter, minimize_tol)
-
-    @with_binding
-    def set_Bext_squared(self, B2):
-        logger.debug("Updating exterior field")
-        _state.set_bext_squared(B2)
-
-    @with_binding
-    def save_statefile(self):
-        logger.debug("Writing state to file")
-        _state.save_statefile()
-
-    @with_binding
-    def update_iota_for_current_constraint(self, rho2, iota, reset_LA):
-        logger.debug("Updating iota")
-        _state.update_iota_for_current_constraint(rho2, iota, reset_LA)
-
     @with_binding
     def _get_angle_integration_points(self):
         """Extracts the theta and zeta integration points from fortran GVEC
@@ -342,51 +319,6 @@ class State:
     @with_binding
     def _get_X2_n_modes(self):
         return _state.get_x2_n_modes()
-
-    @with_binding
-    def _get_boundary_forces(self):
-        n_X1 = self._get_X1_n_modes()
-        n_X2 = self._get_X2_n_modes()
-        forces_out = np.asfortranarray(np.zeros((3, n_X1 + n_X2)))
-        _state.get_boundary_forces(n_X1, n_X2, forces_out)
-        m = forces_out[0, :]
-        n = forces_out[1, :]
-        F = forces_out[2, :]
-        return (m, n, F)
-
-    @with_binding
-    def get_Fnorm_boundary(self):
-        logger.debug("Extracting Fnorm at the boundary")
-        return _state.get_fnorm_boundary()
-
-    @with_binding
-    def update_boundary(self, dt: float, reset_minimizer: bool):
-        logger.debug("Stepping in free boundary direction")
-        dt = _state.update_boundary(dt, reset_minimizer)
-        return dt
-
-    @with_binding
-    def get_outputlevel(self):
-        logger.debug("Extracting outputlevel")
-        outid = _state.get_outputlevel()
-        return outid
-
-    @with_binding
-    def get_iterations(self):
-        logger.debug("Extracting iterations")
-        iters = _state.get_iterations()
-        return iters
-
-    @with_binding
-    def get_minimize_tol(self):
-        logger.debug("Extracting minimize tol")
-        tol = _state.get_minimize_tol()
-        return tol
-
-    @with_binding
-    def reset_descent(self):
-        logger.debug("Resetting accelerated descent")
-        _state.reset_descent()
 
     # === Evaluation Methods === #
 

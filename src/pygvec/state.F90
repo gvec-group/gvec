@@ -139,12 +139,13 @@ END SUBROUTINE set_Bext_squared
 !> Wrapper to perform a free boundary update
 !!
 !===================================================================================================================================
-FUNCTION update_boundary(dt, reset_minimizer) RESULT(dt_out)
+FUNCTION update_boundary(dt, reset_minimizer, blend_depth) RESULT(dt_out)
   REAL(wp), INTENT(INOUT)  :: dt
   LOGICAL, INTENT(IN)      ::reset_minimizer
   REAL(wp)                 :: dt_out
+  REAL(wp), INTENT(IN), OPTIONAL :: blend_depth
 
-  CALL functional%update_boundary(dt, reset_minimizer)
+  CALL functional%update_boundary(dt, reset_minimizer, blend_depth_in=blend_depth)
   dt_out = dt
 END FUNCTION update_boundary
 

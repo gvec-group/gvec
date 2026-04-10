@@ -1,7 +1,7 @@
 import numpy as np
 from gvec import State, fluxsurface_integral
 from gvec.coils import CoilSet, Coil
-from gvec.util import read_parameters, write_parameters, CaseInsensitiveDict
+from gvec.util import read_parameters, write_parameters, CaseInsensitiveDict, chdir
 from gvec.core.compute import ev2ft
 from gvec import fourier
 from gvec.core.state import with_binding
@@ -137,6 +137,73 @@ class FreeBoundaryState(State):
                 np.full(shape=(len(self.rho_iota), self.fb_updates), fill_value=np.nan),
             )
             self.diagnostics["rho_iota"] = self.rho_iota
+
+    @with_binding
+    def _minimize(self, dt=None, logfinaliter=True, maxIter=None, minimize_tol=None):
+        """Minimize the MHD functional for the current state."""
+        logger.debug("Minimizing MHD functional.")
+        with chdir(self.rundir):
+            _state.minimize(dt, logfinaliter, maxIter, minimize_tol)
+
+    @with_binding
+    def set_Bext_squared(self, B2):
+        logger.debug("Updating exterior field")
+        _state.set_bext_squared(B2)
+
+    @with_binding
+    def save_statefile(self):
+        logger.debug("Writing state to file")
+        _state.save_statefile()
+
+    @with_binding
+    def update_iota_for_current_constraint(self, rho2, iota, reset_LA):
+        logger.debug("Updating iota")
+        _state.update_iota_for_current_constraint(rho2, iota, reset_LA)
+
+    @with_binding
+    def _get_boundary_forces(self):
+        n_X1 = self._get_X1_n_modes()
+        n_X2 = self._get_X2_n_modes()
+        forces_out = np.asfortranarray(np.zeros((3, n_X1 + n_X2)))
+        _state.get_boundary_forces(n_X1, n_X2, forces_out)
+        m = forces_out[0, :]
+        n = forces_out[1, :]
+        F = forces_out[2, :]
+        return (m, n, F)
+
+    @with_binding
+    def get_Fnorm_boundary(self):
+        logger.debug("Extracting Fnorm at the boundary")
+        return _state.get_fnorm_boundary()
+
+    @with_binding
+    def get_outputlevel(self):
+        logger.debug("Extracting outputlevel")
+        outid = _state.get_outputlevel()
+        return outid
+
+    @with_binding
+    def get_iterations(self):
+        logger.debug("Extracting iterations")
+        iters = _state.get_iterations()
+        return iters
+
+    @with_binding
+    def get_minimize_tol(self):
+        logger.debug("Extracting minimize tol")
+        tol = _state.get_minimize_tol()
+        return tol
+
+    @with_binding
+    def reset_descent(self):
+        logger.debug("Resetting accelerated descent")
+        _state.reset_descent()
+
+    @with_binding
+    def update_boundary(self, dt: float, reset_minimizer: bool, blend_depth: float = 0.6):
+        logger.debug("Stepping in free boundary direction")
+        dt = _state.update_boundary(dt, reset_minimizer, blend_depth=blend_depth)
+        return dt
 
     @with_binding
     def save(self):
@@ -471,15 +538,18 @@ class FreeBoundaryState(State):
             free-boundary target
         """
         ev_gvec = (
-            self.evaluate("B", "p", "normal", rho=1.0)
+            self.evaluate("B", "p", "normal", "Phi_edge", rho=1.0)
             .sel(rho=1.0)
             .transpose("xyz", "tor", "pol")
         )
         B_gvec_2 = (ev_gvec.B**2).sum(dim="xyz")
         force_balance = (B_gvec_2 - B_ext_2) / 2 + mu_0 * ev_gvec.p
-        # flux surface average
+
+        B_avg = (B_gvec_2 + B_ext_2) / 2
+        # flux surface averaged normalized force balance
+        # <|[[B²/2+mu_0*P]] / B² |>
         free_boundary_target = fluxsurface_integral(
-            abs(force_balance) * ev_gvec.Jac
+            abs(force_balance / B_avg) * ev_gvec.Jac
         ) / fluxsurface_integral(ev_gvec.Jac)
         return free_boundary_target, force_balance, ev_gvec
 

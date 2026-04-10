@@ -1368,7 +1368,7 @@ SUBROUTINE check_strong_wolfe_condition(dofs_in, grad_f_in, p_in, y_k, alpha_k)
   END DO
 END SUBROUTINE
 
-SUBROUTINE update_boundary_MHD3D(sf, dt_in, reset_minimizer)
+SUBROUTINE update_boundary_MHD3D(sf, dt_in, reset_minimizer, blend_depth_in)
   USE MODgvec_MHD3D_Vars, ONLY: free_b_minimizer, FreeBoundary
   USE MODgvec_MHD3D_Vars, ONLY: X1_b, X2_b, X1_base, X2_base, X1pert_b, X2pert_b ! for boundary perturbation
   USE MODgvec_MHD3D_Vars, ONLY: Precond_b_X1, Precond_b_X2, precond_boundary
@@ -1378,16 +1378,23 @@ SUBROUTINE update_boundary_MHD3D(sf, dt_in, reset_minimizer)
   CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
   REAL(wp), INTENT(INOUT)                  :: dt_in
   LOGICAL, INTENT(IN)                      :: reset_minimizer
+  REAL(wp), INTENT(IN), OPTIONAL           :: blend_depth_in
 
   INTEGER  :: step_decreases, JacCheck, max_step_decreases
   LOGICAL  :: perform_update
   REAL(wp) :: dt ! for  stepsize reduction
   REAL(wp) :: Force_b_X1X2(X1_base%f%modes + X2_base%f%modes), X1X2pert_b(X1_base%f%modes + X2_base%f%modes)
-  REAL(wp) :: y_k(X1_base%f%modes + X2_base%f%modes), alpha_k
+  REAL(wp) :: y_k(X1_base%f%modes + X2_base%f%modes), alpha_k, blend_depth
 
   IF (.NOT.FreeBoundary) THEN
     CALL abort(__STAMP__, &
            'FreeBoundary is .FALSE. but tried to call update_boundary! Set FreeBoundary=T to allow a boundary update.')
+  END IF
+
+  IF (PRESENT(blend_depth_in)) THEN
+    blend_depth = blend_depth_in
+  ELSE
+    blend_depth = 0.6_wp
   END IF
 
   IF (reset_minimizer) THEN
@@ -1425,7 +1432,7 @@ SUBROUTINE update_boundary_MHD3D(sf, dt_in, reset_minimizer)
       X2_b = vars%dofs(0)%X2(X2_base%s%nBase,:)
 
       CALL vars%temp_dofs(1)%set_to(vars%dofs(0))
-      CALL AddBoundaryPerturbation(vars%temp_dofs(1),0.6_wp,1) ! blend with cosine
+      CALL AddBoundaryPerturbation(vars%temp_dofs(1),blend_depth,1) ! blend with cosine
 
       ! check for a valid step
       vars%temp_dofs(1)%W_MHD3D = EvalEnergy(vars%temp_dofs(1),.TRUE.,JacCheck)
