@@ -100,7 +100,7 @@ To reference the *G-Frame*, please cite:
 
 ## References
 
-This is a list of selected references in which the GVEC equilibrium solver was utilized:
+This is a list of selected references in which the GVEC equilibrium solver was utilized or described:
 
 | | |
 |-|-|
