@@ -498,6 +498,7 @@ SUBROUTINE InitFreeBoundary(sf)
   USE MODgvec_MHD3D_Vars, ONLY: epsilon_spectral, Q_spectral
   USE MODgvec_MHD3D_Vars, ONLY: X1_base, X2_base
   USE MODgvec_MHD3D_Vars, ONLY: Precond_b_X1, Precond_b_X2
+  USE MODgvec_MHD3D_Vars, ONLY: mode_scale_X1, mode_scale_X2, gnorm_fb, xnorm_fb
   USE MODgvec_free_b_minimizer_GD, ONLY: t_free_b_minimizer_GD
   USE MODgvec_free_b_minimizer_moment_GD, ONLY: t_free_b_minimizer_moment_GD
   USE MODgvec_free_b_minimizer_acc_GD, ONLY: t_free_b_minimizer_acc_GD
@@ -529,6 +530,14 @@ SUBROUTINE InitFreeBoundary(sf)
 
     Precond_b_X1 = 1.0_wp
     Precond_b_X2 = 1.0_wp
+
+    ALLOCATE(mode_scale_X1(1:modes_X1))
+    ALLOCATE(mode_scale_X2(1:modes_X2))
+    gnorm_fb = 1e6
+    xnorm_fb = 1e6
+
+    mode_scale_X1 = EXP(-SQRT(REAL(X1_base%f%Xmn(1,:))**2+REAL(X1_base%f%Xmn(2,:))**2))
+    mode_scale_X2 = EXP(-SQRT(REAL(X2_base%f%Xmn(1,:))**2+REAL(X2_base%f%Xmn(2,:))**2))
 
     SELECT CASE(free_b_minimizer_type)
     CASE(0)
@@ -1292,87 +1301,12 @@ SUBROUTINE AddBoundaryPerturbation(U_init, depth, blend_type)
 
 END SUBROUTINE AddBoundaryPerturbation
 
-SUBROUTINE check_strong_wolfe_condition(dofs_in, grad_f_in, p_in, y_k, alpha_k)
-  ! HACK do-not use: does not consider change in Bext!
-  USE MODgvec_MHD3D_Vars, ONLY: X1_b, X2_b, X1_base, X2_base, X1pert_b, X2pert_b ! for bondary perturbation
-  USE MODgvec_MHD3D_Vars, ONLY: Force_b_X1, Force_b_X2, free_b_minimizer
-  USE MODgvec_MHD3D_evalFunc, ONLY : EvalForce, EvalAux
-  USE MODgvec_sol_var_MHD3D, ONLY : t_sol_var_MHD3D
-
-  ! INPUT VARIABLES -------------------------!
-  CLASS(t_sol_var_MHD3D), INTENT(IN) :: dofs_in !! input solution
-  REAL(wp),               INTENT(IN) :: grad_f_in(X1_base%f%modes + X2_base%f%modes), p_in(X1_base%f%modes + X2_base%f%modes)
-  ! OUTPUT VARIABLES -------------------------!
-  REAL(wp), INTENT(INOUT) :: y_k(X1_base%f%modes + X2_base%f%modes), alpha_k
-  ! LOCAL VARIABLES -------------------------!
-  REAL(wp)                            :: grad_f(X1_base%f%modes + X2_base%f%modes)
-  TYPE(t_sol_var_MHD3D)               :: dofs_temp, force_temp !! temporary solution and force
-  REAL(wp)                            :: rhs_ineq, lhs_ineq
-  INTEGER                             :: JacCheck, n_decreases
-  LOGICAL                             :: doCheck
-  ! CODE --------------------------------------------------------------------------------------------------------------------------!
-  grad_f = grad_f_in
-  n_decreases = 0
-  doCheck = .TRUE.
-
-  !c2*|p_k*(nabla f(x_k))|
-  rhs_ineq = 0.9*ABS(DOT_PRODUCT(p_in,grad_f))
-  JacCheck = 2
-
-  CALL dofs_temp%copy(dofs_in)
-  CALL force_temp%copy(dofs_in)
-  CALL force_temp%set_to_scalar(0.0_wp)
-
-  DO WHILE (doCheck)
-    ! set the global perturbation variables
-    X1_b = dofs_in%X1(X1_base%s%nBase,:)
-    X2_b = dofs_in%X2(X2_base%s%nBase,:)
-    X1pert_b = alpha_k*p_in(1:X1_base%f%modes)
-    X2pert_b = alpha_k*p_in(X1_base%f%modes+1:)
-
-    ! apply boundary perturbation on the dofs_temp
-    CALL AddBoundaryPerturbation(dofs_temp,0.6_wp,1) ! blend with cosine
-
-    ! check if the new dofs result in a positive jacobian and evaluate the forces on the boundary
-    CALL EvalAux(dofs_temp,JacCheck)
-    IF (JacCheck>=0) THEN
-      CALL EvalForce(dofs_temp,.FALSE., JacCheck, force_temp)
-
-
-      ! update nabla f with the new forces on teh boundary
-      grad_f(1:X1_base%f%modes) = Force_b_X1
-      grad_f(X1_base%f%modes+1:) = Force_b_X2
-
-      ! left hand side of the wolfe condition
-      lhs_ineq = ABS(DOT_PRODUCT(p_in,grad_f))
-    END IF
-
-    IF ((JacCheck<0).OR.(lhs_ineq>rhs_ineq)) THEN
-      ! reduce stepsize
-      alpha_k = 0.5*alpha_k
-
-      !reset to inital dofs
-      CALL dofs_temp%set_to(dofs_in)
-      n_decreases = n_decreases + 1
-
-      ! abort if alpha < 1e-12
-      IF (n_decreases > 10) THEN
-        doCheck = .FALSE.
-        y_k = grad_f-grad_f_in
-      END IF
-      JacCheck = 2
-    ELSE
-      doCheck = .False.
-      y_k = grad_f-grad_f_in
-    END IF
-  END DO
-END SUBROUTINE
-
 SUBROUTINE update_boundary_MHD3D(sf, dt_in, reset_minimizer, blend_depth_in)
   USE MODgvec_MHD3D_Vars, ONLY: free_b_minimizer, FreeBoundary
   USE MODgvec_MHD3D_Vars, ONLY: X1_b, X2_b, X1_base, X2_base, X1pert_b, X2pert_b ! for boundary perturbation
   USE MODgvec_MHD3D_Vars, ONLY: Precond_b_X1, Precond_b_X2, precond_boundary
   USE MODgvec_MHD3D_Vars, ONLY: Force_b_X1, Force_b_X2
+  USE MODgvec_MHD3D_Vars, ONLY: mode_scale_X1, mode_scale_X2, xnorm_fb, gnorm_fb ! abort criteria
   USE MODgvec_MHD3D_evalFunc, ONLY : EvalForce, EvalEnergy
 
   CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
@@ -1417,6 +1351,7 @@ SUBROUTINE update_boundary_MHD3D(sf, dt_in, reset_minimizer, blend_depth_in)
   max_step_decreases = 130
   ASSOCIATE(vars => sf%minimizer%vars)
     CALL EvalForce(vars%dofs(0),.TRUE., vars%JacCheck,vars%force(0))
+    gnorm_fb = SQRT(SUM((Force_b_X1)**2)+SUM((Force_b_X2)**2))
     IF (.NOT.precond_boundary) THEN
       Force_b_X1X2(1:X1_base%f%modes) = Force_b_X1
       Force_b_X1X2(X1_base%f%modes+1:) = Force_b_X2
@@ -1455,6 +1390,7 @@ SUBROUTINE update_boundary_MHD3D(sf, dt_in, reset_minimizer, blend_depth_in)
         perform_update = .FALSE.
       END IF
     END DO !while for stepsize reduction
+    xnorm_fb = SQRT(SUM((X1pert_b * mode_scale_X1)**2)+SUM((X2pert_b * mode_scale_X2)**2))
     CALL vars%dofs(0)%set_to(vars%temp_dofs(1))
   END ASSOCIATE
   dt_in = free_b_minimizer%dt
@@ -1568,6 +1504,8 @@ SUBROUTINE FinalizeMHD3D(sf)
   SDEALLOCATE(Force_b_X2)
   SDEALLOCATE(Precond_b_X1)
   SDEALLOCATE(Precond_b_X2)
+  SDEALLOCATE(mode_scale_X1)
+  SDEALLOCATE(mode_scale_X2)
   SDEALLOCATE(free_b_minimizer)
 
   CALL exit_subregion("finalize-MHD3D")

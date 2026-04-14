@@ -178,19 +178,31 @@ FUNCTION get_X1_n_modes() RESULT(n_modes)
   USE MODgvec_MHD3D_Vars, ONLY: X1_base
   INTEGER :: n_modes
   n_modes = X1_base%f%modes
-END FUNCTION
+END FUNCTION get_X1_n_modes
 
 FUNCTION get_X2_n_modes() RESULT(n_modes)
   USE MODgvec_MHD3D_Vars, ONLY: X2_base
   INTEGER :: n_modes
   n_modes = X2_base%f%modes
-END FUNCTION
+END FUNCTION get_X2_n_modes
 
 FUNCTION get_spectral_width() RESULT(width)
   USE MODgvec_MHD3D_Vars, ONLY: spectral_width
   REAL(wp) :: width
   width = spectral_width
-END FUNCTION
+END FUNCTION get_spectral_width
+
+FUNCTION get_gnorm() RESULT(gnorm)
+  USE MODgvec_MHD3D_Vars, ONLY: gnorm_fb
+  REAL(wp) :: gnorm
+  gnorm = gnorm_fb
+END FUNCTION get_gnorm
+
+FUNCTION get_xnorm() RESULT(xnorm)
+  USE MODgvec_MHD3D_Vars, ONLY: xnorm_fb
+  REAL(wp) :: xnorm
+  xnorm = xnorm_fb
+END FUNCTION get_xnorm
 
 SUBROUTINE get_boundary_forces(modes_X1, modes_X2, forces_inout)
   USE MODgvec_MHD3D_Vars, ONLY: Force_b_X1, Force_b_X2, X1_base, X2_base

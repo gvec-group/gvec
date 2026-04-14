@@ -99,24 +99,28 @@ CLASS(c_rProfile), ALLOCATABLE   :: Phi_profile
 CLASS(c_rProfile), ALLOCATABLE   :: chi_profile
 
 ! FREE_BOUNDARY
-REAL(wp), ALLOCATABLE :: Bext_squared(:) ! external magnetic field
+REAL(wp), ALLOCATABLE :: Bext_squared(:) !! external magnetic field
 LOGICAL               :: FreeBoundary
-REAL(wp), ALLOCATABLE :: Force_b_X1(:) ! Force on X1 at the boundary
-REAL(wp), ALLOCATABLE :: Force_b_X2(:) ! Force on X2 at the boundary
-REAL(wp), ALLOCATABLE :: Precond_b_X1(:) ! Preconditioner on X1 at the boundary
-REAL(wp), ALLOCATABLE :: Precond_b_X2(:) ! Preconditioner on X2 at the boundary
+REAL(wp), ALLOCATABLE :: Force_b_X1(:) !! Force on X1 at the boundary
+REAL(wp), ALLOCATABLE :: Force_b_X2(:) !! Force on X2 at the boundary
+REAL(wp), ALLOCATABLE :: Precond_b_X1(:) !! Preconditioner on X1 at the boundary
+REAL(wp), ALLOCATABLE :: Precond_b_X2(:) !! Preconditioner on X2 at the boundary
 LOGICAL               :: precond_boundary
-REAL(wp)              :: beta1 ! decay rate for the free boundary update using ADAM / moment GD
-REAL(wp)              :: beta2 ! decay rate for the free boundary update using ADAM
+REAL(wp)              :: beta1 !! decay rate for the free boundary update using ADAM / moment GD
+REAL(wp)              :: beta2 !! decay rate for the free boundary update using ADAM
 INTEGER               :: free_b_minimizer_type ! 0=gradient descent, 1 = ADAM
 CLASS(c_free_b_minimizer), ALLOCATABLE :: free_b_minimizer
-REAL(wp)              :: Fnorm_X1_b_IP ! L2 norm of the forces on X1 at the boundary, calculated from the integration points
-REAL(wp)              :: Fnorm_X2_b_IP ! L2 norm of the forces on X2 at the boundary, calculated from the integration points
-REAL(wp)              :: Fnorm_X1_b_modes ! L2 norm of the forces on X1 at the boundary, after projection onto the modes
-REAL(wp)              :: Fnorm_X2_b_modes ! L2 norm of the forces on X1 at the boundary, after projection onto the modes
+REAL(wp)              :: Fnorm_X1_b_IP !! L2 norm of the forces on X1 at the boundary, calculated from the integration points
+REAL(wp)              :: Fnorm_X2_b_IP !! L2 norm of the forces on X2 at the boundary, calculated from the integration points
+REAL(wp)              :: Fnorm_X1_b_modes !! L2 norm of the forces on X1 at the boundary, after projection onto the modes
+REAL(wp)              :: Fnorm_X2_b_modes !! L2 norm of the forces on X1 at the boundary, after projection onto the modes
 REAL(wp)              :: epsilon_spectral
 INTEGER               :: Q_spectral
 REAL(wp)              :: spectral_width
+REAL(wp)              :: xnorm_fb !! L2 norm of the change in the boundary dofs
+REAL(wp)              :: gnorm_fb !! L2 norm of the free-boundary gradient
+REAL(wp), ALLOCATABLE :: mode_scale_X1(:) !! expected mode scaling of X1 ~ exp(-sqrt(m**2+n**2))
+REAL(wp), ALLOCATABLE :: mode_scale_X2(:) !! expected mode scaling of X2 ~ exp(-sqrt(m**2+n**2))
 
 !===================================================================================================================================
 

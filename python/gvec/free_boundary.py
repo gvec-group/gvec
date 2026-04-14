@@ -195,6 +195,18 @@ class FreeBoundaryState(State):
         return tol
 
     @with_binding
+    def get_gnorm(self):
+        logger.debug("Extracting gnorm")
+        gnorm = _state.get_gnorm()
+        return gnorm
+
+    @with_binding
+    def get_xnorm(self):
+        logger.debug("Extracting xnorm")
+        xnorm = _state.get_xnorm()
+        return xnorm
+
+    @with_binding
     def reset_descent(self):
         logger.debug("Resetting accelerated descent")
         _state.reset_descent()
@@ -629,6 +641,7 @@ class FreeBoundaryState(State):
         tol: float,
         copy_stdout: bool = True,
         reset_minimizer: bool = False,
+        blend_depth: float = 0.6,
     ):
         """Single free boundary push.
 
@@ -651,7 +664,7 @@ class FreeBoundaryState(State):
         # set Bext
         self.set_Bext_squared(B2)
         self.reset_descent()
-        self.dt = self.update_boundary(self.dt, reset_minimizer)
+        self.dt = self.update_boundary(self.dt, reset_minimizer, blend_depth)
 
         # get minimizer tolerance
         if self.current_constraint:
@@ -676,6 +689,9 @@ class FreeBoundaryState(State):
         ramp_force_tol=True,
         ramp_force_tol_start: float = 1e-3,
         alpha: float = 10.0,
+        blend_depth: float = 0.6,
+        gtol=1e-8,
+        xtol=1e-8,
     ):
         """Perform the free-boundary run.
 
@@ -774,11 +790,34 @@ class FreeBoundaryState(State):
                         current_lowest_min_tol = minimize_tol
                     minimize_tol = np.min([minimize_tol, current_lowest_min_tol])
                     logger.info(f"Setting gvec minimize_tol: {minimize_tol:.2e}")
-                if (self.free_boundary_target > self.free_boundary_tolerance) or (
-                    self._resolved_force_ratio > force_ratio_limit
+
+                # abort criteria
+                xnorm = self.get_xnorm()
+                gnorm = self.get_gnorm()
+                fb_target_reached = self.free_boundary_target <= self.free_boundary_tolerance
+                xtol_reached = xnorm <= xtol
+                gtol_reached = gnorm <= gtol
+                force_ratio_limit_reached = self._resolved_force_ratio <= force_ratio_limit
+
+                if (
+                    fb_target_reached
+                    or xtol_reached
+                    or gtol_reached
+                    or force_ratio_limit_reached
                 ):
                     logger.info(
-                        f"force ratio {self._resolved_force_ratio:.2}, limit {force_ratio_limit:.2}"
+                        "Reached free boundary stopping criterion!\n"
+                        + f"    free-boundary target: {self.free_boundary_target:.3e}, specified tol.: {self.free_boundary_tolerance:.3e}.\n"
+                        + f"    xnorm: {xnorm:.2e}, xtol: {xtol:.2e}.\n"
+                        + f"    gnorm: {gnorm:.2e}, gtol: {gtol:.2e}.\n"
+                        + f"    resolved force-balance ratio: {self._resolved_force_ratio:.2e} %, specified limit: {force_ratio_limit:.2e}.\n"
+                    )
+                    break
+                else:
+                    logger.info(
+                        f"\n    xnorm: {xnorm:.2e}, xtol: {xtol:.2e}.\n"
+                        + f"    gnorm: {gnorm:.2e}, gtol: {gtol:.2e}.\n"
+                        + f"    force ratio {self._resolved_force_ratio:.2}, limit {force_ratio_limit:.2}"
                     )
                     t_fb_0 = time.time()
                     self._free_boundary_update(
@@ -786,6 +825,7 @@ class FreeBoundaryState(State):
                         B2=B2,
                         tol=minimize_tol,
                         reset_minimizer=reset_minimizer,
+                        blend_depth=blend_depth,
                     )
                     t_fb_1 = time.time()
                     logger.info(f"Time for free boundary update: {t_fb_1 - t_fb_0:.4}s")
@@ -795,12 +835,7 @@ class FreeBoundaryState(State):
                         self.I_tor_boundary = self.evaluate("I_tor", rho=1.0).I_tor.item()
                     else:
                         self.diagnostics.iota[:, i] = self.iota.data
-                else:
-                    logger.info(
-                        f"Reached free boundary stopping criterion. free-boundary target: {self.free_boundary_target:.3e}, specified tol.: {self.free_boundary_tolerance:.3e}."
-                        + f" resolved force-balance ratio: {self._resolved_force_ratio:.2e} %, specified limit: {force_ratio_limit:.2e}."
-                    )
-                    break
+
                 logger.info(
                     f"free-boundary - target: {self.free_boundary_target:.3e}, tolerance: {self.free_boundary_tolerance}, iters: {self.iters_used} / {self.totalIter} "
                 )
