@@ -202,16 +202,20 @@ def test_I_tor_types(ptype):
     parameters["projectname"] = ProjectName
 
     # integrated two power profile (1-x²)
-    coefs = 6000 * np.array([0, 1, 0, 1 / 3])
+    coefs = 6000 * np.array([0, 1, 0, -1 / 3])
+    rho = np.sqrt(np.linspace(1e-4, 1, 50))
+    rho2 = rho**2
 
+    # integrated two power profile (1-x²)
+    def I_tor_tp(rho2):
+        return 6000 * (rho2 - rho2**3 / 3)
+
+    I_tor = I_tor_tp(rho2)
     if "stages" in parameters:
         del parameters["stages"]
 
     match ptype:
         case "interpolation":
-            rho2 = np.linspace(1e-4, 1, 50)
-            # integrated two power profile (1-x²)
-            I_tor = 6000 * (rho2 - rho2**3 / 3)
             parameters["I_tor"] = dict(type=ptype, rho2=rho2, vals=I_tor)
         case "polynomial":
             parameters["I_tor"] = dict(type=ptype, coefs=coefs)
@@ -233,6 +237,7 @@ def test_I_tor_types(ptype):
     assert Path(f"{ProjectName}_State_final.dat").exists()
     assert Path(f"parameter_{ProjectName}_final.ini").exists()
 
+    np.testing.assert_allclose(I_tor_tp(run_with_stages.rho**2), run_with_stages.I_tor_target)
     I_tor_rms = np.sqrt(
         (run_with_stages.diagnostics_run.I_tor_delta.isel(run=-1) ** 2).mean(dim="rad")
     )

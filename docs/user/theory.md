@@ -1,6 +1,6 @@
 # Theory
 
-GVEC is already providing stellarator-type equilibrium solutions to the gyro-kinetic code GENE-3D {cite}`navarro2020global`,{cite}`maurer2020gene`,{cite}`wilms2021global`, the linear MHD stability code CASTOR-3D {cite}`puchmayr2023helical` and the nonlinear time-dependent MHD code JOREK-3D {cite}`nikulsin2022jorek3d`.  The new G-Frame feature and its application are presented in {cite}`Hindenlang_2025` and {cite}`Plunk_figure_8`.
+GVEC {cite}`gvec_joss_2026` is already providing stellarator-type equilibrium solutions to the gyro-kinetic code GENE-3D {cite}`navarro2020global`,{cite}`maurer2020gene`,{cite}`wilms2021global`, the linear MHD stability code CASTOR-3D {cite}`puchmayr2023helical` and the nonlinear time-dependent MHD code JOREK-3D {cite}`nikulsin2022jorek3d`.  The new G-Frame feature and its application are presented in {cite}`Hindenlang_2025` and {cite}`Plunk_figure_8`.
 
 GVEC builds upon the ideas of the well-established VMEC {cite}`vmec_83`.
 
