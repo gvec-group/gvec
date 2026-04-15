@@ -690,8 +690,9 @@ class FreeBoundaryState(State):
         ramp_force_tol_start: float = 1e-3,
         alpha: float = 10.0,
         blend_depth: float = 0.6,
-        gtol=1e-8,
-        xtol=1e-8,
+        gtol: float = 1e-8,
+        xtol: float = 1e-8,
+        digits_BIEST: int = 8,
     ):
         """Perform the free-boundary run.
 
@@ -750,6 +751,7 @@ class FreeBoundaryState(State):
                         nzeta=self.z_n,
                         I_tor=self.I_tor_boundary,
                         diagnostic_output=True,
+                        digits=digits_BIEST,
                     )
                     self.B2_history[:, i] = B2
 
@@ -764,6 +766,7 @@ class FreeBoundaryState(State):
                             nzeta=self.z_n,
                             I_tor=self.I_tor_boundary,
                             diagnostic_output=True,
+                            digits=digits_BIEST,
                         )
                         self.B2_history[:, 0] = self.B2_history[:, 1]
                         self.B2_history[:, 1] = B2
@@ -989,7 +992,8 @@ def _get_B2_fp(
     ntheta: int,
     nzeta: int,
     I_tor: float,
-    diagnostic_output=False,
+    diagnostic_output: bool,
+    digits: int,
 ):
     """Setup BIEST with points corresponding to one field period and return the flattened squared exterior field for free boundary gvec.
 
@@ -1049,7 +1053,7 @@ def _get_B2_fp(
         state.nfp,
         B_coils_biest,
         I_tor * mu_0,
-        digits=14,
+        digits=digits,
     )
     time_1 = time.time()
     logger.info(f"time for BIEST: {time_1 - time_0:.3}s for {ntheta * nzeta} points")
