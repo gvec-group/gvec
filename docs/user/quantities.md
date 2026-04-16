@@ -180,7 +180,8 @@ toq("toq_B_B", Qs_B_B)
 ### PEST magnetic field
 ```{code-cell} ipython3
 :tags: [remove-input]
-Qs_B_P = ["B_contra_t_P", "B_rho_P", "B_theta_P", "B_zeta_P"]
+Qs_B_P = ["B_contra_t_P", "B_rho_P", "B_theta_P", "B_zeta_P",
+  "dmod_B_dr_P", "dmod_B_dt_P", "dmod_B_dz_P"]
 toq("toq_B_P", Qs_B_P)
 ```
 ```{glue:md} toq_B_P
