@@ -672,13 +672,39 @@ def test_compute_Jac_B_consistency(teststate, ev_boozer):
     )
 
 
-def test_compute_grad_mod_B(teststate, ev_boozer_drho):
+def test_compute_grad_mod_B(teststate, ev_rtz_int):
+    ds = ev_rtz_int.copy().isel(rad=slice(1, None))
+    Qs = (
+        ["grad_mod_B"]
+        + [f"dmod_B_d{i}" for i in "rtz"]
+        + [f"dmod_B_d{i}_P" for i in "rtz"]
+        + ["grad_rho", "grad_theta_P", "grad_zeta", "e_rho_P", "e_theta_P", "e_zeta_P"]
+    )
+    compute(ds, *Qs, state=teststate)
+
+    for q in Qs:
+        assert np.isnan(ds[q].data).sum() == 0
+
+    grad_mod_B_P = (
+        ds.dmod_B_dr_P * ds.grad_rho
+        + ds.dmod_B_dt_P * ds.grad_theta_P
+        + ds.dmod_B_dz_P * ds.grad_zeta
+    )
+    np.testing.assert_allclose(ds.grad_mod_B, grad_mod_B_P)
+    np.testing.assert_allclose(ds.dmod_B_dr_P, xr.dot(ds.grad_mod_B, ds.e_rho_P, dim="xyz"))
+    np.testing.assert_allclose(ds.dmod_B_dt_P, xr.dot(ds.grad_mod_B, ds.e_theta_P, dim="xyz"))
+    np.testing.assert_allclose(ds.dmod_B_dz_P, xr.dot(ds.grad_mod_B, ds.e_zeta_P, dim="xyz"))
+
+
+def test_compute_grad_mod_B_boozer(teststate, ev_boozer_drho):
     ds = ev_boozer_drho.copy().isel(rad=slice(1, None))
     Qs = (
         ["grad_mod_B"]
         + [f"dmod_B_d{i}" for i in "rtz"]
         + [f"dmod_B_d{i}_B" for i in "rtz"]
+        + [f"dmod_B_d{i}_P" for i in "rtz"]
         + ["grad_rho", "grad_theta_B", "grad_zeta_B", "e_rho_B", "e_theta_B", "e_zeta_B"]
+        + ["grad_rho", "grad_theta_P", "grad_zeta", "e_rho_P", "e_theta_P", "e_zeta_P"]
     )
     compute(ds, *Qs, state=teststate)
 
@@ -710,9 +736,37 @@ def test_compute_grad_mod_B(teststate, ev_boozer_drho):
     np.testing.assert_allclose(ds.dmod_B_dt_B, xr.dot(ds.grad_mod_B, ds.e_theta_B, dim="xyz"))
     np.testing.assert_allclose(ds.dmod_B_dz_B, xr.dot(ds.grad_mod_B, ds.e_zeta_B, dim="xyz"))
 
+    grad_mod_B_P = (
+        ds.dmod_B_dr_P * ds.grad_rho
+        + ds.dmod_B_dt_P * ds.grad_theta_P
+        + ds.dmod_B_dz_P * ds.grad_zeta
+    )
+    np.testing.assert_allclose(ds.grad_mod_B, grad_mod_B_P)
+    np.testing.assert_allclose(ds.dmod_B_dr_P, xr.dot(ds.grad_mod_B, ds.e_rho_P, dim="xyz"))
+    np.testing.assert_allclose(ds.dmod_B_dt_P, xr.dot(ds.grad_mod_B, ds.e_theta_P, dim="xyz"))
+    np.testing.assert_allclose(ds.dmod_B_dz_P, xr.dot(ds.grad_mod_B, ds.e_zeta_P, dim="xyz"))
+
 
 @pytest.mark.parametrize(
-    "q", ["B_contra_t", "B_contra_z", "g_rr", "g_rt", "g_rz", "g_tt", "g_tz", "g_zz", "mod_B"]
+    "q",
+    [
+        "X1",
+        "X2",
+        "LA",
+        "g_rr",
+        "g_rt",
+        "g_rz",
+        "g_tt",
+        "g_tz",
+        "g_zz",
+        "Jac",
+        "Jac_l",
+        "Jac_h",
+        "B_contra_t",
+        "B_contra_z",
+        "mod_B",
+        "B",
+    ],
 )
 def test_derivatives(teststate, q):
     ds = gvec.Evaluations(
@@ -722,7 +776,8 @@ def test_derivatives(teststate, q):
     )
     compute(ds, q, f"d{q}_dr", f"d{q}_dt", f"d{q}_dz", state=teststate)
 
-    assert ds[q].dims == ("rad", "pol", "tor")
+    ds = ds.transpose("rad", "pol", "tor", ...)
+    assert ds[q].dims[:3] == ("rad", "pol", "tor")
 
     # using 8th order central FD on the equispaced grid (careful: 4 boundary points cannot be correctly computed)
     FDpos = [-4, -3, -2, -1, 1, 2, 3, 4]
@@ -730,7 +785,7 @@ def test_derivatives(teststate, q):
     dr = ds.rho.values[1] - ds.rho.values[0]
     dt = ds.theta.values[1] - ds.theta.values[0]
     dz = ds.zeta.values[1] - ds.zeta.values[0]
-    dQdr = compute_FD(np.array(ds[q]), FDpos, FDcoefs / dr, axis=0)
+    dQdr = compute_FD(ds[q].values, FDpos, FDcoefs / dr, axis=0)
     dQdt = compute_FD(ds[q].values, FDpos, FDcoefs / dt, axis=1)
     dQdz = compute_FD(ds[q].values, FDpos, FDcoefs / dz, axis=2)
     ds = ds.isel(rad=slice(4, -4), pol=slice(4, -4), tor=slice(4, -4))
@@ -738,6 +793,90 @@ def test_derivatives(teststate, q):
     np.testing.assert_allclose(ds[f"d{q}_dr"], dQdr[4:-4, 4:-4, 4:-4], atol=1e-8 * Q_scale)
     np.testing.assert_allclose(ds[f"d{q}_dt"], dQdt[4:-4, 4:-4, 4:-4], atol=1e-8 * Q_scale)
     np.testing.assert_allclose(ds[f"d{q}_dz"], dQdz[4:-4, 4:-4, 4:-4], atol=1e-8 * Q_scale)
+
+
+@pytest.mark.parametrize("sfl", ["boozer", "pest"])
+@pytest.mark.parametrize("q", ["mod_B"])
+def test_derivatives_sfl(teststate, sfl, q):
+    suffix = sfl[0].upper()
+
+    Qs = [q, f"d{q}_dr_{suffix}", f"d{q}_dt_{suffix}", f"d{q}_dz_{suffix}"]
+    ds = teststate.evaluate_sfl(
+        *Qs,
+        rho=np.linspace(0.95, 1, 51),
+        theta=np.linspace(np.pi / 10, np.pi / 5, 31),
+        zeta=np.linspace(0.0, np.pi / 10 / teststate.nfp, 41),
+        sfl=sfl,
+    )
+
+    ds = ds.transpose("rad", "pol", "tor", ...)
+    assert ds[q].dims[:3] == ("rad", "pol", "tor")
+
+    # using 8th order central FD on the equispaced grid (careful: 4 boundary points cannot be correctly computed)
+    FDpos = [-4, -3, -2, -1, 1, 2, 3, 4]
+    FDcoefs = np.array([1 / 280, -4 / 105, 1 / 5, -4 / 5, 4 / 5, -1 / 5, 4 / 105, -1 / 280])
+    dr = ds.rho.values[1] - ds.rho.values[0]
+    if sfl == "boozer":
+        dt = ds.theta_B.values[1] - ds.theta_B.values[0]
+        dz = ds.zeta_B.values[1] - ds.zeta_B.values[0]
+    elif sfl == "pest":
+        dt = ds.theta_P.values[1] - ds.theta_P.values[0]
+        dz = ds.zeta.values[1] - ds.zeta.values[0]
+    dQdr = compute_FD(ds[q].values, FDpos, FDcoefs / dr, axis=0)
+    dQdt = compute_FD(ds[q].values, FDpos, FDcoefs / dt, axis=1)
+    dQdz = compute_FD(ds[q].values, FDpos, FDcoefs / dz, axis=2)
+    ds = ds.isel(rad=slice(4, -4), pol=slice(4, -4), tor=slice(4, -4))
+    Q_scale = np.amax(np.abs(ds[q]))
+    np.testing.assert_allclose(
+        ds[f"d{q}_dr_{suffix}"], dQdr[4:-4, 4:-4, 4:-4], atol=1e-6 * Q_scale
+    )
+    np.testing.assert_allclose(
+        ds[f"d{q}_dt_{suffix}"], dQdt[4:-4, 4:-4, 4:-4], atol=1e-6 * Q_scale
+    )
+    np.testing.assert_allclose(
+        ds[f"d{q}_dz_{suffix}"], dQdz[4:-4, 4:-4, 4:-4], atol=1e-6 * Q_scale
+    )
+
+
+@pytest.mark.parametrize(
+    "q, dqdr, dqdt, dqdz",
+    [
+        ("pos", "e_rho", "e_theta", "e_zeta"),
+        ("e_rho", "k_rr", "k_rt", "k_rz"),
+        ("e_theta", "k_rt", "k_tt", "k_tz"),
+        ("e_zeta", "k_rz", "k_tz", "k_zz"),
+    ],
+)
+def test_derivatives_explicit(teststate, q, dqdr, dqdt, dqdz):
+    ds = teststate.evaluate(
+        q,
+        dqdr,
+        dqdt,
+        dqdz,
+        rho=np.linspace(0.95, 1, 51),
+        theta=np.linspace(np.pi / 10, np.pi / 5, 31),
+        zeta=np.linspace(0.0, np.pi / 10 / teststate.nfp, 41),
+    )
+    ds = ds.transpose("rad", "pol", "tor", ...)
+    assert ds[q].dims[:3] == ("rad", "pol", "tor")
+    assert ds[dqdr].dims[:3] == ("rad", "pol", "tor")
+    assert ds[dqdt].dims[:3] == ("rad", "pol", "tor")
+    assert ds[dqdz].dims[:3] == ("rad", "pol", "tor")
+
+    # using 8th order central FD on the equispaced grid (careful: 4 boundary points cannot be correctly computed)
+    FDpos = [-4, -3, -2, -1, 1, 2, 3, 4]
+    FDcoefs = np.array([1 / 280, -4 / 105, 1 / 5, -4 / 5, 4 / 5, -1 / 5, 4 / 105, -1 / 280])
+    dr = ds.rho.values[1] - ds.rho.values[0]
+    dt = ds.theta.values[1] - ds.theta.values[0]
+    dz = ds.zeta.values[1] - ds.zeta.values[0]
+    dQdr = compute_FD(ds[q].values, FDpos, FDcoefs / dr, axis=0)
+    dQdt = compute_FD(ds[q].values, FDpos, FDcoefs / dt, axis=1)
+    dQdz = compute_FD(ds[q].values, FDpos, FDcoefs / dz, axis=2)
+    ds = ds.isel(rad=slice(4, -4), pol=slice(4, -4), tor=slice(4, -4))
+    Q_scale = np.amax(np.abs(ds[q]))
+    np.testing.assert_allclose(ds[dqdr], dQdr[4:-4, 4:-4, 4:-4], atol=1e-8 * Q_scale)
+    np.testing.assert_allclose(ds[dqdt], dQdt[4:-4, 4:-4, 4:-4], atol=1e-8 * Q_scale)
+    np.testing.assert_allclose(ds[dqdz], dQdz[4:-4, 4:-4, 4:-4], atol=1e-8 * Q_scale)
 
 
 def test_volume_integral(teststate, ev_rtz_int, ev_rtz):

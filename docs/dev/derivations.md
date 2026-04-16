@@ -170,15 +170,15 @@ $$
 The geodesic curvature $\kappa_G$ is defined as
 
 $$
-\kappa_G &:= \vec{\kappa}_B \cdot \qty(\grad\rho \times \vec{b}) \\
+\kappa_G &:= \vec{\kappa}_B \cdot \qty(\vec{n} \times \vec{b}) \\
 $$
 
 Which could be rewritten as
 
 $$
 \begin{align}
-\kappa_G &= \vec{b} \cdot \qty(\grad \vec{b}) \cdot \qty(\grad\rho \times \vec{b}) \\
-&= \sum_\alpha \qty(\frac{\vec{B}}{\modB} \cdot \grad\alpha) \pdv{\vec{b}}{\alpha} \cdot \qty(\grad\rho \times \vec{b}) \\
+\kappa_G &= \vec{b} \cdot \qty(\grad \vec{b}) \cdot \qty(\vec{n} \times \vec{b}) \\
+&= \sum_\alpha \qty(\frac{\vec{B}}{\modB} \cdot \grad\alpha) \pdv{\vec{b}}{\alpha} \cdot \qty(\vec{n} \times \vec{b}) \\
 \end{align}
 $$
 
