@@ -29,7 +29,7 @@ MODULE MODgvec_MHD3D_minimize
         INTEGER   :: JacCheck !! switch for restarts, if detJ<0 JacCheck=-1
         INTEGER   :: iter,nStepDecreased,nSkip_Jac,nSkip_dw
         INTEGER   :: lastoutputIter, logiter_ramp, logscreen
-        REAL(wp)  :: dt,deltaW, dW_allowed
+        REAL(wp)  :: dt,deltaW, dW_allowed, max_dt
         REAL(wp)  :: t_pseudo,Fnorm(3),Fnorm0(3),Fnorm_old(3),W_MHD3D_0
 
         ! Logging variables
@@ -130,6 +130,7 @@ MODULE MODgvec_MHD3D_minimize
         END IF
         ASSOCIATE(vars=>sf%vars)
             vars%dt = dt_initial
+            vars%max_dt = dt_initial
             vars%dW_allowed = dW_allowed_in
 
             ALLOCATE(vars%dofs(-3:1))

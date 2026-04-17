@@ -1392,6 +1392,7 @@ SUBROUTINE update_boundary_MHD3D(sf, dt_in, reset_minimizer, blend_depth_in)
     END DO !while for stepsize reduction
     xnorm_fb = SQRT(SUM((X1pert_b * mode_scale_X1)**2)+SUM((X2pert_b * mode_scale_X2)**2))
     CALL vars%dofs(0)%set_to(vars%temp_dofs(1))
+    vars%dt = MIN(vars%dt*1.05, vars%max_dt)
   END ASSOCIATE
   dt_in = free_b_minimizer%dt
 END SUBROUTINE update_boundary_MHD3D
