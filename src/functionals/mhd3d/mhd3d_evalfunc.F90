@@ -1117,7 +1117,9 @@ SUBROUTINE BuildPrecond()
     ! <B_ext/2 * dJh/dq1 dX2/dtheta> Y_1*Y_1 - <B_ext/2 * dJh/dq2 dX1/dtheta>Y_2*Y_2
     DX1_nn = 0.0_wp
     DX2_nn = 0.0_wp
-
+    !$OMP PARALLEL DO       &
+    !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED)    &
+    !$OMP   REDUCTION(+:DX1_nn,DX2_nn) PRIVATE(i_mn,qloc,dJh_dq1,dJh_dq2)
     DO i_mn=1,mn_IP
       qloc(  1:3) = (/ X1_boundary(i_mn), X2_boundary(i_mn),zeta_IP(i_mn)/)
       dJh_dq1 = hmap%eval_Jh_dq(qloc, (/1.0_wp,0.0_wp,0.0_wp/))
@@ -1125,6 +1127,7 @@ SUBROUTINE BuildPrecond()
       DX1_nn = DX1_nn + Bext_squared(i_mn)*dJh_dq1*dX2_dthet_boundary(i_mn)
       DX2_nn = DX2_nn + Bext_squared(i_mn)*dJh_dq2*dX1_dthet_boundary(i_mn)
     END DO
+    !$OMP END PARALLEL DO
     DX1_nn = -0.5*smn_IP*DX1_nn
     DX2_nn =  0.5*smn_IP*DX2_nn
   END IF
