@@ -109,7 +109,7 @@ SUBROUTINE CoilSet_eval_B(n_coils, coil_points_offsets,n_points_per_coil, n_coil
     USE MODgvec_Globals, ONLY: wp
     ! INPUT VARIABLES -------------------------!
     INTEGER,  INTENT(IN) :: n_coils !! number of coils
-    INTEGER,  INTENT(IN) :: coil_points_offsets(n_coils) !! indicator where one coil starts and an other ends
+    INTEGER,  INTENT(IN) :: coil_points_offsets(n_coils+1) !! indicator where one coil starts and an other ends
     INTEGER,  INTENT(IN) :: n_points_per_coil(n_coils) !! number of discretization points per coil
     INTEGER,  INTENT(IN) :: n_coil_points !! total number of discretization points
 
