@@ -5,11 +5,12 @@
 [![github-mirror](https://img.shields.io/badge/GitHub%20mirror-gray?logo=github&labelColor=gray)](https://github.com/gvec-group/gvec)
 [![matrix-chat](https://img.shields.io/badge/chat-gvec%3Ampg.de-0DBD8B?logo=matrix)](https://matrix.to/#/#gvec:mpg.de)
 
-[![License](https://img.shields.io/badge/license-MIT-green?logo=open-source-initiative)](./LICENSE.txt)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15026780.svg)](https://doi.org/10.5281/zenodo.15026780)
+[![JOSS](https://joss.theoj.org/papers/10.21105/joss.09670/status.svg)](https://doi.org/10.21105/joss.09670)
+[![Zenodo](https://zenodo.org/badge/DOI/10.5281/zenodo.15026780.svg)](https://doi.org/10.5281/zenodo.15026780)
 [![GitLab Release](https://img.shields.io/gitlab/v/release/gvec-group%2Fgvec?gitlab_url=https%3A%2F%2Fgitlab.mpcdf.mpg.de&logo=gitlab)](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/releases)
 [![PyPI](https://img.shields.io/pypi/v/gvec?logo=PyPI&label=PyPI)](https://pypi.org/project/gvec/)
 
+[![License](https://img.shields.io/badge/license-MIT-green?logo=open-source-initiative)](./LICENSE.txt)
 [![python-version](https://img.shields.io/pypi/pyversions/gvec?logo=python)](https://pypi.org/project/gvec)
 [![pre-commit](https://img.shields.io/badge/pre--commit-gray?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
@@ -87,21 +88,23 @@ Parts of this software are licensed differently:
 
 ## Citing GVEC
 
-If you use GVEC in your work, please be sure to cite the following Zenodo record:
+If you use GVEC in your work, please cite:
+> Hindenlang et al., (2026). GVEC: A flexible 3D MHD equilibrium solver. Journal of Open Source Software, 11(120), 9670, [doi:10.21105/joss.09670](https://doi.org/10.21105/joss.09670)
 
-https://zenodo.org/records/15026781
+A corresponding bibtex entry is found in [CITATION.bib](CITATION.bib).
 
-with the DOI: [`10.5281/zenodo.15026781`](https://doi.org/10.5281/zenodo.15026781)
+To cite a specific version of GVEC, you can use the corresponding archive on [Zenodo](https://doi.org/10.5281/zenodo.15026780).
 
-A bibtex entry is found in [CITATION.bib](CITATION.bib).
-
+To reference the *G-Frame*, please cite:
+> Hindenlang et al., (2025). Computing MHD equilibria of stellarators with a flexible coordinate frame. Plasma Physics and Controlled Fusion, 67(4), 045002, [doi:10.1088/1361-6587/adba11](https://doi.org/10.1088/1361-6587/adba11)
 
 ## References
 
-This is a list of references in which the GVEC equilibrium solver was utilized:
+This is a list of selected references in which the GVEC equilibrium solver was utilized or described:
 
-|   |        |
-|----- |------- |
+| | |
+|-|-|
+| [HMB+26] | Florian Hindenlang, Omar Maj, Robert Babin, Robert Köberl, Dean Muir, Tiago Tamissa Ribeiro, Markus Rampp, and Eric Sonnendrücker. *GVEC: A flexible 3D MHD equilibrium solver*. Journal of Open Source Software, 11(120):9670, apr 2026. doi:10.21105/joss.09670.|
 | [HPM+25] | Florian Hindenlang, Gabriel G Plunk, and Omar Maj. *Computing MHD equilibria of stellarators with a flexible coordinate frame*. Plasma Physics and Controlled Fusion, 67(4):045002, mar 2025. doi:10.1088/1361-6587/adba11.|
 | [PDR+25] | Gabriel G Plunk, Michael Drevlak, Eduardo Rodríguez, Robert Babin, Alan Goodman, and Florian Hindenlang. *Back to the figure-8 stellarator*. Plasma Physics and Controlled Fusion, 67(3):035025, feb 2025. doi:10.1088/1361-6587/adb64b.|
 | [PDS+23] | Jonas Puchmayr, Mike G Dunne, Erika Strumberger, Matthias Willensdorfer, Hartmut Zohm, and Florian Hindenlang. *Helical mode localization and mode locking of ideal MHD instabilities in magnetically perturbed tokamak plasmas*. Nuclear Fusion, 2023. |

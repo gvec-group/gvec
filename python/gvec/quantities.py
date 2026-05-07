@@ -1487,6 +1487,66 @@ def dmod_B_dz_B(ds: xr.Dataset):
     ds["dmod_B_dz_B"] = dt_dzB * ds.dmod_B_dt + dz_dzB * ds.dmod_B_dz
 
 
+@register(
+    requirements=(
+        "dLA_dr",
+        "dLA_dt",
+        "dmod_B_dr",
+        "dmod_B_dt",
+    ),
+    attrs=dict(
+        long_name="radial PEST-like derivative of the modulus of the magnetic field",
+        symbol=r"\frac{\partial\left|\mathbf{B}\right|}{\partial \rho_P}",
+    ),
+)
+def dmod_B_dr_P(ds: xr.Dataset):
+    dtP_dr = ds.dLA_dr
+    dtP_dt = 1 + ds.dLA_dt
+    # dr_drP = 1
+    dt_drP = -dtP_dr / dtP_dt
+    # dz_drP = 0
+    ds["dmod_B_dr_P"] = ds.dmod_B_dr + dt_drP * ds.dmod_B_dt
+
+
+@register(
+    requirements=(
+        "dLA_dt",
+        "dmod_B_dt",
+    ),
+    attrs=dict(
+        long_name="poloidal PEST-like derivative of the modulus of the magnetic field",
+        symbol=r"\frac{\partial\left|\mathbf{B}\right|}{\partial \vartheta_P}",
+    ),
+)
+def dmod_B_dt_P(ds: xr.Dataset):
+    dtP_dt = 1 + ds.dLA_dt
+    # dr_dtP = 0
+    # dt_dtP = 1 / dtP_dt
+    # dz_dtP = 0
+    ds["dmod_B_dt_P"] = 1 / dtP_dt * ds.dmod_B_dt
+
+
+@register(
+    requirements=(
+        "dLA_dt",
+        "dLA_dz",
+        "dmod_B_dt",
+        "dmod_B_dz",
+    ),
+    attrs=dict(
+        long_name="toroidal PEST-like derivative of the modulus of the magnetic field",
+        symbol=r"\frac{\partial\left|\mathbf{B}\right|}{\partial \zeta_P}",
+    ),
+)
+def dmod_B_dz_P(ds: xr.Dataset):
+    dtP_dz = ds.dLA_dz
+    dtP_dt = 1 + ds.dLA_dt
+    # dr_dzP = 0
+    dt_dzP = -dtP_dz / dtP_dt
+    # dz_dzP = 1
+    ds["dmod_B_dz_P"] = ds.dmod_B_dz + dt_dzP * ds.dmod_B_dt
+
+
 # === integrals ======================================================================== #
 # --- geometry --- #
 
@@ -1817,10 +1877,10 @@ def vacuum_magnetic_well_depth(ds: xr.Dataset, state: State):
         "diota_dr",
         "dp_dr",
         "Phi",
-        "chi",
         "Jac",
         "dJac_dr",
         "grad_rho",
+        "B_zeta_avg",
         "dB_theta_avg_dr",
         "mu0",
         "J",
@@ -1855,12 +1915,12 @@ def D_Merc(ds: xr.Dataset):
     twopi = 2 * np.pi
     diota_dPhi = ds.diota_dr / ds.dPhi_dr
     dp_dPhi = ds.dp_dr / ds.dPhi_dr
-    s_chi = np.sign(ds.chi)
+    s_G = np.sign(ds.B_zeta_avg)
     s_Phi = np.sign(ds.Phi)
     dV_dr = fluxsurface_integral(ds.Jac)
     dV_drr = fluxsurface_integral(ds.dJac_dr)
     d2V_dPhi2 = dV_drr / ds.dPhi_dr**2 - dV_dr * ds.dPhi_drr / ds.dPhi_dr**3
-    ngradPhi = np.sqrt(xr.dot(ds.grad_rho, ds.grad_rho, dim="xyz")) * ds.dPhi_dr
+    ngradPhi = np.sqrt(xr.dot(ds.grad_rho, ds.grad_rho, dim="xyz")) * np.abs(ds.dPhi_dr)
     dB_theta_avg_dPhi = ds.dB_theta_avg_dr / ds.dPhi_dr
     # dS = xr.cross(ds.e_theta, ds.e_zeta, dim="xyz")
     dS = np.sqrt(xr.dot(ds.grad_rho, ds.grad_rho, dim="xyz")) * ds.Jac
@@ -1871,7 +1931,7 @@ def D_Merc(ds: xr.Dataset):
         dS * (ds.mu0 * xr.dot(ds.J, ds.B, dim="xyz") / ds.mod_B) ** 2 / ngradPhi**3
     )
     ds["D_Merc_Shear"] = 1 / (16 * np.pi**2) * diota_dPhi**2
-    ds["D_Merc_Curr"] = -s_chi / twopi**4 * diota_dPhi * (JBint - dB_theta_avg_dPhi * B2int)
+    ds["D_Merc_Curr"] = -s_G / twopi**4 * diota_dPhi * (JBint - dB_theta_avg_dPhi * B2int)
     ds["D_Merc_Well"] = (
         ds.mu0 / twopi**6 * dp_dPhi * (s_Phi * d2V_dPhi2 - ds.mu0 * dp_dPhi * Bi2int) * B2int
     )
@@ -1960,7 +2020,7 @@ def kappa_B(ds: xr.Dataset):
 @register(
     requirements=(
         "kappa_B",
-        "grad_rho",
+        "normal",
         "B",
         "mod_B",
     ),
@@ -1971,4 +2031,4 @@ def kappa_B(ds: xr.Dataset):
 )
 def kappa_G(ds: xr.Dataset):
     b = ds.B / ds.mod_B
-    ds["kappa_G"] = xr.dot(ds.kappa_B, xr.cross(ds.grad_rho, b, dim="xyz"), dim="xyz")
+    ds["kappa_G"] = xr.dot(ds.kappa_B, xr.cross(ds.normal, b, dim="xyz"), dim="xyz")

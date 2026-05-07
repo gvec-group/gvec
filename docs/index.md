@@ -76,6 +76,12 @@ The magnetic field of a two-fieldperiod QI-stellarator configuration (configurat
 :img-top: static/fa-terminal-solid-full.svg
 :::
 ```
+## Citing GVEC
+
+If you use GVEC in your work, please cite:
+> Hindenlang et al., (2026). GVEC: A flexible 3D MHD equilibrium solver. Journal of Open Source Software, 11(120), 9670, [doi:10.21105/joss.09670](https://doi.org/10.21105/joss.09670)
+
+To cite a specific version of GVEC, you can use the corresponding archive on [Zenodo](https://doi.org/10.5281/zenodo.15026780).
 
 ## Statement of need
 
