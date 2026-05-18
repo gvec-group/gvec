@@ -697,3 +697,55 @@ def bspl2gvec(
     params[f"{name}_type"] = "bspline"
 
     return params
+
+
+def get_boundary_from_statefile(filename: str | Path):
+    """
+    A simple but not optimal way of extracting the boundary fourier coefficients
+    from a state-file for a stellarator symmetric case.
+
+    Parameters
+    ----------
+    filename : str | Path
+        Path to the state-file (of format .dat)
+
+    Returns
+    -------
+    CaseInsensitiveDict
+        CID with "X1_b_cos", "X2_b_sin" and "nfp"
+    """
+    data_dict = CaseInsensitiveDict({"X1_b_cos": {}, "X2_b_sin": {}})
+    with open(filename) as f:
+        nfp_flag = False
+        X1_flag = False
+        X2_flag = False
+        for line in f:
+            if "## LA: m,n,LA(1:nbase,iMode) #" in line:
+                return data_dict
+
+            if nfp_flag:
+                data_dict["nfp"] = int(line.split(",")[0])
+                nfp_flag = False
+
+            if "nfp" in line:
+                nfp_flag = True
+
+            if X2_flag:
+                line_list = line.split(",")
+                m = int(line_list[0])
+                n = int(line_list[1]) // data_dict["nfp"]
+                data_dict["X2_b_sin"][(m, n)] = float(line_list[-1])
+                X1_flag = False
+
+            if "## X2: m,n,X2(1:nbase,iMode)" in line:
+                X2_flag = True
+
+            if X1_flag and not X2_flag:
+                line_list = line.split(",")
+                m = int(line_list[0])
+                n = int(line_list[1]) // data_dict["nfp"]
+                data_dict["X1_b_cos"][(m, n)] = float(line_list[-1])
+
+            if "## X1: m,n,X1(1:nbase,iMode)" in line:
+                X1_flag = True
+    return data_dict
