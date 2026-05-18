@@ -29,6 +29,7 @@ from .geometry import (
     signed_cross_sectional_area,  # Needs docstrings
     solid_angle_between_segments,
     writhe_from_polygon,
+    scale_boundary,
 )
 from .params import (
     CaseInsensitiveDict,

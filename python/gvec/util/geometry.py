@@ -2,6 +2,7 @@
 # License: MIT
 from collections.abc import Mapping, MutableMapping
 from copy import deepcopy
+from typing import Literal
 
 import numpy as np
 
@@ -627,3 +628,29 @@ def solid_angle_between_segments(
         ac2 * np.sqrt(np.vecdot((r4 - r1), (r4 - r1))) + np.vecdot((r4 - r1), ac2_vec),
     )
     return omega_half
+
+
+def scale_boundary(
+    parameters: MutableMapping, scale: float, radius: Literal["major", "minor", "both"] = "both"
+) -> MutableMapping:
+    """
+    Scale the boundary parameters by a given factor, with the 'radius' argument specifying which modes to scale:
+    - "major": scale only the m=0 modes, which approximately corresponds to scaling the effective major radius
+    - "minor": scale only the m!=0 modes, which corresponds to scaling the effective minor radius
+    - "both": scale all modes, which corresponds to scaling the overall size of the configuration
+
+    Note
+    ----
+    This does not scale the reference frame (hmap), which may be required for more advanced reference frames like the GFrame.
+    """
+    parameters = deepcopy(parameters)
+    for var in ["X1_b", "X2_b"]:
+        for sc in ["cos", "sin"]:
+            key = f"{var}_b_{sc}"
+            if key in parameters:
+                for (m, n), value in parameters[key].items():
+                    if m == 0 and radius in ["major", "both"]:
+                        parameters[key][m, n] = value * scale
+                    elif m != 0 and radius in ["minor", "both"]:
+                        parameters[key][m, n] = value * scale
+    return parameters
