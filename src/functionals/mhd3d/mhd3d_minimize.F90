@@ -446,30 +446,42 @@ MODULE MODgvec_MHD3D_minimize
                 !COMPUTE NEW SOLUTION P(1) as a prediction
                 SELECT TYPE(vars)
                 TYPE IS(t_gradient_descent_vars) !gradient descent, previously used for minimizerType=0
-                        CALL vars%temp_dofs(1)%AXBY(1.0_wp,vars%dofs(0),vars%dt,vars%force(0)) !overwrites P(1), predicts solution U(1)
+                    CALL vars%temp_dofs(1)%AXBY(1.0_wp,vars%dofs(0),vars%dt,vars%force(0)) !overwrites P(1), predicts solution U(1)
                 TYPE IS(t_accelerated_gradient_descent_vars) !hirshman method
-                        !tau is damping parameter
-                        vars%tau(1:vars%ndamp-1) = vars%tau(2:vars%ndamp) !save old
+                    !tau is damping parameter
+                    vars%tau(1:vars%ndamp-1) = vars%tau(2:vars%ndamp) !save old
 
-                        !ln(|F_n|^2/|F_{n-1}|^2), Fnorm=|F_X1|,|F_X2|,|F_LA|
-                        vars%tau(vars%ndamp)  = MIN(0.15_wp,ABS(LOG(SUM(vars%Fnorm**2)/SUM(vars%Fnorm_old**2))))/vars%dt
+                    !ln(|F_n|^2/|F_{n-1}|^2), Fnorm=|F_X1|,|F_X2|,|F_LA|
+                    vars%tau(vars%ndamp)  = MIN(0.15_wp,ABS(LOG(SUM(vars%Fnorm**2)/SUM(vars%Fnorm_old**2))))/vars%dt
 
-                        vars%tau_bar = 0.5_wp*vars%dt*SUM(vars%tau)/REAL(vars%ndamp,wp)   !=1/2 * tauavg
-                        CALL vars%velocity(1)%AXBY(((1.0_wp-vars%tau_bar)/(1.0_wp+vars%tau_bar)),vars%velocity(0),(vars%dt/(1.0_wp+vars%tau_bar)),vars%force(0)) !velocity V(1)
-                        CALL vars%temp_dofs(1)%AXBY(1.0_wp,vars%dofs(0),vars%dt,vars%velocity(1)) !overwrites P(1), predicst solution U(1)
-                        vars%Vnorm=SQRT(vars%velocity(1)%norm_2())
+                    vars%tau_bar = 0.5_wp*vars%dt*SUM(vars%tau)/REAL(vars%ndamp,wp)   !=1/2 * tauavg
+                    CALL vars%velocity(1)%AXBY(((1.0_wp-vars%tau_bar)/(1.0_wp+vars%tau_bar)),vars%velocity(0),(vars%dt/(1.0_wp+vars%tau_bar)),vars%force(0)) !velocity V(1)
+                    CALL vars%temp_dofs(1)%AXBY(1.0_wp,vars%dofs(0),vars%dt,vars%velocity(1)) !overwrites P(1), predicst solution U(1)
+                    vars%Vnorm=SQRT(vars%velocity(1)%norm_2())
                 END SELECT !Type
 
                 vars%JacCheck=2 !no abort,if detJ<0, JacCheck=-1
 
                 vars%temp_dofs(1)%W_MHD3D=EvalEnergy(vars%temp_dofs(1),.TRUE.,vars%JacCheck)
                 IF(vars%JacCheck.EQ.-1)THEN
-                    vars%dt=0.9_wp*vars%dt
                     vars%nstepDecreased=vars%nStepDecreased+1
+                    IF(vars%iter.GT.100) THEN
+                        CALL WriteState(vars%dofs(0),vars%iter)
+                        CALL abort(__STAMP__,&
+                                "detJ<0. This is an abort during minimization (iteration count>100), where detJ<0 occurred.",&
+                                TypeInfo="RuntimeError")
+                    END IF
+                    IF(vars%nStepDecreased.GT.130) THEN
+                        CALL WriteState(vars%dofs(0),vars%iter)
+                        CALL abort(__STAMP__,&
+                                "detJ<0. This is an abort, since the timestep has been decreased by a factor of 1e-6 which still produces detJ<0.",&
+                                RealInfo=vars%dt, TypeInfo="InitializationError")
+                    END IF
+                    vars%dt=0.9_wp*vars%dt
                     vars%nSkip_Jac=vars%nSkip_Jac+1
                     vars%restart_iter=.TRUE.
                     CALL vars%dofs(0)%set_to(vars%dofs(-3)) !reset to initial state
-                    SWRITE(UNIT_stdOut,'(8X,I8,A,E11.4,A)')vars%iter,'...detJac<0, decrease stepsize to dt=',vars%dt,  ' and RESTART simulation!!!!!!!'
+                    SWRITE(UNIT_stdOut,'(8X,I8,A,E11.4,A)')vars%iter,'...detJac<0, iter<=100, decrease stepsize to dt=',vars%dt,  ' and RESTART simulation!!!!!!!'
                 ELSE
                     !detJ>0
                     vars%deltaW=vars%temp_dofs(1)%W_MHD3D-vars%dofs(0)%W_MHD3D!should be <=0,
@@ -519,13 +531,14 @@ MODULE MODgvec_MHD3D_minimize
                         vars%restart_iter=.TRUE.
                         SWRITE(UNIT_stdOut,'(8X,I8,A,E8.2,A,E8.1,A,E11.4)')vars%iter,'...deltaW=',vars%deltaW,'>',vars%dW_allowed,&
                         '*W_MHD3D_0, skip step and decrease stepsize to dt=',vars%dt
-                    END IF
+                        IF(vars%nStepDecreased.GT.130) THEN ! 0.9^130 ~10^-6
+                            SWRITE(UNIT_stdOut,'(A,E21.11)')'Iteration stopped since no decent direction found with decreased timestep: ', vars%dt
+                            SWRITE(UNIT_stdOut,fmt_sep)
+                            RETURN
+                        END IF
+                    END IF !deltaW>dW_allowed*W_MHD_0 check
                 END IF !JacCheck
-                IF(vars%nStepDecreased.GT.130) THEN ! 0.9^130 ~10^-6
-                    SWRITE(UNIT_stdOut,'(A,E21.11)')'Iteration stopped since timestep has been decreased by 0.9^130: ', vars%dt
-                    SWRITE(UNIT_stdOut,fmt_sep)
-                    RETURN
-                END IF
+
                 IF((MOD(vars%iter,vars%outputIter).EQ.0).AND.(vars%lastoutputIter.NE.vars%iter))THEN
                     __PERFON('output')
                     SWRITE(UNIT_stdOut,'(A)')'##########################  OUTPUT ##################################'
