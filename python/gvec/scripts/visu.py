@@ -20,13 +20,15 @@ parser.add_argument("--outdir", type=Path, help="Plot output directory", default
 
 parser.add_argument("--dpi", type=int, help="DPI of the saved figures.", default=600)
 
-parser.add_argument(
+verbosity = parser.add_mutually_exclusive_group()
+verbosity.add_argument(
     "-v",
     "--verbose",
     action="count",
     default=0,
     help="verbosity level: -v for info, -vv for debug",
 )
+verbosity.add_argument("-q", "--quiet", action="store_true", help="suppress log messages")
 
 
 def main(args: Sequence[str] | argparse.Namespace | None = None):
@@ -36,8 +38,8 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         args = parser.parse_args(args)
 
     logging_setup()
-    logger = logging.getLogger(__name__)
-    if args.verbose == 0:
+    logger = logging.getLogger("gvec")
+    if args.quiet:
         logging.disable()
     if args.verbose >= 2:
         logger.setLevel(logging.DEBUG)
