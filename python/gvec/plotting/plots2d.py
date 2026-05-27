@@ -178,7 +178,7 @@ def plot_poloidal_plane(
 
         # Remove interior axis labels and add axis labels to the boundary plots
         if share_axis:
-            ax.set(xlabel="X1", ylabel="X2")
+            ax.set(xlabel="$X^1$", ylabel="$X^2$")
             ax.label_outer()
             ax.set_aspect("equal")
         else:
