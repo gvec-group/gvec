@@ -1039,8 +1039,59 @@ def evaluate_sfl(
     return ev
 
 
+def evaluate_on_axis(
+    state: State,
+    *quantities: str,
+    zeta: CoordinateSpec,
+    theta: CoordinateSpec = 20,
+    sfl: None | Literal["boozer", "pest"],
+    **boozer_kwargs,
+) -> xr.Dataset:
+    """
+    Evaluate the values of the specified quantities on the magnetic axis using quadratic extrapolation from off-axis evaluations.
+    """
+    warn_tolerance = 1e-4
+    rhos = [1.1e-4, 2.2e-4, 3.3e-4]  # must be >=1e-4
+
+    if not sfl:
+        ev = state.evaluate(
+            *quantities,
+            rho=rhos,
+            theta=theta,
+            zeta=zeta,
+        )[quantities]
+    else:
+        ev = state.evaluate_sfl(
+            *quantities,
+            rho=rhos,
+            theta=theta,
+            zeta=zeta,
+            sfl=sfl,
+            **boozer_kwargs,
+        )[quantities]
+
+    r1 = ev.isel(rad=0)
+    r2 = ev.isel(rad=1)
+    r3 = ev.isel(rad=2)
+    on_axis = 3 * (r1 - r2) + r3
+    on_axis_avg = on_axis.mean("pol")
+    on_axis_avg["rho"][0] = 0.0
+    on_axis_std = on_axis.std("pol") / np.sqrt((r1**2).mean("pol"))
+
+    q_warn = {
+        q: on_axis_std[q].max() for q in quantities if np.any(on_axis_std[q] > warn_tolerance)
+    }
+    if q_warn:
+        logger.warning(
+            f"Extrapolation to the axis may be inaccurate for quantities {', '.join(q_warn.keys())} with estimated normalized standard deviations of {', '.join(f'{v:.1e}' for v in q_warn.values())}."
+        )
+
+    return on_axis_avg
+
+
 State.evaluate = evaluate
 State.evaluate_sfl = evaluate_sfl
+State.evaluate_on_axis = evaluate_on_axis
 
 
 # === Fourier Transform === #
