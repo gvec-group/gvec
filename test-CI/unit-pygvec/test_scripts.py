@@ -95,8 +95,11 @@ def test_run():
 
 
 def test_run_recover_from_error():
+    """Test if GVEC exits cleanly after an error and can run again."""
     parameters = gvec.util.read_parameters("parameter.ini")
     parameters["X1_b_cos"][1, 0] = -1.0
+    with pytest.raises(gvec.errors.InitializationError):
+        gvec.run(parameters)
 
     parameters = gvec.util.read_parameters("parameter.ini")
     parameters["maxIter"] = 1
