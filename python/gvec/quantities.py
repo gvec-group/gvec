@@ -1860,7 +1860,7 @@ def beta_avg(ds: xr.Dataset):
     ),
 )
 def vacuum_magnetic_well_depth(ds: xr.Dataset, state: State):
-    aux = state.evaluate("dV_dPhi_n", rho=[1e-4, 1.0], theta="int", zeta="int")
+    aux = state.evaluate("dV_dPhi_n", rho=[0.0, 1.0], theta="int", zeta="int")
     Vp_edge = aux.dV_dPhi_n.isel(rad=1)
     Vp_axis = aux.dV_dPhi_n.isel(rad=0)
     ds["vacuum_magnetic_well_depth"] = (Vp_axis - Vp_edge) / Vp_axis

@@ -72,7 +72,6 @@ def test_copy_test_CaseInsensitiveDict():
 
 def test_ev2vtk(testcaserundir, testfiles):
     rho = np.linspace(0, 1, 4)
-    rho[0] = 1e-4  # avoid evaluation at rho=0
     theta = np.linspace(0, 2 * np.pi, 5)  # including endpoints
     zeta = np.linspace(0, 2 * np.pi, 6)  # full torus, including endpoints
 

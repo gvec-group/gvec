@@ -380,9 +380,6 @@ def Evaluations(
             coords["rho"] = ("rad", rho)
         case int() as num:
             coords["rho"] = ("rad", np.linspace(0, 1, num))
-            coords["rho"][1][0] = min(
-                1.0e-4, 0.1 * coords["rho"][1][1]
-            )  # avoid numerical issues at the magnetic axis
         case float():
             coords["rho"] = ("rad", np.array([rho]))
         case None:
@@ -531,7 +528,7 @@ def EvaluationsBoozer(
                 raise ValueError(f"rho can only be 1D, but is {rho.ndim}D.")
             rho = ("rad", rho)
         case int():
-            rho = ("rad", np.linspace(0, 1, rho + 1)[1:])
+            rho = ("rad", np.linspace(0, 1, rho))
         case float():
             rho = ("rad", np.array([rho]))
         case _:
@@ -759,7 +756,7 @@ def EvaluationsPEST(
                 raise ValueError(f"rho can only be 1D, but is {rho.ndim}D.")
             rho = ("rad", rho)
         case int():
-            rho = ("rad", np.linspace(0, 1, rho + 1)[1:])
+            rho = ("rad", np.linspace(0, 1, rho))
         case float():
             rho = ("rad", np.array([rho]))
         case _:
