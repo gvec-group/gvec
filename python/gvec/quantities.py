@@ -1814,18 +1814,15 @@ def B_zeta_avg(ds: xr.Dataset):
 
 @register(
     requirements=("B_zeta_avg", "mu0"),
-    integration=("theta", "zeta"),
     attrs=dict(
         long_name="poloidal current, relative to the magnetic axis", symbol=r"I_\text{pol}"
     ),
 )
-def I_pol(ds: xr.Dataset):
-    ds["I_pol"] = ds.B_zeta_avg * 2 * np.pi / ds.mu0
-    ds["I_pol"] = ds.I_pol.sel(rho=0, method="nearest") - ds.I_pol
-    if not np.isclose(ds.rho.sel(rho=0, method="nearest"), 0):
-        logging.warning(
-            f"Computation of `I_pol` uses `rho={ds.rho[0].item():e}` instead of the magnetic axis."
-        )
+def I_pol(ds: xr.Dataset, state: State):
+    B_zeta_avg_axis = state.evaluate_on_axis(
+        "B_zeta_avg", theta="int", zeta="int"
+    ).B_zeta_avg.item()
+    ds["I_pol"] = (ds.B_zeta_avg - B_zeta_avg_axis) * 2 * np.pi / ds.mu0
 
 
 # --- other --- #
