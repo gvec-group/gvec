@@ -21,6 +21,20 @@ def check_field_periodicity(xyz: np.ndarray, nfp: int, atol=1e-12):
     """
     checks if all  xyz positions of the surface on a full turn, ``xyz[0:nz*nfp,0:nt,0:2]``, have the field periodicity with ``nfp``.
     returns the sign of the rotation ``+2pi/nfp`` or ``-2pi/nfp``
+
+    Parameters
+    ----------
+    xyz : ndarray
+        cartesian point positions of the surface on a full turn, shape is ``(nzeta*nfp,ntheta,3)``,  must exclude the endpoint
+    nfp : int
+        the number of field periods
+    atol : float
+        the absolute tolerance for the check
+
+    Returns
+    -------
+    sign_rot : int
+        the sign of the rotation, either +1 or -1
     """
     if not xyz.shape[-1] == 3:
         raise ValueError("last dimension must be the cartesian components surface positions!")
@@ -60,6 +74,71 @@ def check_field_periodicity(xyz: np.ndarray, nfp: int, atol=1e-12):
                 f"the surface points of the first field period are not rotationally symmetric with the points in the other field periods. nfp={nfp}, maxdist={maxdist} not within tolerance {atol}!"
             )
     return sign_rot
+
+
+def surface_normal(xyz: np.ndarray, nzeta=0, ntheta=0):
+    """
+    compute the non-normalized normal vector :math:`\mathbf{N}=\partial_\theta \mathbf{x} \times \partial_\zeta \mathbf{x}` of the surface.
+
+    Parameters
+    ----------
+    xyz : ndarray
+        cartesian point positions of the surface on a full turn, shape is ``(nzeta,ntheta,3)``,
+        sampled on a  equidistributed grid in zeta and theta, and exclude the periodic endpoint
+    nzeta : int, optional
+        if ``nzeta>xyz.shape[0]``, upsample the surface. ``nzeta`` defaults to input shape.
+    ntheta : int, optional
+        if ``ntheta>xyz.shape[1]``, upsample the surface. ``ntheta`` defaults to input shape.
+
+    Returns
+    -------
+    xyz_surf : ndarray
+        the surface positions, [new] shape is ``((nzeta//2)*2+1,(ntheta//2)*2+1,3)``.
+    normal : ndarray
+        the non-normalized normal vector of the surface, [new] shape is ``((nzeta//2)*2+1,(ntheta//2)*2+1,3)``.
+    """
+    if not xyz.shape[-1] == 3:
+        raise ValueError("last dimension must be the cartesian components surface positions!")
+    # correction for even numbers of points
+    nz, nt = np.max([xyz.shape[0], nzeta]), np.max([xyz.shape[1], ntheta])
+    xyz_surf = xyz.copy()
+    xyz_surf = fourier.shift_1d(xyz_surf, 0.0, 1, newshape=(nt // 2) * 2 + 1)
+    xyz_surf = fourier.shift_1d(xyz_surf, 0.0, 0, newshape=(nz // 2) * 2 + 1)
+    xyz_theta_c, xyz_theta_s = fourier.fft1d(xyz_surf, axis=1)
+    xyz_dtheta = fourier.ifft1d(xyz_theta_c, xyz_theta_s, axis=1, deriv=1)
+    xyz_zeta_c, xyz_zeta_s = fourier.fft1d(xyz_surf, axis=0)
+    xyz_dzeta = fourier.ifft1d(xyz_zeta_c, xyz_zeta_s, axis=0, deriv=1)
+
+    return xyz_surf, np.cross(xyz_dtheta, xyz_dzeta, axis=-1)
+
+
+def surface_volume(xyz: np.ndarray, nzeta=0, ntheta=0):
+    r"""
+    compute the volume of the surface using the divergence theorem:
+
+    :math:` V=\frac{1}{3}\int_\Omega \nabla \cdot \mathbf{x} \, dV = \frac{1}{3} \int_{\partial \Omega} \mathbf{x} \cdot \mathbf{n} \, dS `
+
+    which computes as
+
+    :math:` V=\frac{1}{3} \int_0^{2\pi} \int_0^{2\pi} \mathbf{x} \cdot \left(\partial_\theta \mathbf{x} \times \partial_\zeta \mathbf{x}\right) d\zeta d\theta`
+
+    Parameters
+    ----------
+    xyz : ndarray
+        cartesian point positions of the surface on a full turn, shape is ``(nzeta,ntheta,3)``,
+        sampled on a  equidistributed grid in zeta and theta, and exclude the periodic endpoint
+    nzeta : int, optional
+        if ``nzeta>xyz.shape[0]``, upsample the surface for the integration. ``nzeta`` defaults to input shape.
+    ntheta : int, optional
+        if ``ntheta>xyz.shape[1]``, upsample the surface for the integration. ``ntheta`` defaults to input shape.
+
+    Returns
+    -------
+    volume : float
+        the volume enclosed by the surface. Signed, positive if the normal points outwards, negative if the normal points inwards.
+    """
+    xyz_surf, normal = surface_normal(xyz)
+    return (np.average(np.sum(xyz_surf * normal, axis=-1)) / 3) * 4 * np.pi**2
 
 
 def rodrigues(
@@ -800,6 +879,15 @@ def construct_gframe_from_surface(
         xyz_surf = xyz_hat_to_xyz(xhatfull, yhatfull, zhatfull, zetafull, sign_rot)
 
     logger.info(". Constructing the G-Frame")
+    # check surface orientation by positivity of the volume:
+    vol = surface_volume(xyz_surf)
+    if vol > 0:
+        logger.info(f"  - surface orientation right-handed, positive volume = {vol:.3e}")
+    else:
+        raise ValueError(
+            f"  - surface orientation is left-handed, negative volume = {vol:.3e}, one of the angles in input surface data must be flipped!"
+        )
+
     # check linking number of the surface (curves at theta=0 and theta=pi):
     Lk = linking_number(xyz_surf[:, 0, :], xyz_surf[:, nt // 2, :])
     assert np.abs(Lk - np.rint(Lk)) < 1e-8, "Linking number of the surface is not integer!"
