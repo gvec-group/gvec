@@ -269,3 +269,153 @@ def test_writhe_trefoil(zscale):
         atol=1e-3,
         err_msg="writhe from polygon for trefoil not within 1e-3",
     )
+
+
+def tilted_elliptic_torus(
+    ntheta, nzeta, R0=2.5, a=0.5, b=0.25, shift=[0.1, -0.5, 0.3], angle=np.pi / 3
+):
+    """
+    Generate a torus with elliptic cross-section, shifted and tilted.
+    """
+    theta = np.linspace(0, 2 * np.pi, ntheta, endpoint=False)
+    zeta = np.linspace(0, 2 * np.pi, nzeta, endpoint=False)
+    x = (R0 + a * np.cos(theta[None, :])) * np.cos(zeta[:, None])
+    y = -(R0 + a * np.cos(theta[None, :])) * np.sin(zeta[:, None])
+    z = b * np.sin(theta[None, :]) + 0 * zeta[:, None]
+    xyz = np.stack((x, y, z), axis=-1)
+    # shift xyz and tilt the torus around x axis by pi/3
+    R = np.array(
+        [[1, 0, 0], [0, np.cos(angle), -np.sin(angle)], [0, np.sin(angle), np.cos(angle)]]
+    )
+    xyz_tilt = (xyz - np.array(shift)) @ R.T
+    return xyz_tilt
+
+
+@pytest.mark.parametrize("ntheta", [41, 44])
+@pytest.mark.parametrize("nzeta", [81, 86])
+def test_gframe_surface_volume(ntheta, nzeta):
+    """Test that the volume computed from the surface matches the expected volume for a known torus with elliptic cross-section."""
+    # Parameters for the torus
+    R0 = 2.5  # major radius
+    a = 0.5  # minor radius in R-direction
+    b = 0.25  # minor radius in Z-direction
+    xyz_tilt = tilted_elliptic_torus(ntheta, nzeta, R0=R0, a=a, b=b)
+    # compute the volume from the surface
+    volume_computed = gvec.gframe.surface_volume(xyz_tilt)
+    # compute the expected volume analytically:
+    volume_expected = 2 * np.pi**2 * R0 * a * b
+    assert np.isclose(volume_computed, volume_expected, rtol=1e-8, atol=1e-12), (
+        f"Computed volume {volume_computed} does not match expected volume {volume_expected} for the torus with elliptic cross-section"
+    )
+    xyz_mirror = xyz_tilt.copy()
+    xyz_mirror[:, :, 2] = -xyz_mirror[:, :, 2]
+    volume_computed_mirror = gvec.gframe.surface_volume(xyz_mirror)
+    assert np.isclose(volume_computed_mirror, -volume_computed, rtol=1e-8, atol=1e-12), (
+        f"mirrored surface volume {volume_computed_mirror} does not match unmirrored surface volume {-volume_computed} for a torus with elliptic cross-section"
+    )
+
+
+def test_gframe_surface_orientation():
+    """Test the construction from surface for a tilted elliptic torus, and check that it raises a ValueError for the mirrored surface."""
+    xyz_tilt = tilted_elliptic_torus(ntheta=41, nzeta=81)
+    # this should work without error:
+    params, dict_out = gframe.construct_gframe_from_surface(
+        xyz_tilt, nfp=1, name="test_tilted_elliptic_torus"
+    )
+    # now mirror the surface and check that it raises a ValueError due to negative volume:
+    xyz_mirror = xyz_tilt.copy()
+    xyz_mirror[:, :, 2] = -xyz_mirror[:, :, 2]
+    with pytest.raises(ValueError, match="negative volume"):
+        params, dict_out = gframe.construct_gframe_from_surface(
+            xyz_mirror, nfp=1, name="test_tilted_elliptic_torus_mirror"
+        )
+
+
+@pytest.mark.parametrize(
+    "errormsg",
+    [
+        ("pm_jac_h", "positive and negative"),
+        ("neg_jac_h", "negative everywhere"),
+        ("neg_jac", "ALL JACOBIANS NEGATIVE"),
+        ("pm_jac", "JACOBIAN WITH SIGN CHANGE"),
+    ],
+    ids=["pm_jac_h", "neg_jac_h", "neg_jac", "pm_jac"],
+)
+def test_gframe_gvec_run_detects_negative_jacobian(errormsg, tmp_path):
+    """
+    Test that GVEC run fails in the jacobian check either when the gframe is wrong, or the boundary is oriented wrong, or the axis is initially set wrong, and check that the expected error message is raised in each case.
+    """
+    nzeta = 5
+    zetafull = np.linspace(0, 2 * np.pi, nzeta, endpoint=False)
+
+    xyz = np.zeros((3, zetafull.shape[0]))
+    Nxyz = np.zeros((3, zetafull.shape[0]))
+    Bxyz = np.zeros((3, zetafull.shape[0]))
+
+    # circular curve
+    xyz[0, :] = 5.0 * np.cos(zetafull)
+    xyz[1, :] = -5.0 * np.sin(zetafull)
+
+    # First vector N is outward pointing
+    Nxyz[0, :] = np.cos(zetafull)
+    Nxyz[1, :] = -np.sin(zetafull)
+
+    # Second vector B chosen to produce different Jh behavior:
+    match errormsg[0]:
+        case "pm_jac_h":
+            Bxyz[2, :] = 1.0 * np.sin(zetafull)  # +/- jac_h
+            X1_a_cos_00 = 0.0
+            X2_b_sin_10 = 0.25
+        case "neg_jac_h":
+            Bxyz[2, :] = -1.0  # jac_h<0 everywhere
+            X1_a_cos_00 = 0.0
+            X2_b_sin_10 = (
+                -0.25
+            )  # that would restore Jac>0, but hmap is checked first, so it should still fail.
+        case "neg_jac":
+            Bxyz[2, :] = 1.0  # jac_h>0
+            X1_a_cos_00 = 0.0
+            X2_b_sin_10 = -0.25  # jac<0 wrong orientation
+        case "pm_jac":
+            Bxyz[2, :] = 1.0  # jac_h>0
+            X1_a_cos_00 = -0.4  # +/- jac wrong axis.
+            X2_b_sin_10 = 0.25
+
+    # Create dict_gframe
+    dict_gframe = {
+        "nfp": 1,
+        "axis": {
+            "nzeta": nzeta,
+            "zetafull": zetafull,
+            "xyz": xyz,
+            "Nxyz": Nxyz,
+            "Bxyz": Bxyz,
+        },
+    }
+
+    params = dict(
+        ProjectName="test_" + errormsg[0],
+        which_hmap=21,
+        hmap_ncfile=f"test-Gframe{errormsg[0]}.nc",
+        X1X2_deg=5,
+        LA_deg=5,
+        sgrid=dict(
+            grid_type=0,
+            nElems=5,
+        ),
+        X1_mn_max=(1, 0),
+        X2_mn_max=(1, 0),
+        LA_mn_max=(1, 0),
+        minimize_tol=1e-3,
+        totalIter=10,
+        pres=dict(type="polynomial", coefs=[0.0]),
+        iota=dict(type="polynomial", coefs=[0.7]),
+        X1_a_cos={(0, 0): X1_a_cos_00},
+        X1_b_cos={(1, 0): 0.5},
+        X2_b_sin={(1, 0): X2_b_sin_10},
+    )
+    with gvec.util.chdir(tmp_path):
+        gvec.gframe.write_Gframe_ncfile(f"test-Gframe{errormsg[0]}.nc", dict_gframe)
+        # now try to run GVEC with this gframe, and check that it fails in the hmap jacobian check:
+        with pytest.raises(gvec.errors.InitializationError, match=errormsg[1]):
+            gvec.run(params)

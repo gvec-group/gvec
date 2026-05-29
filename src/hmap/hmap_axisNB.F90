@@ -153,6 +153,8 @@ FUNCTION hmap_axisNB_init_params(ncfile,nvisu) RESULT(sf)
 ! LOCAL VARIABLES
   INTEGER :: i
   INTEGER :: error_nfp
+  REAL(wp) :: Jh,min_Jh,max_Jh
+  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp
   REAL(wp),ALLOCATABLE :: cosz(:),sinz(:)
 !===================================================================================================================================
   CALL par_Barrier(beforeScreenOut='INIT HMAP :: axisNB FRAME OF A CLOSED CURVE ...')
@@ -172,14 +174,13 @@ FUNCTION hmap_axisNB_init_params(ncfile,nvisu) RESULT(sf)
          sf%sgn_rot=-1
       ELSE
         CALL abort(__STAMP__, &
-           'problem with check of field period rotation: point at zeta=0 does not rotate to point at zeta= +/-2pi/nfp.', &
+        'hmap_axisNB(G-Frame): problem with check of field period rotation: point at zeta=0 does not rotate to point at zeta= +/-2pi/nfp.', &
            TypeInfo="InitializationError")
       END IF
     END IF
     WRITE(UNIT_stdOut,'(4X,A,I2)')'INFO: sign of the rotation from zeta=0 to zeta=2pi/nfp is: ',sf%sgn_rot
 
     sf%n_max=(sf%nzeta-1)/2 ! maximum mode number on a field period
-
 
   END IF !MPIroot
   CALL par_BCast(sf%nzeta,0)
@@ -213,13 +214,34 @@ FUNCTION hmap_axisNB_init_params(ncfile,nvisu) RESULT(sf)
     CALL CheckFieldPeriodicity(sf,sf%sgn_rot,error_nfp)
     IF(error_nfp.LT.0) &
        CALL abort(__STAMP__, &
-          "hmap_axisNB check Field Periodicity failed!", &
+          "hmap_axisNB(G-Frame): check Field Periodicity failed!", &
            TypeInfo="InitializationError")
   END IF !MPIroot
 
   CALL par_BCast(sf%xyz_hat_modes,0)
   CALL par_BCast(sf%Nxyz_hat_modes,0)
   CALL par_BCast(sf%Bxyz_hat_modes,0)
+
+  ! check right-handedness of T.(N X B ) >0 at X0(zeta) points
+  min_Jh= HUGE(1.0_wp)
+  max_Jh=-HUGE(1.0_wp)
+  DO i=1,97
+    CALL sf%eval_TNB(TWOPI*REAL(i-1,wp)/(sf%nfp*97.0_wp),X0,T,N,B,Np,Bp)
+    Jh=SUM(T*(CROSS(N,B)))
+    min_Jh = MIN(min_Jh,Jh)
+    max_Jh = MAX(max_Jh,Jh)
+  END DO
+  IF(min_Jh.LT.0.0_wp)THEN
+    IF(max_Jh.LT.0.0_wp)THEN
+      CALL abort(__STAMP__, &
+       "hmap_axisNB(G-Frame): Jacobian evaluated at X0: negative everywhere, left-handed coordinates", &
+       TypeInfo="InitializationError")
+    ELSE
+      CALL abort(__STAMP__, &
+       "hmap_axisNB(G-Frame): Jacobian evaluated at X0: positive and negative values found!", &
+       TypeInfo="InitializationError")
+    END IF
+  END IF
 
   sf%initialized=.TRUE.
   CALL par_barrier(afterScreenOut='...DONE')
@@ -262,7 +284,7 @@ FUNCTION hmap_axisNB_init_params(ncfile,nvisu) RESULT(sf)
         WRITE(UNIT_stdout,'(A,I4,A,3E9.2)')'fp=1 vs fp=',i,', check_xyz=',check_xhat(1:3,i)
       END DO
       CALL abort(__STAMP__,&
-            "transform from cartesian to hat coordinates"//TRIM(msg)//" yields non-field periodic data!", &
+            "hmap_axisNB(G-Frame): transform from cartesian to hat coordinates"//TRIM(msg)//" yields non-field periodic data!", &
             TypeInfo="InitializationError")
     END IF
     DO i=1,3
@@ -431,7 +453,7 @@ SUBROUTINE allocate_readin_vars(sf)
   IMPLICIT NONE
   CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf
   IF(sf%nzeta.EQ.0) CALL abort(__STAMP__, &
-       'sf%nzeta must be set before allocation')
+       'hmap_axisNB(G-Frame): sf%nzeta must be set before allocation')
   ALLOCATE(sf%zeta(sf%nzeta))
   ALLOCATE(sf%xyz(3,sf%nfp*sf%nzeta))
   ALLOCATE(sf%Nxyz(3,sf%nfp*sf%nzeta))
@@ -967,7 +989,7 @@ IMPLICIT NONE
   Jh=SUM((T+q1*Np+q2*Bp)*CROSS(N,B))  ! Tq. (N x B)
   IF(Jh .LT. 1.0e-8) &
       CALL abort(__STAMP__, &
-           "hmap_axisNB,  Jh<0",RealInfo=zeta*sf%nfp/TWOPI)
+           "hmap_axisNB(G-Frame):  Jh<0",RealInfo=zeta*sf%nfp/TWOPI)
   END ASSOCIATE !zeta
 END FUNCTION hmap_axisNB_eval_Jh
 
