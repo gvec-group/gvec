@@ -154,7 +154,7 @@ def plot_on_axis(
         quantities = [quantities]
 
     # Use quadratic extrapolation to obtain values on axis.
-    evaluations = state.evaluate_on_axis(quantities, theta="int", zeta=nzeta).mean("pol")
+    evaluations = state.evaluate_on_axis(*quantities, theta="int", zeta=nzeta).mean("pol")
 
     evaluations = _symbol_check(evaluations, quantities)
 
