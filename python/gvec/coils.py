@@ -345,8 +345,8 @@ class Coil:
         """
         try:
             from plotly import graph_objects as go
-        except ImportError:
-            warn("plotly not installed, cannot plot coil.")
+        except ImportError as e:
+            raise RuntimeError("plotting coils requires 'plotly' to be installed") from e
         if ax is None:
             ax = go.Figure()
         if name is None:
