@@ -185,6 +185,9 @@ def compute(
 
     This method will recursively determine prerequisites, compute them and add them to the dataset as needed.
 
+    The ``state`` object is only required for quantities which do not only depend on already computed quantities.
+    This includes quantities which require auxiliary computations, like integral quantities.
+
     Parameters
     ----------
     ev : xr.Dataset
@@ -198,6 +201,11 @@ def compute(
     registry : Mapping | None, optional
         The registry of computable quantites to use.
         Default: the ``gvec.core.compute.QUANTITIES`` registry used to evaluate a gvec.State object.
+
+    Note
+    ----
+    Values at ``rho=0.0`` can be incorrect due to the coordinate singularity (``Jac=0``) there.
+    Use ``evaluate_on_axis`` for quadratic extrapolation from off-axis values.
 
     See Also
     --------
@@ -491,6 +499,8 @@ def EvaluationsBoozer(
     ----------
     rho : "int" | int | float | 1D array (DataArray, ndarray, list)
         The specification of the radial, radius-like coordinate. "int" will use the integration points from the state object.
+        Values need to be within ``[1e-4, 1.0]`` or ``0.0``, as the boozer transform requires a flux surface.
+        For ``rho=0.0``, the boozer transform is quadratically extrapolated from the values at ``rho~1e-4``.
     theta_B : int | float | 1D, 2D or 3D array (DataArray, ndarray, list)
         The specification of the poloidal, angle-like Boozer coordinate.
         1D assumes dimension "pol", 2D assumes ("pol", "tor"), 3D assumes ("rad", "pol", "tor").
@@ -587,6 +597,11 @@ def EvaluationsBoozer(
         raise ValueError("rho cannot be empty.")
 
     # --- detect extrapolation to axis --- #
+    # cannot perform the boozer transform at rho=0.0 (needs a flux surface)
+    # 1) remove rho=0.0 from the dataset 'ds'
+    # 2) compute a Boozer transform (separately) away from the axis
+    # 3) extrapolate zeta, theta, LA, NU_B to the axis
+    # 4) concatenate the extrapolated values again after the Boozer transform for the other radial points
     if ds.rho[0] == 0.0 and 0.0 not in ds.rho[1:]:
         extrapolate = True
         ds = ds.isel(rad=slice(1, None))
@@ -597,6 +612,7 @@ def EvaluationsBoozer(
     else:
         extrapolate = False
 
+    # special case: only rho=0.0 requested, remaining dataset is empty
     if ds.rho.size:
         # === Find the logical coordinates of the Boozer grid === #
         # first perform the boozer transform on the target surfaces
@@ -658,6 +674,8 @@ def EvaluationsBoozer(
                     )
 
     # === Extrapolate to axis === #
+    # 1) calls evaluate_on_axis -> evaluate_sfl -> EvaluationsBoozer with rho > 0 values for extrapolation
+    # 2) concatenate the extrapolated values with the original dataset, and fix the indices and coordinates
     if extrapolate:
         ds_on_axis = evaluate_on_axis(
             state,
@@ -668,6 +686,7 @@ def EvaluationsBoozer(
             epsilon_FD=epsilon_FD,
             **boozer_kwargs,
         )
+        # special case: only rho=0.0 requested, 'ds' is empty, no Boozer transform was performed yet
         if ds.rho.size:
             q_radial = [q for q in ds.data_vars if "rad" in ds[q].dims]
             q_nonradial = [q for q in ds.data_vars if "rad" not in ds[q].dims]
@@ -915,6 +934,8 @@ def evaluate(
     This function creates an xarray Dataset with a specified grid and evaluates the desired
     quantities and recursively determined prerequisites on that grid.
 
+    Values at ``rho=0.0`` are quadratically extrapolated from the values at ``rho~1e-4`` using ``evaluate_on_axis``.
+
     Parameters
     ----------
     state : State
@@ -975,6 +996,8 @@ def evaluate(
     ev = Evaluations(rho, theta, zeta, state)
     compute(ev, *quantities, state=state)
     # --- extrapolate to axis if needed --- #
+    # compute is incorrect at rho=0.0 as Jac=0.0 causes all kinds of issues there.
+    # recompute all quantities away from the axis, extrapolate towards the axis and overwrite the wrong values
     if "rho" in ev and 0.0 in ev.rho:
         ev_axis = evaluate_on_axis(state, *quantities, theta=theta, zeta=zeta)
         for q in ev.data_vars:
@@ -996,6 +1019,9 @@ def evaluate_sfl(
     Evaluate the specified quantities on a grid in straight-fieldline coordinates (Boozer or PEST).
     This function creates an xarray Dataset with a specified grid and evaluates the desired
     quantities and recursively determined prerequisites on that grid.
+
+    Values at ``rho=0.0`` are quadratically extrapolated from the values at ``rho~1e-4`` using ``evaluate_on_axis``.
+    For ``sfl="boozer"``, the boozer transform itself is also extrapolated to the axis.
 
     Parameters
     ----------
@@ -1069,15 +1095,13 @@ def evaluate_sfl(
         raise ValueError(f"Unsupported SFL type {sfl}. Expected 'boozer' or 'pest'.")
     compute(ev, *quantities, state=state)
     # --- extrapolate to axis if needed --- #
+    # compute is incorrect at rho=0.0 as Jac=0.0 causes all kinds of issues there.
+    # recompute all quantities away from the axis, extrapolate towards the axis and overwrite the wrong values
     if "rho" in ev and 0.0 in ev.rho:
         ev_axis = evaluate_on_axis(
             state, *quantities, theta=theta, zeta=zeta, sfl=sfl, **boozer_kwargs
         )
         for q in ev.data_vars:
-            if q not in ev_axis:
-                raise ValueError(
-                    f"Quantity '{q}' not found in axis evaluation, cannot extrapolate to axis."
-                )
             if "rad" in ev[q].dims:
                 ev[q].loc[dict(rho=0.0)] = ev_axis[q]
     return ev
@@ -1092,7 +1116,7 @@ def evaluate_on_axis(
     **boozer_kwargs,
 ) -> xr.Dataset:
     """
-    Evaluate the values of the specified quantities on the magnetic axis using quadratic extrapolation from off-axis evaluations.
+    Evaluate the values of the specified quantities on the magnetic axis using quadratic extrapolation from off-axis evaluations at ``rho=[1.1e-4, 2.2e-4, 3.3e-4]``.
     """
     rhos = [1.1e-4, 2.2e-4, 3.3e-4]  # must be >=1e-4
 
