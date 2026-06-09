@@ -34,5 +34,6 @@ pygvecCLI
 quasr
 cas3d
 gist
+simple
 other-interfaces
 ```
