@@ -508,7 +508,7 @@ def EvaluationsBoozer(
         The offset in rho used for the Finite Difference computation of the radial derivatives, default ``1e-8``.
     boozer_kwargs : dict, optional
         Additional keyword arguments to pass to the ``get_boozer`` method of the ``state`` object.
-        These can be used to specify the Boozer transform parameters. For example the maximum mode number factor ``boozer_kwargs={"MNfactor": 3}``.
+        These can be used to specify the Boozer transform parameters. For example the maximum mode number factor ``MNfactor=3``.
 
     Returns
     -------
@@ -1054,7 +1054,7 @@ def evaluate_sfl(
     boozer_kwargs : optional
         Additional keyword arguments to pass to the ``get_boozer`` method of the ``state`` object.
         These can be used to specify the Boozer transform parameters.
-        For example the maximum mode number factor ``boozer_kwargs={'MNfactor': 3}``.
+        For example the maximum mode number factor ``MNfactor=3``.
 
     Returns
     -------
