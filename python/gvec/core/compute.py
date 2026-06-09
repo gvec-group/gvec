@@ -28,7 +28,6 @@ __all__ = [
     "volume_integral",
     "Evaluations",
     "EvaluationsBoozer",
-    "EvaluationsBoozerCustom",
     "EvaluationsPEST",
     "evaluate",
     "evaluate_sfl",
@@ -849,18 +848,6 @@ def EvaluationsPEST(
         ds = ds.set_coords("zeta").set_xindex("zeta")
 
     return ds
-
-
-def EvaluationsBoozerCustom(rho, theta_B, zeta_B, state, **boozer_kwargs):
-    """Create a custom EvaluationsBoozer dataset with Boozer coordinates.
-
-    .. deprecated:: v1.2
-    """
-    warnings.warn(
-        "`EvaluationsBoozerCustom` is deprecated, use `EvaluationsBoozer` instead.",
-        DeprecationWarning,
-    )
-    return EvaluationsBoozer(rho, theta_B, zeta_B, state, **boozer_kwargs)
 
 
 def add_Boozer_LA_NU(ds: xr.Dataset, state: State, sfl_boozer):
