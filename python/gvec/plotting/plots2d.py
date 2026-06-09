@@ -121,9 +121,7 @@ def plot_poloidal_plane(
             # Sometimes on-axis quantity cannot be computed properly, to avoid erroring out we will just set them to zero
             #   and warn the user that they should adjust if their plots look weird
             ev_contour[quantity].data[np.isnan(ev_contour[quantity].data)] = 0.0
-            warn(
-                "NaNs detected in evaluated dataset, these have been set to 0. It is possible that on-axis quantity cannot be evaluated, a minimum rho value can be set with the min_rho input."
-            )
+            warn("NaNs detected in evaluated dataset, these have been set to 0.")
 
     if not subplot_grid:
         subplot_grid = _design_subgrid(len(zeta_eval))

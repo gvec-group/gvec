@@ -9,7 +9,6 @@ import numpy as np
 from gvec.core.state import State
 from gvec.plotting.utils import (
     _design_subgrid,
-    _extrapolate_axis,
     _subplots,
     _symbol_check,
 )
@@ -129,7 +128,7 @@ def plot_on_axis(
 ):
     """
     Plot a equilibrium quantity (or list of) along the magnetic axis.
-    Note that the quantities are always evaluated off-axis (``rho=[1.1e-4,2.2e-4,3.3e-4]``, ``theta=0``) and extrapolated quadratically to ``rho=0``.
+    Note that the quantities are always evaluated off-axis (``rho=[1.1e-4,2.2e-4,3.3e-4]``) and extrapolated quadratically to ``rho=0`` (and averaged over ``theta``).
 
     Parameters
     ----------
@@ -155,7 +154,7 @@ def plot_on_axis(
         quantities = [quantities]
 
     # Use quadratic extrapolation to obtain values on axis.
-    evaluations = _extrapolate_axis(state, quantities, nzeta)
+    evaluations = state.evaluate_on_axis(*quantities, theta="int", zeta=nzeta).mean("pol")
 
     evaluations = _symbol_check(evaluations, quantities)
 
@@ -163,7 +162,7 @@ def plot_on_axis(
     # check if there are any NaNs in the dataset
     for quantity in quantities:
         if np.any(np.isnan(evaluations[quantity].data)):
-            warn(f"{quantity} has NaNs despite running just off axis.")
+            warn(f"{quantity} has NaNs despite extrapolation.")
 
     zeta = evaluations.zeta.data
 

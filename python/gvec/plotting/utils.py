@@ -6,31 +6,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def _extrapolate_axis(state, quantities, zeta):
-    """
-    Generate an evaluations object and replace the axis values with those recovered from quadratic extrapolation
-    """
-    ev_axis = state.evaluate(
-        *quantities,
-        rho=[1e-4, 1.1e-4, 2.2e-4, 3.3e-4],  # must be >=1e-4
-        theta=[0.0],
-        zeta=zeta,
-    )
-    ev_axis = ev_axis.sel(theta=ev_axis.theta[0])
-    # quadratic extrapolation to rho=0: y(0)= 3*(y(1) - y(2)) + y(3)
-    ev_axis_1d_extrapol = ev_axis.sel(rho=ev_axis.rho[0])
-    for var in ev_axis.data_vars:
-        r1 = ev_axis.sel(rho=ev_axis.rho[1])[var].data
-        r2 = ev_axis.sel(rho=ev_axis.rho[2])[var].data
-        r3 = ev_axis.sel(rho=ev_axis.rho[3])[var].data
-        # r4=ev_axis.sel(rho=ev_axis.rho[4])[var].data
-        # print(f" check extrapolation, variable:{var} max diff:{np.amax(np.abs(r1 -  (3*(r2 - r3) + r4)))}")
-        # OVERWRITE DATA WITH EXTRAPOLATION works with a 1d array...
-        ev_axis_1d_extrapol[var].data = 3 * (r1 - r2) + r3
-
-    return ev_axis_1d_extrapol
-
-
 def _symbol_check(evaluations, quantities):
     """
     Check the 'symbol' attribute in the evaluations.
