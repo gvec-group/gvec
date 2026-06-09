@@ -7,6 +7,9 @@ GVEC also has interfaces to:
 * [HOPR](https://hopr.readthedocs.io) *(only $RZ\phi$ $h$-map)*
 * the geometric plasma simulation package [Struphy](https://struphy.pages.mpcdf.de/struphy)
 * the ideal MHD relaxation code *MRX*
+* the quasi-isodynamic near-axis expansion code [pyQIC](https://github.com/rogeriojorge/pyQIC)
+    * the [`change_structure` branch](https://github.com/SebereX/pyQIC/tree/change_structure) contains a `to_gvec` function
+    * this allows the use of configurations from the [Near-axis quasi-isodynamic database](https://s3.nexus.mpcdf.mpg.de/public-pyqic-database/index.html)
 
 ## VMEC
 GVEC is also compatible with the MHD equilibrium code VMEC to a certain extent.
