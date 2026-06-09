@@ -17,8 +17,10 @@ SIMPLE can use a GVEC equilibrium for the magnetic configuration, through the us
 
 * SIMPLE can use different coordinate systems for the geometry, magnetic field and the particle tracing.
 * When using a *chartmap*, the radial coordinate is proportional to the square root of the normalized toroidal flux (GVEC's $\rho$), and the angular coordinates are the Boozer angles of the GVEC equilibrium.
-* SIMPLE uses a left-handed coordinate system, so there is a choice to either flip the toroidal or poloidal coordinate when generating the *chartmap* from GVEC.
-* The toroidal flux in SIMPLE (`torflux`) is really the $A_\theta$ component of the vector potential at the edge and follows the signs accordingly (left-handed!).
+* The toroidal flux in SIMPLE (`torflux`) refers to the $A_\theta$ component of the vector potential at the edge and follows the signs accordingly.
+* SIMPLE uses a left-handed coordinate system, so there is a choice to either flip the toroidal or poloidal coordinate when generating the *chartmap* from GVEC. This is the `--flip` argument to the `gvec_to_boozer_chartmap.py` script with default `tor`.
+    * If the toroidal Boozer angle $\zeta_B$ is flipped, then the toroidal components of the magnetic field and vector potential, $B_\zeta$ and $A_\zeta$, are flipped in sign. Counterintuitively, this means the *poloidal* flux changes sign and the *toroidal* flux does not change sign. This is a consequence of left-handed coordinates, for which the surface normal vector and reciprocal basis vectors are pointing in opposite directions. This retains the consistency between $\mathbf{B}$ and $\mathbf{A}$, as the Jacobian $\mathcal{J}$ also changes sign, and $B^\theta=\chi'/\mathcal{J}$ therefore remains unchanged.
+    * If the poloidal Boozer angle $\theta_B$ is flipped, then the poloidal components of the magnetic field and vector potential, $B_\theta$ and $A_\theta$, are flipped in sign. This means the *toroidal* flux changes sign and the *poloidal* flux does not change sign.
 * The starting position specified in the SIMPLE input file (`sbeg`) is always in the normalized toroidal flux coordinate (GVEC's $\rho^2$).
 * SIMPLE uses CGS units internally, GVEC uses SI units.
 * VMEC and GVEC use different definitions for the effective major radius, but the difference is usually small. SIMPLE mainly uses the effective major radius to compute the integration timestep, so this affects the performance, but not the results.
