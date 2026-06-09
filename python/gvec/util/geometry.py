@@ -646,7 +646,7 @@ def scale_boundary(
     parameters = deepcopy(parameters)
     for var in ["X1_b", "X2_b"]:
         for sc in ["cos", "sin"]:
-            key = f"{var}_b_{sc}"
+            key = f"{var}_{sc}"
             if key in parameters:
                 for (m, n), value in parameters[key].items():
                     if m == 0 and radius in ["major", "both"]:
