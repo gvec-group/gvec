@@ -73,8 +73,6 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         "iota",
         "iota_avg",
         "shear_avg",
-        "I_tor",
-        "I_pol",
         "mod_B",
         "Phi_edge",
         "p",
@@ -82,6 +80,9 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         *Q_other,
     )
     ev_lcfs = state.evaluate(
+        "I_tor",
+        "I_pol",
+        "iota",
         "mirror_ratio",
         "L_gradB",
         rho=1.0,
@@ -97,11 +98,12 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         get_info(ev_vol, "iota_avg"),
         ["iota_max", ev_vol.iota.max().item(), "maximum rotational transform"],
         ["iota_min", ev_vol.iota.min().item(), "minimum rotational transform"],
+        ["iota_edge", ev_lcfs.iota.item(), "rotational transform at the edge (rho=1.0)"],
         get_info(ev_vol, "shear_avg"),
     ]
     output += [
-        ["I_tor", ev_vol.I_tor.sel(rho=1.0, method="nearest").item(), "total toroidal current"],
-        ["I_pol", ev_vol.I_pol.sel(rho=1.0, method="nearest").item(), "total poloidal current"],
+        ["I_tor", ev_lcfs.I_tor.item(), "total toroidal current"],
+        ["I_pol", ev_lcfs.I_pol.item(), "total poloidal current"],
     ]
     B_avg = volume_integral(ev_vol.mod_B * ev_vol.Jac) / ev_vol.V
     output += [
@@ -113,7 +115,7 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
     ]
     output += [
         ["p_max", ev_vol.p.max().item(), "maximum pressure"],
-        ["beta_avg", ev_vol.beta_avg.item(), "volume-averaged plasma beta"],
+        get_info(ev_vol, "beta_avg"),
     ]
     output += [get_info(ev_vol, q) for q in Q_other]
     output += [
