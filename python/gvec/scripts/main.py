@@ -8,7 +8,7 @@ import argparse
 from collections.abc import Sequence
 
 import gvec
-from gvec.scripts import cas3d, convert, convert_wout, gist, quasr, run, toparaview, visu
+from gvec.scripts import cas3d, convert, convert_wout, gist, info, quasr, run, toparaview, visu
 
 # === Arguments === #
 
@@ -83,6 +83,14 @@ gist_parser = subparsers.add_parser(
     add_help=False,
 )
 
+info_parser = subparsers.add_parser(
+    "info",
+    help="Print overview information for a given GVEC State",
+    description=info.parser.description,
+    parents=[info.parser],
+    add_help=False,
+)
+
 plot_parser = subparsers.add_parser(
     "visu",
     help="Generate and save default plots",
@@ -127,6 +135,9 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
 
     elif args.mode == "load-quasr":
         return quasr.main(args)
+
+    elif args.mode == "info":
+        return info.main(args)
 
     elif args.mode == "visu":
         return visu.main(args)

@@ -114,7 +114,7 @@ def plot_radial_profile(
     if n_rationals:  # if n_rationals > 0 or not None
         for ax, quantity in zip(np.asarray(axs).flat, quantities):
             if quantity == "iota":
-                _add_rationals_to_iota_plot(state, ax, n_rationals=n_rationals)
+                _add_rationals_to_iota_plot(state, ax, n_rationals=n_rationals, nfp=state.nfp)
 
     return fig, axs
 
@@ -180,7 +180,8 @@ def _add_rationals_to_iota_plot(
     state,
     ax,
     limits: tuple[float, float] | None = None,
-    n_rationals: int | None = 3,
+    n_rationals: int = 3,
+    nfp: int = 1,
 ):
     """
     Add rationals as a secondary y-axis to an iota profile plot. Denominator is restricted to multiples of number of field periods.
@@ -194,6 +195,9 @@ def _add_rationals_to_iota_plot(
     n_rationals : int, optional
         The maximum number of rationals to add to the plot.
         Default ``3``
+    nfp : int, optional
+        The number of field periods. Only rationals with numerator that are multiples of this will be plotted.
+        Default ``1``
     """
     from math import gcd
 
@@ -209,20 +213,21 @@ def _add_rationals_to_iota_plot(
 
     rationals = []
 
-    p = 1
-    while len(rationals) < n_rationals and p < 1000:
-        for q in range(1, p + 1):
-            if gcd(q, p) != 1:
+    for n in range(1, 1000):
+        for m in range(1, 1000):
+            if n / m > limits[1] / nfp:
                 continue
-            if limits[0] <= q / p <= limits[1]:
-                rationals.append((q, p))
-            if limits[0] <= p / q <= limits[1]:
-                rationals.append((p, q))
-        p = p + 1
+            if n / m < limits[0] / nfp:
+                break
+            if gcd(n, m) != 1:
+                continue
+            rationals.append((n * nfp, m))
+            if len(rationals) >= n_rationals:
+                break
+        if len(rationals) >= n_rationals:
+            break
 
     rationals = sorted(set(rationals), key=lambda x: x[0] / x[1])
-
-    rationals = rationals[:n_rationals]
 
     secax = ax.secondary_yaxis("right")
     if pre_mult == 1:
