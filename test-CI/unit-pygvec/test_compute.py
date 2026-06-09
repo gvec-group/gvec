@@ -1009,6 +1009,68 @@ def test_evaluate_sfl(teststate, sfl, kwargs):
     assert ev.tor.size == 31
 
 
+@pytest.mark.parametrize("sfl", [None, "boozer", "pest"])
+def test_evaluate_on_axis(teststate, sfl):
+    ev = teststate.evaluate_on_axis("mod_B", theta=10, zeta=5, sfl=sfl, MNfactor=1)
+    if sfl is None:
+        ev_ref = teststate.evaluate("mod_B", rho=2e-4, theta=10, zeta=5)
+    else:
+        ev_ref = teststate.evaluate_sfl(
+            "mod_B", rho=2e-4, theta=10, zeta=5, sfl=sfl, MNfactor=1
+        )
+
+    assert "rho" in ev
+    assert len(ev.rho.dims) == 0
+    assert ev.rho.item() == 0.0
+    assert "rad" not in ev.dims
+
+    assert "mod_B" in ev
+    assert set(ev.mod_B.dims) == {"pol", "tor"}
+    np.testing.assert_allclose(ev.mod_B, ev_ref.mod_B.squeeze(), rtol=1e-5, atol=1e-4)
+
+
+@pytest.mark.parametrize("sfl", [None, "boozer", "pest"])
+def test_evaluate_with_axis(teststate, sfl):
+    if sfl is None:
+        ev = teststate.evaluate("mod_B", rho=np.linspace(0, 1, 3), theta=10, zeta=5)
+    else:
+        ev = teststate.evaluate_sfl(
+            "mod_B", rho=np.linspace(0, 1, 3), theta=10, zeta=5, sfl=sfl, MNfactor=1
+        )
+    ev_axis = teststate.evaluate_on_axis("mod_B", theta=10, zeta=5, sfl=sfl, MNfactor=1)
+
+    assert "rho" in ev.coords
+    assert ev.rho.dims == ("rad",)
+    assert ev.rho.size == 3
+    assert ev.rho.attrs["long_name"]
+    assert ev.rho.attrs["symbol"]
+    assert ev.rho[0].item() == 0.0
+
+    assert "mod_B" in ev
+    assert set(ev.mod_B.dims) == {"rad", "pol", "tor"}
+    np.testing.assert_allclose(ev.mod_B.sel(rho=0.0), ev_axis.mod_B, atol=1e-12)
+
+
+@pytest.mark.parametrize("sfl", [None, "boozer", "pest"])
+def test_evaluate_only_axis(teststate, sfl):
+    if sfl is None:
+        ev = teststate.evaluate("mod_B", rho=0.0, theta=10, zeta=5)
+    else:
+        ev = teststate.evaluate_sfl("mod_B", rho=0.0, theta=10, zeta=5, sfl=sfl, MNfactor=1)
+    ev_axis = teststate.evaluate_on_axis("mod_B", theta=10, zeta=5, sfl=sfl, MNfactor=1)
+
+    assert "rho" in ev.coords
+    assert ev.rho.dims == ("rad",)
+    assert ev.rho.size == 1
+    assert ev.rho.attrs["long_name"]
+    assert ev.rho.attrs["symbol"]
+    assert ev.rho[0].item() == 0.0
+
+    assert "mod_B" in ev
+    assert set(ev.mod_B.dims) == {"rad", "pol", "tor"}
+    np.testing.assert_allclose(ev.mod_B.squeeze(), ev_axis.mod_B, atol=1e-12)
+
+
 def test_ev2ft_2d(teststate, ev_rtz):
     teststate.compute(ev_rtz, "mod_B")
     ft = gvec.core.compute.ev2ft(ev_rtz[["mod_B"]].isel(rad=0))

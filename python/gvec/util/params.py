@@ -573,6 +573,8 @@ def stringify_mn_parameters(parameters: Mapping) -> CaseInsensitiveDict:
             output[key] = value.item()
         elif isinstance(value, np.ndarray):
             output[key] = value.tolist()
+        elif isinstance(value, Iterable) and not isinstance(value, str):
+            output[key] = np.asarray(value).tolist()
         else:
             output[key] = value
     return output

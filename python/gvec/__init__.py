@@ -23,7 +23,6 @@ from gvec.core.compute import (
     Evaluations,
     EvaluationsBoozer,
     EvaluationsPEST,
-    EvaluationsBoozerCustom,
     table_of_quantities,
 )
 from gvec.core.run import run, Run

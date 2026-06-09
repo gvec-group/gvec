@@ -28,7 +28,6 @@ __all__ = [
     "volume_integral",
     "Evaluations",
     "EvaluationsBoozer",
-    "EvaluationsBoozerCustom",
     "EvaluationsPEST",
     "evaluate",
     "evaluate_sfl",
@@ -186,6 +185,9 @@ def compute(
 
     This method will recursively determine prerequisites, compute them and add them to the dataset as needed.
 
+    The ``state`` object is only required for quantities which do not only depend on already computed quantities.
+    This includes quantities which require auxiliary computations, like integral quantities.
+
     Parameters
     ----------
     ev : xr.Dataset
@@ -199,6 +201,11 @@ def compute(
     registry : Mapping | None, optional
         The registry of computable quantites to use.
         Default: the ``gvec.core.compute.QUANTITIES`` registry used to evaluate a gvec.State object.
+
+    Note
+    ----
+    Values at ``rho=0.0`` can be incorrect due to the coordinate singularity (``Jac=0``) there.
+    Use ``evaluate_on_axis`` for quadratic extrapolation from off-axis values.
 
     See Also
     --------
@@ -380,9 +387,6 @@ def Evaluations(
             coords["rho"] = ("rad", rho)
         case int() as num:
             coords["rho"] = ("rad", np.linspace(0, 1, num))
-            coords["rho"][1][0] = min(
-                1.0e-4, 0.1 * coords["rho"][1][1]
-            )  # avoid numerical issues at the magnetic axis
         case float():
             coords["rho"] = ("rad", np.array([rho]))
         case None:
@@ -495,6 +499,8 @@ def EvaluationsBoozer(
     ----------
     rho : "int" | int | float | 1D array (DataArray, ndarray, list)
         The specification of the radial, radius-like coordinate. "int" will use the integration points from the state object.
+        Values need to be within ``[1e-4, 1.0]`` or ``0.0``, as the boozer transform requires a flux surface.
+        For ``rho=0.0``, the boozer transform is quadratically extrapolated from the values at ``rho~1e-4``.
     theta_B : int | float | 1D, 2D or 3D array (DataArray, ndarray, list)
         The specification of the poloidal, angle-like Boozer coordinate.
         1D assumes dimension "pol", 2D assumes ("pol", "tor"), 3D assumes ("rad", "pol", "tor").
@@ -511,7 +517,7 @@ def EvaluationsBoozer(
         The offset in rho used for the Finite Difference computation of the radial derivatives, default ``1e-8``.
     boozer_kwargs : dict, optional
         Additional keyword arguments to pass to the ``get_boozer`` method of the ``state`` object.
-        These can be used to specify the Boozer transform parameters. For example the maximum mode number factor ``boozer_kwargs={"MNfactor": 3}``.
+        These can be used to specify the Boozer transform parameters. For example the maximum mode number factor ``MNfactor=3``.
 
     Returns
     -------
@@ -531,7 +537,7 @@ def EvaluationsBoozer(
                 raise ValueError(f"rho can only be 1D, but is {rho.ndim}D.")
             rho = ("rad", rho)
         case int():
-            rho = ("rad", np.linspace(0, 1, rho + 1)[1:])
+            rho = ("rad", np.linspace(0, 1, rho))
         case float():
             rho = ("rad", np.array([rho]))
         case _:
@@ -587,65 +593,114 @@ def EvaluationsBoozer(
             zeta_B=zeta_B,
         ),
     )
+    if ds.rho.size == 0:
+        raise ValueError("rho cannot be empty.")
 
-    # === Find the logical coordinates of the Boozer grid === #
-    # first perform the boozer transform on the target surfaces
-    # get_boozer_angles expects a list of (theta_B, zeta_B) coordinates
-    # - broadcast such that theta_B, zeta_B are both (pol, tor) and stack
-    # - unstack the result again
-    # if theta_B or zeta_B are 3D, we need to do this on each surface individually and stich it together
-    sfl_boozer = state.get_boozer(ds.rho, **boozer_kwargs)
-    if "rad" in ds.theta_B.dims or "rad" in ds.zeta_B.dims:  # 3D
-        theta = []
-        zeta = []
-        for rad, rho in enumerate(ds.rho):
-            dsr = ds.isel(rad=rad)
-            stacked = dsr[["theta_B", "zeta_B"]]
-            stacked = stacked.broadcast_like(stacked).stack(tz=("pol", "tor"))
+    # --- detect extrapolation to axis --- #
+    # cannot perform the boozer transform at rho=0.0 (needs a flux surface)
+    # 1) remove rho=0.0 from the dataset 'ds'
+    # 2) compute a Boozer transform (separately) away from the axis
+    # 3) extrapolate zeta, theta, LA, NU_B to the axis
+    # 4) concatenate the extrapolated values again after the Boozer transform for the other radial points
+    if ds.rho[0] == 0.0 and 0.0 not in ds.rho[1:]:
+        extrapolate = True
+        ds = ds.isel(rad=slice(1, None))
+    elif 0.0 in ds.rho:
+        raise ValueError(
+            f"Automatic extrapolation is only supported for rho=0.0 at the first radial point, but got rho=0.0 at index {np.where(ds.rho == 0.0)[0]}."
+        )
+    else:
+        extrapolate = False
+
+    # special case: only rho=0.0 requested, remaining dataset is empty
+    if ds.rho.size:
+        # === Find the logical coordinates of the Boozer grid === #
+        # first perform the boozer transform on the target surfaces
+        # get_boozer_angles expects a list of (theta_B, zeta_B) coordinates
+        # - broadcast such that theta_B, zeta_B are both (pol, tor) and stack
+        # - unstack the result again
+        # if theta_B or zeta_B are 3D, we need to do this on each surface individually and stich it together
+        sfl_boozer = state.get_boozer(ds.rho, **boozer_kwargs)
+        if "rad" in ds.theta_B.dims or "rad" in ds.zeta_B.dims:  # 3D
+            theta = []
+            zeta = []
+            for rad, rho in enumerate(ds.rho):
+                dsr = ds.isel(rad=rad)
+                stacked = dsr[["theta_B", "zeta_B"]]
+                stacked = stacked.broadcast_like(stacked).stack(tz=("pol", "tor"))
+                tz_B = np.stack([stacked.theta_B, stacked.zeta_B], axis=0)
+                tz = state.get_boozer_angles(sfl_boozer, tz_B, rad)
+                stacked["theta"] = ("tz", tz[0, :])
+                stacked["zeta"] = ("tz", tz[1, :])
+                theta.append(stacked["theta"].unstack("tz"))
+                zeta.append(stacked["zeta"].unstack("tz"))
+            ds["theta"] = xr.concat(theta, dim="rad")
+            ds["zeta"] = xr.concat(zeta, dim="rad")
+
+        else:  # 2D
+            stacked = ds[["theta_B", "zeta_B"]].stack(tz=("pol", "tor"))
             tz_B = np.stack([stacked.theta_B, stacked.zeta_B], axis=0)
-            tz = state.get_boozer_angles(sfl_boozer, tz_B, rad)
-            stacked["theta"] = ("tz", tz[0, :])
-            stacked["zeta"] = ("tz", tz[1, :])
-            theta.append(stacked["theta"].unstack("tz"))
-            zeta.append(stacked["zeta"].unstack("tz"))
-        ds["theta"] = xr.concat(theta, dim="rad")
-        ds["zeta"] = xr.concat(zeta, dim="rad")
+            tz = state.get_boozer_angles(sfl_boozer, tz_B)
+            stacked["theta"] = (("tz", "rad"), tz[0, :, :])
+            stacked["zeta"] = (("tz", "rad"), tz[1, :, :])
+            ds["theta"] = stacked["theta"].unstack("tz")
+            ds["zeta"] = stacked["zeta"].unstack("tz")
 
-    else:  # 2D
-        stacked = ds[["theta_B", "zeta_B"]].stack(tz=("pol", "tor"))
-        tz_B = np.stack([stacked.theta_B, stacked.zeta_B], axis=0)
-        tz = state.get_boozer_angles(sfl_boozer, tz_B)
-        stacked["theta"] = (("tz", "rad"), tz[0, :, :])
-        stacked["zeta"] = (("tz", "rad"), tz[1, :, :])
-        ds["theta"] = stacked["theta"].unstack("tz")
-        ds["zeta"] = stacked["zeta"].unstack("tz")
+        if radial_derivative:
+            # as the radial derivatives must be at a fixed (theta,zeta) position for each flux surface,
+            # we have to evaluate LA and NU_B at these same positions, in order compute the derivative with FD
+            ds_eps = ds.copy()
+            sfl_boozer_eps = state.get_boozer(ds.rho - epsilon_FD, **boozer_kwargs)
+            ds_eps = add_Boozer_LA_NU(ds_eps, state, sfl_boozer_eps)
 
-    if radial_derivative:
-        # as the radial derivatives must be at a fixed (theta,zeta) position for each flux surface,
-        # we have to evaluate LA and NU_B at these same positions, in order compute the derivative with FD
-        ds_eps = ds.copy()
-        sfl_boozer_eps = state.get_boozer(ds.rho - epsilon_FD, **boozer_kwargs)
-        ds_eps = add_Boozer_LA_NU(ds_eps, state, sfl_boozer_eps)
+        ds = add_Boozer_LA_NU(ds, state, sfl_boozer)
 
-    ds = add_Boozer_LA_NU(ds, state, sfl_boozer)
+        # === Add radial derivative, computed with FD: === #
+        if radial_derivative:
+            for var in ["LA", "NU_B"]:
+                name = ds[var].attrs["long_name"]
+                symbol = ds[var].attrs["symbol"]
+                for deriv, source in zip(["r", "rt", "rz"], [var, f"d{var}_dt", f"d{var}_dz"]):
+                    # Compute the derivative
+                    value = (ds[source].values - ds_eps[source].values) / epsilon_FD
+                    # Write to dataset
+                    ds[f"d{var}_d{deriv}"] = (
+                        ("rad", "pol", "tor"),
+                        np.stack(value).reshape(ds.rad.size, ds.pol.size, ds.tor.size),
+                        {
+                            "long_name": derivative_name_smart(name, deriv),
+                            "symbol": latex_partial_smart(symbol, deriv),
+                        },
+                    )
 
-    # === Add radial derivative, computed with FD: === #
-    if radial_derivative:
-        for var in ["LA", "NU_B"]:
-            name = ds[var].attrs["long_name"]
-            symbol = ds[var].attrs["symbol"]
-            for deriv, source in zip(["r", "rt", "rz"], [var, f"d{var}_dt", f"d{var}_dz"]):
-                # Compute the derivative
-                value = (ds[source].values - ds_eps[source].values) / epsilon_FD
-                # Write to dataset
-                ds[f"d{var}_d{deriv}"] = (
-                    ("rad", "pol", "tor"),
-                    np.stack(value).reshape(ds.rad.size, ds.pol.size, ds.tor.size),
-                    {
-                        "long_name": derivative_name_smart(name, deriv),
-                        "symbol": latex_partial_smart(symbol, deriv),
-                    },
-                )
+    # === Extrapolate to axis === #
+    # 1) calls evaluate_on_axis -> evaluate_sfl -> EvaluationsBoozer with rho > 0 values for extrapolation
+    # 2) concatenate the extrapolated values with the original dataset, and fix the indices and coordinates
+    if extrapolate:
+        ds_on_axis = evaluate_on_axis(
+            state,
+            theta=ds.theta_B,
+            zeta=ds.zeta_B,
+            sfl="boozer",
+            radial_derivative=radial_derivative,
+            epsilon_FD=epsilon_FD,
+            **boozer_kwargs,
+        )
+        # special case: only rho=0.0 requested, 'ds' is empty, no Boozer transform was performed yet
+        if ds.rho.size:
+            q_radial = [q for q in ds.data_vars if "rad" in ds[q].dims]
+            q_nonradial = [q for q in ds.data_vars if "rad" not in ds[q].dims]
+            ds_merged = xr.concat([ds_on_axis, ds[q_radial]], dim="rad").drop_indexes("zeta_B")
+            for q in q_nonradial:
+                ds_merged[q] = ds[q]
+            ds = ds_merged
+        else:
+            ds = (
+                ds_on_axis.reset_coords("rho")
+                .expand_dims("rad")
+                .set_coords("rho")
+                .drop_indexes(["theta_B", "zeta_B"])
+            )
 
     # === Metadata === #
     ds.rho.attrs["long_name"] = "Logical radial coordinate"
@@ -662,8 +717,10 @@ def EvaluationsBoozer(
     # === Indices === #
     # setting them earlier causes issues with the stacking / unstacking
     ds = ds.set_xindex("rho")
-    ds = ds.drop_vars("pol")
-    ds = ds.drop_vars("tor")
+    if "pol" in ds:
+        ds = ds.drop_vars("pol")
+    if "tor" in ds:
+        ds = ds.drop_vars("tor")
 
     if ds.theta_B.dims == ("pol",):
         ds = ds.set_coords("theta_B").set_xindex("theta_B")
@@ -717,7 +774,7 @@ def EvaluationsPEST(
                 raise ValueError(f"rho can only be 1D, but is {rho.ndim}D.")
             rho = ("rad", rho)
         case int():
-            rho = ("rad", np.linspace(0, 1, rho + 1)[1:])
+            rho = ("rad", np.linspace(0, 1, rho))
         case float():
             rho = ("rad", np.array([rho]))
         case _:
@@ -812,18 +869,6 @@ def EvaluationsPEST(
     return ds
 
 
-def EvaluationsBoozerCustom(rho, theta_B, zeta_B, state, **boozer_kwargs):
-    """Create a custom EvaluationsBoozer dataset with Boozer coordinates.
-
-    .. deprecated:: v1.2
-    """
-    warnings.warn(
-        "`EvaluationsBoozerCustom` is deprecated, use `EvaluationsBoozer` instead.",
-        DeprecationWarning,
-    )
-    return EvaluationsBoozer(rho, theta_B, zeta_B, state, **boozer_kwargs)
-
-
 def add_Boozer_LA_NU(ds: xr.Dataset, state: State, sfl_boozer):
     """Add the LA and NU_B variables as computed by the boozer transform to the dataset.
 
@@ -889,6 +934,8 @@ def evaluate(
     This function creates an xarray Dataset with a specified grid and evaluates the desired
     quantities and recursively determined prerequisites on that grid.
 
+    Values at ``rho=0.0`` are quadratically extrapolated from the values at ``rho~1e-4`` using ``evaluate_on_axis``.
+
     Parameters
     ----------
     state : State
@@ -948,6 +995,14 @@ def evaluate(
         raise TypeError(f"Expected a gvec.State object, got {type(state)}.")
     ev = Evaluations(rho, theta, zeta, state)
     compute(ev, *quantities, state=state)
+    # --- extrapolate to axis if needed --- #
+    # compute is incorrect at rho=0.0 as Jac=0.0 causes all kinds of issues there.
+    # recompute all quantities away from the axis, extrapolate towards the axis and overwrite the wrong values
+    if "rho" in ev and 0.0 in ev.rho:
+        ev_axis = evaluate_on_axis(state, *quantities, theta=theta, zeta=zeta)
+        for q in ev.data_vars:
+            if "rad" in ev[q].dims:
+                ev[q].loc[dict(rho=0.0)] = ev_axis[q]
     return ev
 
 
@@ -964,6 +1019,9 @@ def evaluate_sfl(
     Evaluate the specified quantities on a grid in straight-fieldline coordinates (Boozer or PEST).
     This function creates an xarray Dataset with a specified grid and evaluates the desired
     quantities and recursively determined prerequisites on that grid.
+
+    Values at ``rho=0.0`` are quadratically extrapolated from the values at ``rho~1e-4`` using ``evaluate_on_axis``.
+    For ``sfl="boozer"``, the boozer transform itself is also extrapolated to the axis.
 
     Parameters
     ----------
@@ -1009,7 +1067,7 @@ def evaluate_sfl(
     boozer_kwargs : optional
         Additional keyword arguments to pass to the ``get_boozer`` method of the ``state`` object.
         These can be used to specify the Boozer transform parameters.
-        For example the maximum mode number factor ``boozer_kwargs={'MNfactor': 3}``.
+        For example the maximum mode number factor ``MNfactor=3``.
 
     Returns
     -------
@@ -1036,11 +1094,60 @@ def evaluate_sfl(
     else:
         raise ValueError(f"Unsupported SFL type {sfl}. Expected 'boozer' or 'pest'.")
     compute(ev, *quantities, state=state)
+    # --- extrapolate to axis if needed --- #
+    # compute is incorrect at rho=0.0 as Jac=0.0 causes all kinds of issues there.
+    # recompute all quantities away from the axis, extrapolate towards the axis and overwrite the wrong values
+    if "rho" in ev and 0.0 in ev.rho:
+        ev_axis = evaluate_on_axis(
+            state, *quantities, theta=theta, zeta=zeta, sfl=sfl, **boozer_kwargs
+        )
+        for q in ev.data_vars:
+            if "rad" in ev[q].dims:
+                ev[q].loc[dict(rho=0.0)] = ev_axis[q]
     return ev
+
+
+def evaluate_on_axis(
+    state: State,
+    *quantities: str,
+    theta: CoordinateSpec | Literal["int"],
+    zeta: CoordinateSpec | Literal["int"],
+    sfl: None | Literal["boozer", "pest"] = None,
+    **boozer_kwargs,
+) -> xr.Dataset:
+    """
+    Evaluate the values of the specified quantities on the magnetic axis using quadratic extrapolation from off-axis evaluations at ``rho=[1.1e-4, 2.2e-4, 3.3e-4]``.
+    """
+    rhos = [1.1e-4, 2.2e-4, 3.3e-4]  # must be >=1e-4
+
+    if not sfl:
+        ev = state.evaluate(
+            *quantities,
+            rho=rhos,
+            theta=theta,
+            zeta=zeta,
+        )
+    else:
+        ev = state.evaluate_sfl(
+            *quantities,
+            rho=rhos,
+            theta=theta,
+            zeta=zeta,
+            sfl=sfl,
+            **boozer_kwargs,
+        )
+
+    r1 = ev.isel(rad=0)
+    r2 = ev.isel(rad=1)
+    r3 = ev.isel(rad=2)
+    on_axis = 3 * (r1 - r2) + r3
+    on_axis.rho[...] = 0.0
+    return on_axis
 
 
 State.evaluate = evaluate
 State.evaluate_sfl = evaluate_sfl
+State.evaluate_on_axis = evaluate_on_axis
 
 
 # === Fourier Transform === #
