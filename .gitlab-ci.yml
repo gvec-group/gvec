@@ -1416,7 +1416,6 @@ include:
 .mpcdfci:
   tags:
     - mpcdf-shared
-    - cpu
   variables:
     CMAKE_HOSTNAME: "mpcdfcirunner"
     CI_HOSTNAME: "mpcdfci"
@@ -1710,7 +1709,6 @@ include:
 .ubuntu-22:
   tags:
     - mpcdf-shared
-    - cpu
   image: gitlab-registry.mpcdf.mpg.de/gvec-group/gvec/ubuntu-22:latest
   extends:
     - .vars_mpiOFF
@@ -1724,7 +1722,6 @@ include:
 .ubuntu-24:
   tags:
     - mpcdf-shared
-    - cpu
   image: gitlab-registry.mpcdf.mpg.de/gvec-group/gvec/ubuntu-24:latest
   extends:
     - .vars_mpiOFF
@@ -1738,7 +1735,6 @@ include:
 .fedora:
   tags:
     - mpcdf-shared
-    - cpu
   image: gitlab-registry.mpcdf.mpg.de/gvec-group/gvec/fedora:latest
   extends:
     - .vars_mpiOFF
