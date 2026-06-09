@@ -641,10 +641,22 @@ SUBROUTINE InitSolutionMHD3D(sf)
 
     CALL enter_subregion("check-solution")
     vars%dofs(0)%W_MHD3D=EvalEnergy(vars%dofs(0),.TRUE.,JacCheck)
-    IF(JacCheck.EQ.-1)THEN
+    IF(JacCheck.LE.-1)THEN
       CALL Analyze(0, vars%dofs(0), vars%force(0))
-      CALL abort(__STAMP__,&
-          "NEGATIVE JACOBIAN FOUND AFTER INITIALIZATION!",TypeInfo="InitializationError")
+      SELECT CASE(JacCheck)
+      CASE(-1)
+        CALL abort(__STAMP__,&
+          "JACOBIAN WITH SIGN CHANGE FOUND AFTER INITIALIZATION!", &
+          TypeInfo="InitializationError")
+      CASE(-2)
+        CALL abort(__STAMP__,&
+          "RELATIVE JACOBIAN TOO SMALL AFTER INITIALIZATION!", &
+          TypeInfo="InitializationError")
+      CASE(-3)
+        CALL abort(__STAMP__,&
+          "ALL JACOBIANS NEGATIVE AFTER INITIALIZATION! (LEFT-HANDED COORDINATES)", &
+          TypeInfo="InitializationError")
+      END SELECT
     END IF
     CALL WriteState(vars%dofs(0),0)
     CALL EvalForce(vars%dofs(0),.FALSE.,JacCheck, vars%force(0))

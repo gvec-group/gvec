@@ -26,7 +26,7 @@ MODULE MODgvec_MHD3D_minimize
     TYPE, ABSTRACT :: a_minimizer_vars
         CHARACTER(LEN=40) :: MinimizerType !! defines the minimization algorithm: 0 = Gradient-Descent, 10 = Accelerated Gradient-Descent
         LOGICAL   :: restart_iter, logger_is_initialized
-        INTEGER   :: JacCheck !! switch for restarts, if detJ<0 JacCheck=-1
+        INTEGER   :: JacCheck !! switch for restarts, if detJ<0 JacCheck<=-1
         INTEGER   :: iter,nStepDecreased,nSkip_Jac,nSkip_dw
         INTEGER   :: lastoutputIter, logiter_ramp, logscreen
         REAL(wp)  :: dt,deltaW, dW_allowed
@@ -460,10 +460,10 @@ MODULE MODgvec_MHD3D_minimize
                     vars%Vnorm=SQRT(vars%velocity(1)%norm_2())
                 END SELECT !Type
 
-                vars%JacCheck=2 !no abort,if detJ<0, JacCheck=-1
+                vars%JacCheck=2 !no abort,if detJ<0, JacCheck<=-1
 
                 vars%temp_dofs(1)%W_MHD3D=EvalEnergy(vars%temp_dofs(1),.TRUE.,vars%JacCheck)
-                IF(vars%JacCheck.EQ.-1)THEN
+                IF(vars%JacCheck.LE.-1)THEN
                     vars%nstepDecreased=vars%nStepDecreased+1
                     IF(vars%iter.GT.100) THEN
                         CALL WriteState(vars%dofs(0),vars%iter)

@@ -224,6 +224,7 @@ END SUBROUTINE InitProfilesGP
 
 !===================================================================================================================================
 !> Evaluate auxiliary variables at input state, writes onto module variables!!!
+!! This includes the check of the Jacobian, which is crucial for the validity of the computations. only a positive Jacobian is accepted.
 !!
 !===================================================================================================================================
 SUBROUTINE EvalAux(dofs_in,JacCheck)
@@ -236,18 +237,21 @@ SUBROUTINE EvalAux(dofs_in,JacCheck)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: dofs_in  !! input solution
-  INTEGER               , INTENT(INOUT) :: JacCheck !! if 1 on input: abort if detJ<0.
-                                                    !! if 2 on input, no abort, unchanged if detJ>0 ,return -1 if detJ<=0
+  INTEGER               , INTENT(INOUT) :: JacCheck !! if 1 on input: abort if detJ<1e-12*max|detJ|.
+                                                    !! if 2 on input, no abort, unchanged if min(detJ)>=1e-12*max|detJ|, else return
+                                                    !! -3 negative Jacobian everywhere (left-handed coordinates),
+                                                    !! -2 relative Jacobian too small,
+                                                    !! -1 Jacobian with sign change.
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER   :: iGP,i_mn,IP_GP(2)
-  REAL(wp)  :: min_detJ
+  INTEGER   :: iGP,i_mn,IP_GP(2),JacError
+  REAL(wp)  :: min_detJ,max_detJ,min_abs_detJ,max_abs_detJ
 !===================================================================================================================================
-  IF(JacCheck.EQ.-1) THEN
+  IF(JacCheck.LE.-1) THEN
       CALL abort(__STAMP__, &
-          'You already called EvalAux, with a Jacobian smaller that  1.0e-12!!!' )
+          'You already called EvalAux, with a bad Jacobian, detJ < 1e-12*max|detJ|!!!', IntInfo=JacCheck )
   END IF
 
   __PERFON('EvalAux')
@@ -283,10 +287,12 @@ SUBROUTINE EvalAux(dofs_in,JacCheck)
 
   __PERFON('loop_1')
   min_detJ =HUGE(1.0_wp)
+  max_detJ =-HUGE(1.0_wp)
 !$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
 !$OMP   PRIVATE(iGP,i_mn)  &
 !$OMP   REDUCTION(min:min_detJ) &
+!$OMP   REDUCTION(max:max_detJ) &
 !$OMP   SHARED(nGP_str,nGP_end,mn_IP,J_p,J_h,detJ,dX1_ds,dX2_dthet,dX2_ds,dX1_dthet)
   DO iGP=nGP_str,nGP_end
     DO i_mn=1,mn_IP
@@ -294,14 +300,30 @@ SUBROUTINE EvalAux(dofs_in,JacCheck)
                          -dX2_ds(i_mn,iGP)*dX1_dthet(i_mn,iGP) )
 
       detJ(i_mn,iGP) = J_p(i_mn,iGP)*J_h(i_mn,iGP)
-      min_detJ = MIN(min_detJ,detJ(i_mn,iGP))
+      min_detJ  = MIN(min_detJ,detJ(i_mn,iGP))
+      max_detJ  = MAX(max_detJ,detJ(i_mn,iGP))
     END DO !i_mn
   END DO !iGP
 !$OMP END PARALLEL DO
   __PERFOFF('loop_1')
+  CALL par_AllReduce(min_detJ,'MIN')
+  CALL par_AllReduce(max_detJ,'MAX')
+  !max|detJ| = max(|min(detJ)|,|max(detJ)|)
+  max_abs_detJ = MAX(ABS(min_detJ),ABS(max_detJ))
 
-  !check Jacobian
-  IF(min_detJ .LT.1.0e-12_wp) THEN
+  !check relative Jacobian J/max|J|
+  JacError=0
+  IF(min_detJ .LT.1.0e-12_wp*max_abs_detJ) THEN
+    !detJ < 1e-12*max|detJ|
+    IF(max_detJ .LT. -1.0e-12_wp*max_abs_detJ) THEN
+      JacError=-3 ! all detJ is negative, left-handed coordinates found (max(detJ) < -1e-12*max|detJ|)
+    ELSEIF(MIN(ABS(min_detJ),ABS(max_detJ)) .LE. 1.0e-12_wp*max_abs_detJ) THEN
+      JacError=-2 ! relative Jacobian too small ( |min(detJ)|<= 1e-12*max|detJ| or |max(detJ)|<= 1e-12*max|detJ| )
+    ELSE
+      JacError=-1 ! negative Jacobian found with sign change  (min(detJ) < -1e-12*max|detJ| and max(detJ) > 1e-12*max|detJ| )
+    END IF
+  END IF
+  IF(JacError.NE.0) THEN
     SELECT CASE(JacCheck)
     CASE(1)
       n_warnings_occured=n_warnings_occured+1
@@ -314,16 +336,27 @@ SUBROUTINE EvalAux(dofs_in,JacCheck)
       WRITE(UNIT_stdOut,'(4X,16X,4(A,E11.3))')'     ...max(J)= ',MAXVAL(detJ(:,nGP_str:nGP_end)),' at s= ',s_GP(IP_GP(2)), &
            &                                                             ' theta= ',X1_base%f%x_IP(1,IP_GP(1)), &
            &                                                              ' zeta= ',X1_base%f%x_IP(2,IP_GP(1))
-      CALL abort(__STAMP__, &
-           'EvalAux: Jacobian smaller that  1.0e-12 !!!', IntInfo=myRank )
+
+      SELECT CASE(JacError)
+      CASE(-3)
+        CALL abort(__STAMP__, &
+          'EvalAux: negative Jacobian found everywhere (max(detJ) < -1e-12*max|detJ|). Left-handed coordinates cannot be used!!!', IntInfo=myRank )
+      CASE(-2)
+        CALL abort(__STAMP__, &
+          'EvalAux: relative Jacobian too small (|min(detJ)| <= 1e-12*max|detJ| or |max(detJ)|<= 1e-12*max|detJ|). !!!', IntInfo=myRank )
+      CASE(-1)
+        CALL abort(__STAMP__, &
+          'EvalAux: negative Jacobian found with sign change (min(detJ) < -1e-12*max|detJ| and max(detJ) > 1e-12*max|detJ| )!!!', IntInfo=myRank )
+      END SELECT
+
     CASE(2) !quiet check, give back
-      JacCheck=-1
+      JacCheck=JacError
     END SELECT
   ELSE
     JacCheck=1 !set to default for safety (abort if detJ<0)
   END IF
-  CALL par_AllReduce(JacCheck,'MIN')
-  IF(JacCheck.EQ.-1) THEN
+
+  IF(JacCheck.LE.-1) THEN
     __PERFOFF('EvalAux')
     RETURN
   END IF
@@ -387,9 +420,9 @@ SUBROUTINE EvalTotals(dofs_in,vol,surfAvg)
 !===================================================================================================================================
   JacCheck=2
   CALL EvalAux(dofs_in,JacCheck)
-  IF(JacCheck.EQ.-1) THEN
+  IF(JacCheck.LE.-1) THEN
       CALL abort(__STAMP__, &
-          ' detJ<0 in EvalAux, called from EvalTotals!!!' )
+          ' bad Jacobian in EvalAux, called from EvalTotals!!!', IntInfo=JacCheck )
   END IF
   vol=0.0_wp
   surfAvg=0.0_wp
@@ -427,7 +460,7 @@ FUNCTION EvalEnergy(dofs_in,callEvalAux,JacCheck) RESULT(W_MHD3D)
   CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: dofs_in     !! input solution
   LOGICAL               , INTENT(IN   ) :: callEvalAux !! set True if evalAux was not called on dofs_in
   INTEGER               , INTENT(INOUT) :: JacCheck !! if 1 on input: abort if detJ<0.
-                                                    !! if 2 on input, no abort, unchanged if detJ>0 ,return -1 if detJ<=0
+                                                    !! if 2 on input, no abort, unchanged if detJ>0 ,return <=-1 if detJ<=0
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                              :: W_MHD3D     !! total integral of MHD3D energy
@@ -445,16 +478,16 @@ FUNCTION EvalEnergy(dofs_in,callEvalAux,JacCheck) RESULT(W_MHD3D)
 
   IF(callEvalAux) THEN
     CALL EvalAux(dofs_in,JacCheck)
-    IF(JacCheck.EQ.-1) THEN
+    IF(JacCheck.LE.-1) THEN
       W_MHD3D=1.0e30_wp
       WRITE(UNIT_stdOut,'(A)')'... detJ<0 in EvalAux '
       __PERFOFF('EvalEnergy')
       RETURN !accept detJ<0
     END IF
   ELSE
-    IF(JacCheck.EQ.-1) THEN
+    IF(JacCheck.LE.-1) THEN
         CALL abort(__STAMP__, &
-            'You seem to have called EvalAux before, with a Jacobian smaller that  1.0e-12!!!' )
+            'You seem to have called EvalAux before, with a Jacobian  detJ< 1.0e-12*max|detJ|!!!', IntInfo=JacCheck )
     END IF
   END IF
 
@@ -536,9 +569,9 @@ SUBROUTINE EvalForce(dofs_in,callEvalAux,JacCheck,F_MHD3D,noBC)
   IF(callEvalAux) THEN
     CALL EvalAux(dofs_in,JacCheck)
   END IF
-  IF(JacCheck.EQ.-1) THEN
+  IF(JacCheck.LE.-1) THEN
     CALL abort(__STAMP__, &
-         'negative Jacobian was found when you call EvalAux before!!!')
+         'bad Jacobian was found when you call EvalAux before!!!', IntInfo=JacCheck )
   END IF
 
 

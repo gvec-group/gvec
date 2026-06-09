@@ -16,7 +16,7 @@ def plot_poloidal_plane(
     quantity: None | str = "mod_B",
     nrho: int = 21,
     ntheta: int = 51,
-    zeta: int | float | np.ndarray | list[float] = 9,
+    zeta: int | float | np.ndarray | list[float] = None,
     subplot_grid: list[int] | None = None,
     share_axis: bool = False,
     rho_contours: int = 4,
@@ -42,7 +42,7 @@ def plot_poloidal_plane(
         Default is ``51``
     zeta : int, float, ndarray, optional
         The number of equally spaced slices (``int``), the specific ``zeta`` value (``float``) or values (``np.ndarray``).
-        Default is ``9``.
+        Default is ``None``. Note: If None and ``n=0`` then ``zeta=1``, otherwise ``zeta=9``.
     subplot_grid : list[int], None, optional
         The grid shape for the subplots. If ``None``, grid will be automatically determined.
         Default is ``None``.
@@ -81,6 +81,16 @@ def plot_poloidal_plane(
     quantities = ["X1", "X2", "LA"]
     if quantity is not None:
         quantities.append(quantity)
+
+    if zeta is None:
+        # If zeta is not set, determine it based on the number of toroidal modes
+        x1_n_max = state.parameters["X1_mn_max"][1]
+        x2_n_max = state.parameters["X2_mn_max"][1]
+        n_max = max(x1_n_max, x2_n_max)
+        if n_max == 0:
+            zeta = 1
+        else:
+            zeta = 9
 
     ev_contour = state.evaluate(
         *quantities, rho=nrho, theta=np.linspace(0, 2 * np.pi, ntheta), zeta=zeta
@@ -168,7 +178,7 @@ def plot_poloidal_plane(
 
         # Remove interior axis labels and add axis labels to the boundary plots
         if share_axis:
-            ax.set(xlabel="X1", ylabel="X2")
+            ax.set(xlabel="$X^1$", ylabel="$X^2$")
             ax.label_outer()
             ax.set_aspect("equal")
         else:
