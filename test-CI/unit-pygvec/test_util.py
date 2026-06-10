@@ -70,6 +70,93 @@ def test_copy_test_CaseInsensitiveDict():
     recursive_is_not(cid_copy, cid)
 
 
+def test_serialize_CaseInsensitiveDict():
+    """Verify CaseInsensitiveDict.serialize converts numpy scalars/0D arrays and iterables."""
+    cid = util.CaseInsensitiveDict(
+        a=np.int64(1),
+        b=np.array(2),
+        c=[np.float64(3.5), np.array(4)],
+        nested=util.CaseInsensitiveDict(X=np.array(5)),
+        tuple_iter=(1, 2),
+    )
+
+    serialized = cid.serialize()
+
+    # Top-level must be a plain dict-like mapping
+    assert isinstance(serialized, dict)
+
+    # Numeric conversions
+    assert serialized["a"] == 1 and isinstance(serialized["a"], int)
+    assert serialized["b"] == 2 and isinstance(serialized["b"], int)
+
+    # Iterable and 0D conversions
+    assert isinstance(serialized["c"], list)
+    assert serialized["c"][0] == 3.5
+    assert serialized["c"][1] == 4
+
+    # Nested mapping becomes plain dict-like structure
+    assert isinstance(serialized["nested"], dict)
+    assert serialized["nested"]["X"] == 5
+
+    # Tuples become lists
+    assert isinstance(serialized["tuple_iter"], list)
+    assert serialized["tuple_iter"] == [1, 2]
+
+
+def test_stringify_mn():
+    """Ensure stringify_mn_parameters produces stringified mode keys and that serialize yields plain scalars."""
+    params = {
+        "X1_b_cos": {(0, 1): np.float64(1.2), (1, 2): np.array(3.0)},
+        "stages": [
+            {
+                "X1_b_cos": {(0, 1): np.float64(2.0)},
+                "stages": [{"X1_b_sin": {(1, 0): np.float64(4.0)}}],
+            }
+        ],
+    }
+
+    stringified = util.stringify_mn_parameters(params)
+
+    # The top-level result should be a CaseInsensitiveDict-like mapping
+    assert "X1_b_cos" in stringified
+    bucket = stringified["X1_b_cos"]
+    # Keys should be stringified with the exact format used by the code
+    expected_keys = [f"({m}, {n:2d})" for (m, n) in [(0, 1), (1, 2)]]
+    for k in expected_keys:
+        assert k in bucket
+
+    # After serialization, values should be plain Python scalars
+    serialized = stringified.serialize()
+    for m, n in [(0, 1), (1, 2)]:
+        key = f"({m}, {n:2d})"
+        assert isinstance(serialized["X1_b_cos"][key], (int, float))
+
+        # Stages are stringified recursively as well.
+        stage0 = stringified["stages"][0]
+        assert isinstance(stage0, util.CaseInsensitiveDict)
+        assert stage0["X1_b_cos"]["(0,  1)"] == 2.0
+        assert stage0["stages"][0]["X1_b_sin"]["(1,  0)"] == 4.0
+
+
+def test_unstringify_mn():
+    """Verify unstringify_mn_parameters restores tuple keys, including inside stages."""
+    params = {
+        "X1_b_cos": {"(0,  1)": 1.2, "(1,  2)": 3.0},
+        "stages": [{"X1pert_b_cos": {"(2,  3)": 4.5}}],
+    }
+
+    unstringified = util.unstringify_mn_parameters(params)
+
+    assert (0, 1) in unstringified["X1_b_cos"]
+    assert (1, 2) in unstringified["X1_b_cos"]
+    assert unstringified["X1_b_cos"][0, 1] == 1.2
+    assert unstringified["X1_b_cos"][1, 2] == 3.0
+
+    stage0 = unstringified["stages"][0]
+    assert (2, 3) in stage0["X1pert_b_cos"]
+    assert stage0["X1pert_b_cos"][2, 3] == 4.5
+
+
 def test_ev2vtk(testcaserundir, testfiles):
     rho = np.linspace(0, 1, 4)
     theta = np.linspace(0, 2 * np.pi, 5)  # including endpoints
