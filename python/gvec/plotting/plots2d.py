@@ -14,7 +14,7 @@ from gvec.plotting.utils import _design_subgrid, _subplots, _symbol_check
 def plot_poloidal_plane(
     state: State,
     quantity: None | str = "mod_B",
-    nrho: int = 21,
+    rho: int | np.ndarray | list[float] = 21,
     ntheta: int = 51,
     zeta: int | float | np.ndarray | list[float] = None,
     subplot_grid: list[int] | None = None,
@@ -24,6 +24,9 @@ def plot_poloidal_plane(
     theta_contours: int = 8,
     theta_contours_color: str | None = None,
     sfl: Literal["pest"] | None = "pest",
+    levels: int = 10,
+    colorbar_bounds: tuple = (None, None),
+    colorbar_scale: Literal["linear", "log"] = "linear",
     plot_kwargs: dict = dict(),
 ):
     """
@@ -34,9 +37,9 @@ def plot_poloidal_plane(
     state : GVEC state object
     quantity : str, optional
         The quantity to plot. Default is ``"mod_B"``. If ``None``, no contours are plotted.
-    nrho : int, optional
-        The radial resolution of the slices.
-        Default is ``51``
+    rho : int, optional
+        The radial resolution of the slices. Either by number, equally space, (``int``), or values (``np.ndarray``).
+        Default is ``21``
     ntheta : int, optional
         The poloidal resolution of the slices.
         Default is ``51``
@@ -64,6 +67,14 @@ def plot_poloidal_plane(
     sfl : ``"pest"`` or ``None``, optional
         Plot the ``theta`` contours or ``pest`` contours ($\\theta^\\star$).
         Default ``"pest"``.
+    levels : int, optional
+        Choose number of levels in the contour plot.
+        Default is ``10``
+    colorbar_bounds: tuple, optional
+        The bounds for the color scale of the plotted quantity, as a tuple of (min, max). Default is (None,None), then the bound is determined from the minimum and maximum of the plotted quantity. If only one is set to None, then that bound is determined from the plotted quantity.
+    colorbar_scale: str, optional
+        Scale of the colorbar, either ``"linear"`` or ``"log"`` for logarithmic scaling.
+        Default is ``"linear"``.
     plot_kwargs: dict, optional
         Any ``**kwargs`` to send to the ``plt.figure()`` function.
         For example ``plot_kwargs={'figsize': (8,8)}``. See the `matplotlib documentation <https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.figure.html>`_ for a list of kwargs.
@@ -71,6 +82,24 @@ def plot_poloidal_plane(
     Returns
     -------
     ``matplotlib.pyplot.figure`` object and ``numpy.ndarray`` of ``matplotlib.axis._axis.Axes`` object(s).
+
+    Remark
+    ------
+    If you want to plot a new quantity that is not in the gvec list of quantities: Before calling the plotting, define a function that adds the new quantity to the dataset ``ds``, and use a decorator to register it. The decorator contains a list of required existing quantities and attributes of the new quantity (like the symbol), and the function defines how to compute it from the required quantities. Once the quantity is registered, you can use it for plotting.
+
+    Here an example:
+
+    >>> @gvec.core.compute.register(
+    ...    requirements=("mod_B","mu0"),
+    ...    attrs=dict(
+    ...        long_name="magnetic pressure",
+    ...        symbol=r"|B|^2/(2\mu_0)",
+    ...    ),
+    >>> )
+    >>> def magnetic_pressure(ds):
+    ...    ds["magnetic_pressure"] = ds.mod_B**2/(2*ds.mu0)
+
+    You can nest this and register a second quantity that uses the previously registered in its requirements.
     """
 
     if rho_contours_color is None:
@@ -93,7 +122,7 @@ def plot_poloidal_plane(
             zeta = 9
 
     ev_contour = state.evaluate(
-        *quantities, rho=nrho, theta=np.linspace(0, 2 * np.pi, ntheta), zeta=zeta
+        *quantities, rho=rho, theta=np.linspace(0, 2 * np.pi, ntheta), zeta=zeta
     )
 
     if rho_contours:
@@ -105,14 +134,14 @@ def plot_poloidal_plane(
             ev_theta_contours = state.evaluate_sfl(
                 "X1",
                 "X2",
-                rho=np.linspace(0, 1, nrho),
+                rho=rho,
                 theta=theta_contours,
                 zeta=zeta,
                 sfl="pest",
             )
         else:
             ev_theta_contours = state.evaluate(
-                "X1", "X2", rho=np.linspace(0, 1, nrho), theta=theta_contours, zeta=zeta
+                "X1", "X2", rho=rho, theta=theta_contours, zeta=zeta
             )
 
     zeta_eval = ev_contour.zeta.data
@@ -129,28 +158,47 @@ def plot_poloidal_plane(
     fig, axs = _subplots(subplot_grid, share_axis, share_axis, **plot_kwargs)
 
     if quantity is not None:
-        # All plots will share the same colour scale
+        # All plots will share the same color scale
         plotting_quantity = ev_contour[quantity].broadcast_like(ev_contour.X1)
-        colour_scale = (plotting_quantity.min().item(), plotting_quantity.max().item())
-        colour_norm = colors.Normalize(vmin=colour_scale[0], vmax=colour_scale[1])
-
         # Make sure we are not trying to plot a vector field
         if "xyz" in plotting_quantity.coords:
             raise ValueError(
                 f"Plotting quantity must be a scalar field but {quantity} is a vector field."
             )
 
+        data_bounds = (plotting_quantity.min().item(), plotting_quantity.max().item())
+        color_bounds = data_bounds
+        # replace bounds if user-defined `colorbar_bounds` is set.
+        if colorbar_bounds[0] is not None:
+            color_bounds = (colorbar_bounds[0], color_bounds[1])
+        if colorbar_bounds[1] is not None:
+            color_bounds = (color_bounds[0], colorbar_bounds[1])
+        if colorbar_scale == "log":
+            if color_bounds[0] <= 0:
+                raise ValueError(
+                    f"Log colorbar scale is not possible with non-positive bounds, bounds used: {color_bounds}. Make sure bounds are positive and non-zero."
+                )
+            color_norm = colors.LogNorm(vmin=color_bounds[0], vmax=color_bounds[1])
+        else:
+            color_norm = colors.Normalize(vmin=color_bounds[0], vmax=color_bounds[1])
+        # explicitly define a discrete colormap, used for both the contour plots and the colorbar.
+        discrete_cmap = plt.get_cmap("viridis").resampled(levels)
+        cbar_args = {}
+        if data_bounds[1] > color_bounds[1]:
+            discrete_cmap.set_over("red")
+            cbar_args["extend"] = "max"
+
     # Loop and plot all axes
     for i, ax in enumerate(np.asarray(axs).flat):
         if quantity is not None:
-            f_ax = ax.contourf(
+            ax.contourf(
                 ev_contour.X1.isel(tor=i),
                 ev_contour.X2.isel(tor=i),
                 plotting_quantity.isel(tor=i),
-                norm=colour_norm,
+                levels=levels,
+                norm=color_norm,
+                cmap=discrete_cmap,
             )
-        if share_axis:
-            ax.label_outer()  # Removes any axis labels on subplots on the interior of the grid
         if rho_contours:
             # We should plot the rho contours
             ax.plot(
@@ -172,11 +220,10 @@ def plot_poloidal_plane(
         # The slice label will be added as an annotation to the top right of the subplot
         zeta_angle = zeta_eval[i] / np.pi
 
-        ax.set_title(f"$\\zeta={zeta_angle:.2f} \\pi$")
+        ax.set_title(f"$\\zeta={zeta_angle:.3f} \\pi$")
 
-        # Remove interior axis labels and add axis labels to the boundary plots
         if share_axis:
-            ax.set(xlabel="$X^1$", ylabel="$X^2$")
+            # Remove interior axis labels (numbers, not ticks)
             ax.label_outer()
             ax.set_aspect("equal")
         else:
@@ -195,13 +242,21 @@ def plot_poloidal_plane(
 
             ax.set_box_aspect(1)
 
+    # always add X1,X2 axis labels to the left/lower boundary plots
+    axs_2d = np.atleast_2d(axs).reshape(subplot_grid)
+    for row in range(axs_2d.shape[1]):
+        axs_2d[-1, row].set_xlabel("$X^1$")
+    for col in range(axs_2d.shape[0]):
+        axs_2d[col, 0].set_ylabel("$X^2$")
+
     if quantity is not None:
-        # Adding colourbar
+        # Adding colorbar
         ev_contour = _symbol_check(ev_contour, [quantity])
         fig.colorbar(
-            cm.ScalarMappable(colour_norm, cmap=f_ax.cmap),
+            cm.ScalarMappable(norm=color_norm, cmap=discrete_cmap),
             ax=np.asarray(axs).ravel().tolist(),
             label=f"${ev_contour[quantity].symbol}$",
+            **cbar_args,  # extend with red if data>vmax
         )
 
     return fig, axs
@@ -214,7 +269,6 @@ def plot_on_flux_surface(
     ntheta: int = 51,
     nzeta: int = 51,
     subplot_grid: list[int] | None = None,
-    share_axis: bool = True,
     share_contours: bool = False,
     levels: int | np.ndarray | list = 10,
     sfl: Literal["pest", "boozer"] | None = "boozer",
@@ -244,9 +298,6 @@ def plot_on_flux_surface(
     subplot_grid : list[int], optional
         The grid shape for the subplots. If ``None``, grid will be automatically determined.
         Default is ``None``.
-    share_axis : bool, optional
-        If ``True``, all subplots will share their ``x`` and ``y`` axes.
-        Default ``True``.
     levels : int, numpy.ndarray, optional
         If ``int`` then chooses number of levels in the contour plot. If an ``numpy.ndarray`` or ``list`` then plots contours at given values.
         Default is ``10``
@@ -286,7 +337,6 @@ def plot_on_flux_surface(
     if isinstance(quantities, str):
         quantities_eval = [quantities]
         nplots = rho_len
-        share_axis = False
     elif isinstance(quantities, list):
         quantities_eval = quantities
         nplots = len(quantities)
@@ -313,17 +363,24 @@ def plot_on_flux_surface(
     else:
         evaluations = state.evaluate(*quantities_eval, rho=rho, theta=theta, zeta=zeta)
 
-    fig, axs = _subplots(subplot_grid, share_axis, share_axis, **plot_kwargs)
+    fig, axs = _subplots(subplot_grid, True, True, **plot_kwargs)
 
     evaluations = _symbol_check(evaluations, quantities_eval)
 
+    # use a discrete cmap for the contours and the colorbar
+    discrete_cmap = plt.get_cmap("viridis").resampled(levels)
     if isinstance(quantities, str) and share_contours:
-        # Ensure the colourmap is consistent across plots
+        # Ensure the colormap is consistent across plots
         plotting_quantity = evaluations[quantities]
-        colour_scale = (plotting_quantity.min().item(), plotting_quantity.max().item())
-        colour_norm = colors.Normalize(vmin=colour_scale[0], vmax=colour_scale[1])
+        # Make sure we are not trying to plot a vector field
+        if "xyz" in plotting_quantity.coords:
+            raise ValueError(
+                f"Plotting quantity must be a scalar field but {quantities} is a vector field."
+            )
+        color_scale = (plotting_quantity.min().item(), plotting_quantity.max().item())
+        color_norm = colors.Normalize(vmin=color_scale[0], vmax=color_scale[1])
     else:
-        colour_norm = None
+        color_norm = None
 
     # The actual plotting bit
     for i, ax in enumerate(np.asarray(axs).flat):
@@ -359,7 +416,8 @@ def plot_on_flux_surface(
             theta_vals.data / (2 * np.pi),
             evaluations_i[quantity].transpose("pol", "tor").data,
             levels=levels,
-            norm=colour_norm,
+            norm=color_norm,
+            cmap=discrete_cmap,
         )
 
         if isinstance(quantities, list):
@@ -381,9 +439,9 @@ def plot_on_flux_surface(
         ax.label_outer()
 
     if isinstance(quantities, str) and share_contours:
-        # Adding colourbar if single quantity was requested
+        # Adding colorbar if single quantity was requested
         fig.colorbar(
-            cm.ScalarMappable(colour_norm, cmap=f_ax.cmap),
+            cm.ScalarMappable(color_norm, cmap=discrete_cmap),
             ax=np.asarray(axs).ravel().tolist(),
             label=f"${evaluations[quantity].symbol}$",
         )
