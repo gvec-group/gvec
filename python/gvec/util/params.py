@@ -103,8 +103,12 @@ class CaseInsensitiveDict(MutableMapping):
         def _serialize(value):
             if isinstance(value, Mapping):
                 return {k: _serialize(v) for k, v in value.items()}
+            elif isinstance(value, np.ndarray) and value.ndim == 0:
+                return value.item()
             elif isinstance(value, Iterable) and not isinstance(value, str):
                 return [_serialize(v) for v in value]
+            elif isinstance(value, np.number):
+                return value.item()
             else:
                 return value
 
@@ -556,7 +560,7 @@ def flatten_parameters(parameters: Mapping) -> CaseInsensitiveDict:
 
 
 def stringify_mn_parameters(parameters: Mapping) -> CaseInsensitiveDict:
-    """Serialize parameters into a string"""
+    """Convert boundary indices (mode numbers) from tuples of ints to strings."""
     output = CaseInsensitiveDict()
     for key, value in parameters.items():
         if re.match(r"(x1|x2|la)(pert:?)?_[a|b]_(sin|cos)", key.lower()):
@@ -567,21 +571,13 @@ def stringify_mn_parameters(parameters: Mapping) -> CaseInsensitiveDict:
                 output[key][f"({m}, {n:2d})"] = val
         elif key.lower() == "stages":
             output[key] = [stringify_mn_parameters(stage) for stage in value]
-        elif isinstance(value, np.number) or (
-            isinstance(value, np.ndarray) and value.size == 1
-        ):
-            output[key] = value.item()
-        elif isinstance(value, np.ndarray):
-            output[key] = value.tolist()
-        elif isinstance(value, Iterable) and not isinstance(value, str):
-            output[key] = np.asarray(value).tolist()
         else:
             output[key] = value
     return output
 
 
 def unstringify_mn_parameters(parameters: Mapping) -> CaseInsensitiveDict:
-    """Deserialize parameters from a string"""
+    """Convert boundary indices (mode numbers) from strings to tuples of ints."""
     output = CaseInsensitiveDict()
     for key, value in parameters.items():
         if re.match(r"(x1|x2|la)(pert:?)?_[a|b]_(sin|cos)", key.lower()):
