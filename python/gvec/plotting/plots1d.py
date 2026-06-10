@@ -42,9 +42,11 @@ def _plot_line_quantities_from_xarray(
             ylabel=f"${evaluations[quantities[i]].attrs['symbol']}$",
         )
 
-        # If there are multiple plots we need to set the x-axis labels only on the bottom row
-        if (hide_inner_axis) & (i - np.asarray(axs).size + subplot_grid[1] >= 0):
-            ax.set_xlabel(f"${xlabel}$")
+    # If there are multiple plots we need to set the x-axis labels only on the bottom row
+    if hide_inner_axis:
+        axs_2d = np.atleast_2d(axs).reshape(subplot_grid)
+        for row in range(axs_2d.shape[1]):
+            axs_2d[-1, row].set_xlabel(f"${xlabel}$")
 
     return fig, axs
 

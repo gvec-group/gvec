@@ -199,8 +199,6 @@ def plot_poloidal_plane(
                 norm=color_norm,
                 cmap=discrete_cmap,
             )
-        if share_axis:
-            ax.label_outer()  # Removes any axis labels on subplots on the interior of the grid
         if rho_contours:
             # We should plot the rho contours
             ax.plot(
@@ -271,7 +269,6 @@ def plot_on_flux_surface(
     ntheta: int = 51,
     nzeta: int = 51,
     subplot_grid: list[int] | None = None,
-    share_axis: bool = True,
     share_contours: bool = False,
     levels: int | np.ndarray | list = 10,
     sfl: Literal["pest", "boozer"] | None = "boozer",
@@ -301,9 +298,6 @@ def plot_on_flux_surface(
     subplot_grid : list[int], optional
         The grid shape for the subplots. If ``None``, grid will be automatically determined.
         Default is ``None``.
-    share_axis : bool, optional
-        If ``True``, all subplots will share their ``x`` and ``y`` axes.
-        Default ``True``.
     levels : int, numpy.ndarray, optional
         If ``int`` then chooses number of levels in the contour plot. If an ``numpy.ndarray`` or ``list`` then plots contours at given values.
         Default is ``10``
@@ -343,7 +337,6 @@ def plot_on_flux_surface(
     if isinstance(quantities, str):
         quantities_eval = [quantities]
         nplots = rho_len
-        share_axis = False
     elif isinstance(quantities, list):
         quantities_eval = quantities
         nplots = len(quantities)
@@ -370,7 +363,7 @@ def plot_on_flux_surface(
     else:
         evaluations = state.evaluate(*quantities_eval, rho=rho, theta=theta, zeta=zeta)
 
-    fig, axs = _subplots(subplot_grid, share_axis, share_axis, **plot_kwargs)
+    fig, axs = _subplots(subplot_grid, True, True, **plot_kwargs)
 
     evaluations = _symbol_check(evaluations, quantities_eval)
 
