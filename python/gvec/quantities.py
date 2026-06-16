@@ -913,8 +913,8 @@ def J(ds: xr.Dataset):
 @register(
     requirements=("J", "B", "dp_dr", "grad_rho"),
     attrs=dict(
-        long_name="MHD force",
-        symbol=r"F",
+        long_name="MHD force balance",
+        symbol=r"\mathbf{J}\times \mathbf{B}-\nabla p",
     ),
 )
 def F(ds: xr.Dataset):
@@ -933,6 +933,57 @@ def F_r_avg(ds: xr.Dataset):
     ds["F_r_avg"] = fluxsurface_integral(
         xr.dot(ds.F, ds.e_rho, dim="xyz") * ds.Jac
     ) / fluxsurface_integral(ds.Jac)
+
+
+@register(
+    requirements=("mod_B", "grad_mod_B", "mu0", "Jac"),
+    integration=("rho", "theta", "zeta"),
+    attrs=dict(
+        long_name="volume-averaged gradient of magnetic pressure",
+        symbol=r"\left\langle\left|\nabla\frac{B^2}{2\mu_0}\right|\right\rangle_\text{vol}",
+    ),
+)
+def gradB2_volavg(ds):
+    B_grad_B = ds.mod_B * ds.grad_mod_B
+    grad_B2_over_2mu0 = np.sqrt(xr.dot(B_grad_B, B_grad_B, dim="xyz")) / ds.mu0
+    ds["gradB2_volavg"] = volume_integral(grad_B2_over_2mu0 * ds.Jac) / volume_integral(ds.Jac)
+
+
+@register(
+    requirements=("mod_F", "gradB2_volavg"),
+    attrs=dict(
+        long_name="relative MHD force balance",
+        symbol=r"\frac{|\mathbf{J}\times\mathbf{B}-\nabla p|}{\left\langle\left|\nabla(B^2/2\mu_0)\right|\right\rangle_\text{vol}}",
+    ),
+)
+def mod_F_rel(ds):
+    ds["mod_F_rel"] = ds.mod_F / ds.gradB2_volavg
+
+
+@register(
+    requirements=("mod_F_rel", "Jac"),
+    integration=("theta", "zeta"),
+    attrs=dict(
+        long_name="flux surface average of the relative MHD force balance",
+        symbol=r"\frac{\left\langle|\mathbf{J}\times\mathbf{B}-\nabla p|\right\rangle_\text{surf}}{\left\langle\left|\nabla(B^2/2\mu_0)\right|\right\rangle_\text{vol}}",
+    ),
+)
+def mod_F_rel_surfavg(ds):
+    ds["mod_F_rel_surfavg"] = fluxsurface_integral(
+        ds.mod_F_rel * ds.Jac
+    ) / fluxsurface_integral(ds.Jac)
+
+
+@register(
+    requirements=("mod_F_rel", "Jac"),
+    integration=("rho", "theta", "zeta"),
+    attrs=dict(
+        long_name="volume average of the relative MHD force balance",
+        symbol=r"\frac{\left\langle|\mathbf{J}\times\mathbf{B}-\nabla p|\right\rangle_\text{vol}}{\left\langle\left|\nabla(B^2/2\mu_0)\right|\right\rangle_\text{vol}}",
+    ),
+)
+def mod_F_rel_volavg(ds):
+    ds["mod_F_rel_volavg"] = volume_integral(ds.mod_F_rel * ds.Jac) / volume_integral(ds.Jac)
 
 
 def _mod_factory(v):

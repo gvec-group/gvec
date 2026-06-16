@@ -67,7 +67,7 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
     logger.info("Evaluating State")
 
     Q_geo = ["V", "L_axis", "A_surface", "r_major", "r_minor", "aspect_ratio", "elongation"]
-    Q_other = ["W_MHD", "vacuum_magnetic_well_depth"]
+    Q_other = ["beta_avg", "mod_F_rel_volavg", "W_MHD", "vacuum_magnetic_well_depth"]
     ev_vol = state.evaluate(
         *Q_geo,
         "iota",
@@ -76,7 +76,6 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         "mod_B",
         "Phi_edge",
         "p",
-        "beta_avg",
         *Q_other,
     )
     ev_lcfs = state.evaluate(
@@ -115,7 +114,6 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
     ]
     output += [
         ["p_max", ev_vol.p.max().item(), "maximum pressure"],
-        get_info(ev_vol, "beta_avg"),
     ]
     output += [get_info(ev_vol, q) for q in Q_other]
     output += [
