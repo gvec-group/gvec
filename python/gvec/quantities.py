@@ -1704,7 +1704,10 @@ def elongation(ds: xr.Dataset):
     from gvec.util import ellipse_circumference_factor as ecf
 
     C = (ds.A_surface / 2 / np.sqrt(np.pi * ds.V * ds.L_axis)).item()
-    ds["elongation"] = newton(lambda e: ecf(e) - C, 2)
+    if C < 1:
+        ds["elongation"] = np.nan
+    else:
+        ds["elongation"] = newton(lambda e: ecf(e) - C, 2)
 
 
 # --- profiles --- #
