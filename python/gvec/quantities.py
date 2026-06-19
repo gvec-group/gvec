@@ -2055,8 +2055,9 @@ def L_gradB(ds: xr.Dataset):
         "mod_B",
     ),
     attrs=dict(
-        long_name="field line curvature",
+        long_name="field line curvature vector",
         symbol=r"\mathbf{\kappa}_B",
+        formula=r"\mathbf{b}\cdot\mathbf{\nabla b}",
     ),
 )
 def kappa_B(ds: xr.Dataset):
@@ -2078,8 +2079,24 @@ def kappa_B(ds: xr.Dataset):
     attrs=dict(
         long_name="geodesic curvature",
         symbol=r"\kappa_G",
+        formula=r"\mathbf{b}\cdot\mathbf{\nabla b} \cdot \mathbf{n} \times \mathbf{b}",
     ),
 )
 def kappa_G(ds: xr.Dataset):
     b = ds.B / ds.mod_B
     ds["kappa_G"] = xr.dot(ds.kappa_B, xr.cross(ds.normal, b, dim="xyz"), dim="xyz")
+
+
+@register(
+    requirements=(
+        "kappa_B",
+        "normal",
+    ),
+    attrs=dict(
+        long_name="normal curvature",
+        symbol=r"\kappa_N",
+        formula=r"\mathbf{b}\cdot\mathbf{\nabla b} \cdot \mathbf{n}",
+    ),
+)
+def kappa_N(ds: xr.Dataset):
+    ds["kappa_N"] = xr.dot(ds.kappa_B, ds.normal, dim="xyz")
