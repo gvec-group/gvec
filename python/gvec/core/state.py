@@ -311,6 +311,13 @@ class State:
         return r_GP, r_w, t_n, t_w, z_n, z_w
 
     @with_binding
+    def get_radial_gridpoints(self):
+        nelems = _state.get_sgrid_nelems()
+        s_pos = np.zeros(nelems + 1, dtype=np.float64, order="F")
+        _state.get_sgrid_positions(s_pos)
+        return s_pos
+
+    @with_binding
     def get_mn_max(self, quantity: str = "all") -> tuple[int, int]:
         if not isinstance(quantity, str):
             raise ValueError("Quantity must be a string.")
