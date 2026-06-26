@@ -17,7 +17,7 @@ USE MODgvec_Globals                  ,ONLY: wp,Unit_stdOut,abort,MPIRoot
 USE sll_m_bsplines               ,ONLY: sll_c_bsplines
 USE sll_m_spline_interpolator_1d ,ONLY: sll_t_spline_interpolator_1d
 USE sll_m_spline_matrix          ,ONLY: sll_c_spline_matrix
-USE MODgvec_sGrid ,ONLY: c_sgrid,t_sgrid
+USE MODgvec_sGrid ,ONLY: t_sgrid
 IMPLICIT NONE
 
 PRIVATE
