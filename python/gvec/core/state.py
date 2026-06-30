@@ -204,7 +204,11 @@ class State:
                     _state.init(self.parameterfile.name)
                     if self.statefile is not None:
                         logger.debug("Read state from statefile")
-                        _state.readstate(self.statefile.relative_to(self.rundir))
+                        if not self.statefile.is_absolute():
+                            statefile = self.statefile.relative_to(self.rundir)
+                        else:
+                            statefile = self.statefile
+                        _state.readstate(statefile)
                     else:
                         logger.debug("Initialize solution without statefile")
                         _state.initsolution()
