@@ -15,6 +15,7 @@ from typing import Literal
 import numpy as np
 import xarray as xr
 from pandas import read_csv
+import scipy
 
 import gvec
 from gvec.core.state import State
@@ -26,8 +27,13 @@ DEFAULT_MINIMIZE_TOL = 1e-6  # different to default `minimize_tol` in fortran
 DEFAULT_TOTALITER = 10**5  # different to default `maxIter` in fortran
 AUTO_IOTA_TARGET = 1e-10
 AUTO_IOTA_MAXITER = 10
-DEFAULT_PICARD_CURRENT_MAXRESTARTS = 30
-DEFAULT_PICARD_CURRENT_NPOINTS = 101
+DEFAULT_PICARD_CURRENT_MAXRESTARTS = 50
+DEFAULT_PICARD_CURRENT_NPOINTS = 1001
+DEFAULT_PICARD_CURRENT_IOTA_TYPE = "interpolation"
+DEFAULT_PICARD_CURRENT_IOTA_INTERPOLATION_DEGREE = 5
+DEFAULT_PICARD_CURRENT_IOTA_POLYNOMIAL_DEGREE = 15
+DEFAULT_PICARD_CURRENT_IOTA_BSPLINE_DEGREE = 11
+IOTA_FIT_FACTOR = 1.5
 
 
 def run(
@@ -281,7 +287,7 @@ class Run:
 
         # load I_tor profile (and set initial iota if not provided)
         if self.curr_constraint:
-            self._set_I_tor_target(self.parameters)
+            self._set_I_tor(self.parameters)
             self.iota_rms = None
             if "iota" not in self.parameters:
                 self.parameters["iota"] = cidict({"type": "polynomial", "coefs": [0.0]})
@@ -325,7 +331,7 @@ class Run:
             project_dir / parameters_stages_name,
         )
 
-    def _set_I_tor_target(self, params: Mapping):
+    def _set_I_tor(self, params: Mapping):
         """Evaluate and set the target toroidal current profile at linearily spaced positions in rho.
 
         Raises
@@ -333,28 +339,15 @@ class Run:
         gvec.errors.InvalidParameterError
             If an unknown profile type is provided.
         """
-        if (
-            not isinstance(params["picard_current"], str)
-            and "nPoints" in params["picard_current"]
-        ):
-            nPoints = params["picard_current"]["nPoints"]
-        else:
-            nPoints = DEFAULT_PICARD_CURRENT_NPOINTS
-        self.rho = np.linspace(0, 1, nPoints)
-
         match params["I_tor"].get("type", "polynomial"):
             case "polynomial":
-                coefs = np.array(params["I_tor"]["coefs"][::-1])
-                self.logger.debug(f"polynomial coefs: {coefs}")
+                coefs = np.array(params["I_tor"]["coefs"])
                 coefs *= params["I_tor"].get("scale", 1.0)
-                self.I_tor_target = np.poly1d(coefs)(self.rho**2)
-                if (
-                    abs(coefs[-1]) > 1e-8
-                ):  # poly1d is reverse to GVEC, e.g. coefs is ordered x²+x+1
+                self.I_tor = np.polynomial.Polynomial(coefs)
+                if abs(coefs[0]) > 1e-8:
                     raise gvec.errors.InvalidParameterError(
-                        f"Toroidal current profile not zero at magnetic axis!  I_tor(rho=0): {coefs[-1]}"
+                        f"Toroidal current profile not zero at magnetic axis!  I_tor(rho=0): {coefs[0]}"
                     )
-
             case "bspline":
                 from scipy.interpolate import BSpline
 
@@ -362,28 +355,24 @@ class Run:
                 coefs *= params["I_tor"].get("scale", 1.0)
                 knots = np.array(params["I_tor"]["knots"], dtype=float)
                 deg = np.sum(knots == knots[0]) - 1
-                I_tor_bspl = BSpline(knots, coefs, deg)
-                self.I_tor_target = I_tor_bspl(self.rho**2)
-                if abs(I_tor_bspl(0.0)) > 1e-8:
+                self.I_tor = BSpline(knots, coefs, deg)
+                if abs(self.I_tor(0.0)) > 1e-8:
                     raise gvec.errors.InvalidParameterError(
-                        f"Toroidal current profile not zero at magnetic axis! I_tor(rho=0): {I_tor_bspl(0.0)}"
+                        f"Toroidal current profile not zero at magnetic axis! I_tor(rho=0): {self.I_tor(0.0)}"
                     )
-
             case "interpolation":
-                from scipy.interpolate import make_splrep
+                from scipy.interpolate import make_interp_spline
 
                 y_vals = np.array(params["I_tor"]["vals"], dtype=float)
                 rho2_vals = np.array(params["I_tor"]["rho2"], dtype=float)
                 if min(np.sqrt(rho2_vals)) > 1e-4:
                     rho2_vals = np.append([0], rho2_vals)
                     y_vals = np.append([0], y_vals)
-                I_tor_bspl = make_splrep(rho2_vals, y_vals)
-                self.I_tor_target = I_tor_bspl(self.rho**2)
-                if abs(I_tor_bspl(0.0)) > 1e-8:
+                self.I_tor = make_interp_spline(rho2_vals, y_vals)
+                if abs(self.I_tor(0.0)) > 1e-8:
                     raise gvec.errors.InvalidParameterError(
-                        f"Toroidal current profile not zero at magnetic axis! I_tor(rho=0): {I_tor_bspl(0.0)}"
+                        f"Toroidal current profile not zero at magnetic axis! I_tor(rho=0): {self.I_tor(0.0)}"
                     )
-
             case _:
                 raise gvec.errors.InvalidParameterError(
                     f"Unknown Itor type: {params['I_tor']['type']}"
@@ -428,52 +417,88 @@ class Run:
         tolerance = self._state_parameters["minimize_tol"]
         self.logger.debug(f"Postprocessing statefile {self.state.statefile}")
 
+        rho_eval = np.linspace(0, 1, DEFAULT_PICARD_CURRENT_NPOINTS)
+        rho_eval = np.concatenate(
+            [[np.sqrt(1e-8), np.sqrt(2e-8), np.sqrt(3e-8)], self.rho[1:]]
+        )
         quantities = ["F_r_avg"]
         if self.curr_constraint:
             quantities += ["iota", "iota_curr_0", "iota_0", "I_tor"]
-        if hasattr(self, "rho"):  # e.g. when running in iota_constraint
-            rho_eval = np.concatenate(
-                [[np.sqrt(1e-8), np.sqrt(2e-8), np.sqrt(3e-8)], self.rho[1:]]
-            )
-        else:
-            rho_eval = "int"
         ev = self.state.evaluate(*quantities, rho=rho_eval, theta="int", zeta="int")
         ev = ev[quantities]
         # update iota
-        if self.curr_constraint:
-            # extrapolate ev dataset, from evaluations at s=1e-8,2e-8,3e-8 to s=0, quadratically. Only keep s=0 in dataset.
-            r1 = ev.isel(rad=0)
-            r2 = ev.isel(rad=1)
-            r3 = ev.isel(rad=2)
-            ev = ev.isel(rad=slice(2, None))
-
-            # workaround to modify xarray coordinate & index (with pandas >=3.0)
-            rho = ev.rho.data.copy()
-            rho[0] = 0.0
-            ev = ev.assign_coords(rho=("rad", rho)).set_xindex("rho")
-
-            for var in ev.data_vars:
-                ev[var].data[0] = 3 * (r1[var].data - r2[var].data) + r3[var].data
-
+        if self.curr_constraint and self._state_parameters["picard_current"] != "off":
+            self.I_tor_target = self.I_tor(rho_eval**2)
+            # the ev dataset is automatically extrapolated to rho=0
             iota_values = ev.iota_0 + self.I_tor_target * ev.iota_curr_0
-            self._state_parameters["iota"] = {
-                "type": "interpolation",
-                "vals": iota_values.data,
-                "rho2": (ev.rho**2).data,
-            }
+            match self._state_parameters.get("picard_current", {}).get(
+                "iota_type", DEFAULT_PICARD_CURRENT_IOTA_TYPE
+            ):
+                case "interpolation":
+                    # interpolate B-Spline on integration points + endpoints
+                    degree = self._state_parameters.get("picard_current", {}).get(
+                        "iota_degree", DEFAULT_PICARD_CURRENT_IOTA_INTERPOLATION_DEGREE
+                    )
+                    rhoIP = self.state.get_integration_points("LA")[0]
+                    rhoIP = np.concatenate([[0.0], rhoIP, [1.0]])
+                    evIP = self.state.evaluate(
+                        "iota_0", "iota_curr_0", rho=rhoIP, theta="int", zeta="int"
+                    )
+                    iotaIP = evIP.iota_0 + self.I_tor(rhoIP) * evIP.iota_curr_0
+                    bspl = scipy.interpolate.make_interp_spline(rhoIP**2, iotaIP, k=degree)
+                    self._state_parameters["iota"] = {
+                        "type": "bspline",
+                        "coefs": bspl.c,
+                        "knots": bspl.t,
+                    }
+                    iota_delta = ev.iota - bspl(ev.rho**2)
+                    iota_delta_fit = iota_values - bspl(ev.rho**2)
+                case "polynomial":
+                    # least-squares fit of polynomial
+                    degree = self._state_parameters.get("picard_current", {}).get(
+                        "iota_degree", DEFAULT_PICARD_CURRENT_IOTA_POLYNOMIAL_DEGREE
+                    )
+                    poly = np.polynomial.Polynomial.fit(
+                        ev.rho**2, iota_values, deg=degree, domain=[0, 1], window=[0, 1]
+                    )
+                    self._state_parameters["iota"] = {
+                        "type": "polynomial",
+                        "coefs": poly.coef,
+                    }
+                    iota_delta = ev.iota - poly(ev.rho**2)
+                    iota_delta_fit = iota_values - poly(ev.rho**2)
+                case "bspline":
+                    # least-squares fit of B-Splines aligned with radial grid
+                    degree = self._state_parameters.get("picard_current", {}).get(
+                        "iota_degree", DEFAULT_PICARD_CURRENT_IOTA_BSPLINE_DEGREE
+                    )
+                    grid = self.state.get_radial_gridpoints()
+                    grid[0], grid[-1] = 0.0, 1.0
+                    knots = np.concatenate([np.zeros(degree), grid, np.ones(degree)])
+                    bspl = scipy.interpolate.make_lsq_spline(
+                        ev.rho**2, iota_values, knots**2, k=degree
+                    )
+                    self._state_parameters["iota"] = {
+                        "type": "bspline",
+                        "coefs": bspl.c,
+                        "knots": bspl.t,
+                    }
+                    iota_delta = ev.iota - bspl(ev.rho**2)
+                    iota_delta_fit = iota_values - bspl(ev.rho**2)
+                case _:
+                    raise gvec.errors.InvalidParameterError(
+                        f"Invalid picard_current.iota_type: {self._state_parameters['picard_current'].get('iota_type')}. Must be 'interpolation', 'polynomial' or 'bspline'."
+                    )
 
         # diagnostics
-        if self.curr_constraint:
-            iota_delta = ev.iota - iota_values
-            self.rms_iota = np.sqrt((iota_delta**2).mean("rad"))
+        if self.curr_constraint and self._state_parameters["picard_current"] != "off":
+            self.rms_iota = np.sqrt((iota_delta**2).mean().item())
+            self.rms_iota_fit = np.sqrt((iota_delta_fit**2).mean().item())
             self.logger.info(f"max Δiota: {np.abs(iota_delta).max().item():.2e}")
             self.logger.info(
-                f"rms Δiota: {self.rms_iota.item():.2e}"
-                + (
-                    f", iota_tol: {self._state_parameters['picard_current']['iota_tol']:.2e}"
-                    if self._state_parameters["picard_current"] != "off"
-                    else ""
-                )
+                f"rms Δiota: {self.rms_iota:.2e}, "
+                f"rms Δiota_fit: {self.rms_iota_fit:.2e}, "
+                f"iota_tol: {self._state_parameters['picard_current']['iota_tol']:.2e}"
             )
             self.logger.info(
                 f"max ΔItor: {np.abs(ev.I_tor - self.I_tor_target).max().item():.2e}"
@@ -505,6 +530,7 @@ class Run:
                 diag_run["iota"] = ev.iota
                 diag_run["I_tor"] = ev.I_tor
                 diag_run["iota_delta"] = iota_delta
+                diag_run["iota_delta_fit"] = iota_delta_fit
                 diag_run["I_tor_delta"] = ev.I_tor - self.I_tor_target
             diag_run = diag_run.drop_vars(["pol_weight", "tor_weight"])
             if self.diagnostics_run is None:
@@ -606,8 +632,6 @@ class Run:
                         self._state_parameters[key] = cidict()
                     for subkey, subvalue in value.items():
                         self._state_parameters[key][subkey] = subvalue
-                        if subkey == "nPoints" and subvalue != len(self.rho):
-                            set_I_tor = True
                 else:
                     raise gvec.errors.InvalidParameterError(
                         f"unknown picard_current value! {value}"
@@ -627,7 +651,7 @@ class Run:
                 self._state_parameters[key] = value
 
         if set_I_tor:
-            self._set_I_tor_target(self._state_parameters)
+            self._set_I_tor(self._state_parameters)
 
     def run(
         self,
@@ -709,7 +733,7 @@ class Run:
 
         final_iota_str = ""
         if self.curr_constraint:
-            final_iota_str += f"\n and rms Δiota = {self.rms_iota.item():.2e}"
+            final_iota_str += f"\n and rms Δiota = {self.rms_iota:.2e}"
             # in case current constrained was turned off during the final stage
             if self._state_parameters["picard_current"] != "off":
                 final_iota_str += (
@@ -780,13 +804,17 @@ class Run:
         """
 
         self.rms_iota = np.inf
+        self.rms_iota_fit = 0.0
         self.nth_run = -1
-        if "maxRestarts" in self._state_parameters["picard_current"]:
-            max_restarts = self._state_parameters["picard_current"]["maxRestarts"]
-        else:
-            max_restarts = DEFAULT_PICARD_CURRENT_MAXRESTARTS
+        max_restarts = self._state_parameters["picard_current"].get(
+            "maxRestarts", DEFAULT_PICARD_CURRENT_MAXRESTARTS
+        )
         iota_tol = self._state_parameters["picard_current"]["iota_tol"]
-        while (self.rms_iota > iota_tol) and (self.GVEC_iter_used < self.totaliter):
+        while (
+            (self.rms_iota > iota_tol)
+            and (self.rms_iota > IOTA_FIT_FACTOR * self.rms_iota_fit)
+            and (self.GVEC_iter_used < self.totaliter)
+        ):
             if self.nth_run + 1 > max_restarts:
                 warnings.warn(
                     f"Maximum number of restarts reached for stage {self.nth_stage}! Moving on to next stage."
@@ -808,14 +836,15 @@ class Run:
         if self.rms_iota > iota_tol:
             warnings.warn(
                 f"Targeted iota has not been reached during stage {self.nth_stage}!\n"
-                + f"iota_tol.: {iota_tol:.2e}, achieved rms Δiota.: {self.rms_iota.item():.2e}"
+                f"iota_tol.: {iota_tol:.2e}, rms Δiota.: {self.rms_iota:.2e}, rms Δiota_fit: {self.rms_iota_fit:.2e}\n"
+                f"GVEC iterations used: {self.GVEC_iter_used}"
             )
 
     def _run_stage_target_iota_and_force(
         self, keep_intermediates: Literal["all", "stages"] | None = None
     ):
         """
-        Run GVEC until the force tolerance is reached and perform picrad iterations until the iota tolerance is reached.
+        Run GVEC until the force tolerance is reached and perform picard iterations until the iota tolerance is reached.
         The maximum number of total GVEC iterations and the maximum number of picard iterations are limited by totaliter.
 
         Parameters
@@ -830,14 +859,18 @@ class Run:
             Updated number of runs completed in the current stage.
         """
         self.rms_iota = np.inf
+        self.rms_iota_fit = 0.0
         self.nth_run = -1
-        if "maxRestarts" in self._state_parameters["picard_current"]:
-            max_restarts = self._state_parameters["picard_current"]["maxRestarts"]
-        else:
-            max_restarts = DEFAULT_PICARD_CURRENT_MAXRESTARTS
+        max_restarts = self._state_parameters["picard_current"].get(
+            "maxRestarts", DEFAULT_PICARD_CURRENT_MAXRESTARTS
+        )
         self.logger.debug(f"maxRestarts: {max_restarts}")
         iota_tol = self._state_parameters["picard_current"]["iota_tol"]
-        while (self.GVEC_iter_used < self.totaliter) and (self.rms_iota > iota_tol):
+        while (
+            (self.GVEC_iter_used < self.totaliter)
+            and (self.rms_iota > iota_tol)
+            and (self.rms_iota > IOTA_FIT_FACTOR * self.rms_iota_fit)
+        ):
             self.logger.debug(f"nth run: {self.nth_run}")
             if self.nth_run + 1 > max_restarts:
                 warnings.warn(
@@ -859,12 +892,13 @@ class Run:
         if self.rms_iota > iota_tol:
             warnings.warn(
                 f"Targeted iota has not been reached during stage {self.nth_stage}!\n"
-                + f"target tol.: {iota_tol:.2e}, achieved tol.: {self.rms_iota.item():.2e}\n"
-                + f"GVEC iterations used: {self.GVEC_iter_used}"
+                f"iota_tol.: {iota_tol:.2e}, rms Δiota.: {self.rms_iota:.2e}, rms Δiota_fit: {self.rms_iota_fit:.2e}\n"
+                f"GVEC iterations used: {self.GVEC_iter_used}"
             )
         if self.max_force > self._state_parameters["minimize_tol"]:
             warnings.warn(
-                f"Force tolerance was not reached in stage {self.nth_stage}! \n max|force|: {self.max_force:.2e}, minimize_tol: {self._state_parameters['minimize_tol']:.2e}"
+                f"Force tolerance was not reached in stage {self.nth_stage}!\n"
+                f"max|force|: {self.max_force:.2e}, minimize_tol: {self._state_parameters['minimize_tol']:.2e}"
             )
 
     def _run_stage_target_force(
@@ -938,10 +972,13 @@ class Run:
         )
         if self.curr_constraint:
             axs[1].plot(diagnostics.run, np.sqrt((diagnostics.iota_delta**2).mean("rad")), ".-")
+            axs[1].plot(
+                diagnostics.run, np.sqrt((diagnostics.iota_delta_fit**2).mean("rad")), ".-"
+            )
             axs[1].set(
                 xlabel="restart number",
                 ylabel=r"$\sqrt{\sum \left(\Delta\iota\right)^2}$",
-                title=f"Difference to target {diagnostics.iota.attrs['long_name']}\nroot mean square",
+                title=f"Difference to target {diagnostics.iota.attrs['long_name']}\nroot mean square\nprofile error (blue) and fit error (orange)",
                 yscale="log",
             )
         return fig
