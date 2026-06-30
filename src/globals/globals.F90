@@ -61,7 +61,7 @@ INTEGER, PARAMETER          :: UNIT_stdOut = 6           !! Terminal output
 INTEGER, PARAMETER          :: UNIT_errOut = 0           !! For error output
 #endif
 LOGICAL                     :: print_backtrace=.TRUE.  !! print backtrace on abort if compiled with GNU compiler
-INTEGER, PARAMETER          :: MAXLEN  = 4096       !! max length of strings, needed for string handling when compiled with NVHPC
+INTEGER, PARAMETER          :: MAXLEN  = 16384           !! max length of strings
 
 INTERFACE reset_subregion
   MODULE PROCEDURE reset_subregion

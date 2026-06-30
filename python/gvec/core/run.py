@@ -21,6 +21,7 @@ from gvec.core.state import State
 from gvec.errors import catch_gvec_errors
 from gvec.lib import modgvec_py_binding as _binding
 from gvec.lib import modgvec_py_run as _run
+from gvec.lib import modgvec_globals as _globals
 from gvec.util import CaseInsensitiveDict as cidict
 
 DEFAULT_MINIMIZE_TOL = 1e-6  # different to default `minimize_tol` in fortran
@@ -1131,6 +1132,13 @@ def fortran_run(
 
     if not Path(parameterfile).exists():
         raise FileNotFoundError(f"Parameter file {parameterfile} does not exist.")
+    MAXLEN = _globals.maxlen
+    with open(parameterfile, "r") as f:
+        content = f.readlines()
+        if any([len(line) > MAXLEN for line in content]):
+            raise ValueError(
+                f"Parameter file {parameterfile} contains lines longer than {MAXLEN} characters."
+            )
     if restartfile is not None:
         if not Path(restartfile).exists():
             raise FileNotFoundError(f"Restart file {restartfile} does not exist.")

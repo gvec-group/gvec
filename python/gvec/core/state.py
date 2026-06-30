@@ -39,6 +39,7 @@ from gvec.errors import catch_gvec_errors
 from gvec.lib import modgvec_py_binding as _binding
 from gvec.lib import modgvec_py_run as _run
 from gvec.lib import modgvec_py_state as _state
+from gvec.lib import modgvec_globals as _globals
 
 # === Globals === #
 
@@ -196,6 +197,14 @@ class State:
             self._stdout = tempfile.NamedTemporaryFile(mode="r", prefix="gvec-stdout-")
         _binding.redirect_stdout(self._stdout.name)
         logger.debug(f"Redirected stdout to {self._stdout.name}")
+
+        MAXLEN = _globals.maxlen
+        with open(self.parameterfile, "r") as f:
+            content = f.readlines()
+            if any([len(line) > MAXLEN for line in content]):
+                raise ValueError(
+                    f"Parameter file {self.parameterfile} contains lines longer than {MAXLEN} characters."
+                )
 
         with gvec.util.chdir(self.rundir):
             try:

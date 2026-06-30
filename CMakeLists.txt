@@ -417,6 +417,7 @@ IF(COMPILE_PYGVEC)
     src/pygvec/binding.F90
     src/pygvec/state.F90
     src/pygvec/run.F90
+    src/globals/globals.F90
     src/globals/newton.F90
     src/transform_sfl/sfl_boozer.F90
     src/profiles/c_rprofile.F90
