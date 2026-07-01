@@ -457,6 +457,7 @@ def plot_fourier_on_surface(
     nzeta: int = 101,
     sfl: Literal["pest", "boozer"] | None = None,
     limit: float | None = 1e-15,
+    contour: bool = False,
     plot_kwargs: dict[str] = {},
     **boozer_kwargs,
 ):
@@ -484,6 +485,8 @@ def plot_fourier_on_surface(
     limit: float, optional
         Cut-off value for the Fourier amplitudes to plot.
         Default is ``1e-15``
+    contour: bool, default: False
+        If ``True``, plot filled contours, otherwise plot on a rectangular grid.
     plot_kwargs: dict, optional
         Any ``**kwargs`` to send to the ``plt.figure()`` function.
         For example ``plot_kwargs={'figsize': (8,8)}``. See the `matplotlib documentation <https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.figure.html>`_ for a list of kwargs.
@@ -514,16 +517,29 @@ def plot_fourier_on_surface(
 
     levels = np.linspace(-14, 0, 8)
     symbol = evaluations[quantity].attrs.get("symbol", f"\\mathrm{{{quantity}}}")
+    if not contour:
+        cmap = cm.get_cmap("plasma", 7)
+        norm = colors.LogNorm(vmin=1e-14, vmax=1)
 
     fig, axs = _subplots([1, 2], sharex=True, sharey=True, **plot_kwargs)
     for ax, suffix in zip(axs, ["mnc", "mns"]):
-        c = ax.contourf(
-            evft.n,
-            evft.m,
-            np.log10(np.maximum(np.abs(evft[f"{quantity}_{suffix}"]), 1e-16)),
-            levels=levels,
-            extend="both",
-        )
+        if contour:
+            c = ax.contourf(
+                evft.n,
+                evft.m,
+                np.log10(np.maximum(np.abs(evft[f"{quantity}_{suffix}"]), 1e-16)),
+                levels=levels,
+                extend="both",
+            )
+        else:
+            c = ax.pcolormesh(
+                evft.n,
+                evft.m,
+                np.abs(evft[f"{quantity}_{suffix}"]),
+                shading="nearest",
+                cmap=cmap,
+                norm=norm,
+            )
     fig.colorbar(c, ax=axs, label=rf"$\log_{{10}}|{symbol}|$")
     coords = {
         None: "logical coordinates",
