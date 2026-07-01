@@ -566,11 +566,11 @@ def stringify_mn_parameters(parameters: Mapping) -> CaseInsensitiveDict:
         if re.match(r"(x1|x2|la)(pert:?)?_[a|b]_(sin|cos)", key.lower()):
             output[key] = {}
             for (m, n), val in value.items():
-                if isinstance(val, np.number):
-                    val = val.item()
                 output[key][f"({m}, {n:2d})"] = val
         elif key.lower() == "stages":
             output[key] = [stringify_mn_parameters(stage) for stage in value]
+        elif isinstance(value, Mapping):
+            output[key] = stringify_mn_parameters(value)
         else:
             output[key] = value
     return output
@@ -587,6 +587,8 @@ def unstringify_mn_parameters(parameters: Mapping) -> CaseInsensitiveDict:
                 output[key][(m, n)] = val
         elif key.lower() == "stages":
             output[key] = [unstringify_mn_parameters(stage) for stage in value]
+        elif isinstance(value, Mapping):
+            output[key] = unstringify_mn_parameters(value)
         else:
             output[key] = value
     return output
@@ -642,13 +644,141 @@ def write_parameters(
                 outputs.serialize(), file, sort_keys=False
             )  # ToDo: specify style/flow?
     elif format == "toml":
-        outputs = stringify_mn_parameters(parameters)
         with open(path, "w") as file:
-            file.write(
-                tomlkit.dumps(outputs.serialize())
-            )  # ToDo: nicer output using document API
+            doc = format_toml(parameters)
+            file.write(doc.as_string())
     else:
         raise ValueError(f"Unknown parameter file format {format}")
+
+
+def format_toml(parameters: CaseInsensitiveDict):
+    """Format GVEC parameters as a TOML document.
+
+    Parameters
+    ----------
+    parameters : CaseInsensitiveDict
+        Parameter values to serialize. Values are expected to be in their
+        native, unstringified form.
+
+    Returns
+    -------
+    tomlkit.items.TOMLDocument
+        TOML document containing the GVEC parameter layout. Write the result
+        with ``doc.as_string()``.
+    """
+    from tomlkit import document, comment, nl, array, table, aot, key as toml_key
+    from gvec._version import __version__
+
+    def add_params(doc, keys, parameters):
+        if any(key in parameters for key in keys):
+            for key in keys:
+                if key in parameters:
+                    doc[key] = parameters[key]
+            doc.add(nl())
+
+    def add_section(doc, section_name):
+        doc.add(nl())
+        doc.add(comment(f"--- {section_name} --- #"))
+        doc.add(nl())
+
+    parameters = stringify_mn_parameters(parameters.serialize())
+
+    doc = document()
+    doc.add(comment("GVEC parameter file"))
+    doc.add(comment(f"written by pyGVEC v{__version__}"))
+    doc.add(nl())
+
+    MAIN_PARAMS = ["ProjectName", "nfp", "which_hmap", "PhiEdge"]
+    for key in MAIN_PARAMS:
+        if key in parameters:
+            doc[key] = parameters[key]
+    if "picard_current" in parameters and isinstance(parameters["picard_current"], str):
+        doc["picard_current"] = parameters["picard_current"]
+    doc.add(nl())
+
+    FOURIER_PARAMS = [f"{Q}_{key}" for Q in ["X1", "X2", "LA"] for key in ["mn_max", "sin_cos"]]
+    FOURIER_PARAMS += ["fac_nyq", "mn_nyq"]
+    add_params(doc, FOURIER_PARAMS, parameters)
+
+    RADIAL_PARAMS = ["X1X2_deg", "LA_deg", "degGP"]
+    add_params(doc, RADIAL_PARAMS, parameters)
+
+    MINIMIZER_PARAMS = [
+        "minimize_tol",
+        "totalIter",
+        "maxIter",
+        "outputIter",
+        "logIter",
+        "MinimizerType",
+        "PrecondType",
+        "start_dt",
+    ]
+    add_params(doc, MINIMIZER_PARAMS, parameters)
+
+    EXTRA_PARAMS = ["sgrid", "iota", "pres", "I_tor", "picard_current", "stages"]
+    DOF_PARAMS = [
+        f"{Q}{pert}_{x}_{fun}"
+        for Q in ["X1", "X2", "LA"]
+        for x in "ab"
+        for fun in ["cos", "sin"]
+        for pert in ["", "pert"]
+    ]
+    HANDLED_PARAMS = (
+        MAIN_PARAMS
+        + FOURIER_PARAMS
+        + RADIAL_PARAMS
+        + MINIMIZER_PARAMS
+        + EXTRA_PARAMS
+        + DOF_PARAMS
+    )
+    OTHER_PARAMS = [
+        key for key in parameters if key.lower() not in [p.lower() for p in HANDLED_PARAMS]
+    ]
+    add_params(doc, OTHER_PARAMS, parameters)
+
+    if "sgrid" in parameters:
+        doc["sgrid"] = parameters["sgrid"].serialize()
+
+    if "picard_current" in parameters and isinstance(parameters["picard_current"], Mapping):
+        doc["picard_current"] = parameters["picard_current"].serialize()
+
+    add_section(doc, "Profiles")
+    for key in ["pres", "I_tor", "iota"]:
+        if key in parameters:
+            doc[key] = table()
+            for subkey, subvalue in parameters[key].serialize().items():
+                if isinstance(subvalue, list):
+                    if len(subvalue) <= 8:
+                        doc[key][subkey] = subvalue
+                    else:
+                        doc[key][subkey] = array()
+                        for i in range(len(subvalue) // 5 + 1):
+                            items = subvalue[i * 5 : (i + 1) * 5]
+                            if len(items):
+                                doc[key][subkey].add_line(*items)
+                        doc[key][subkey].add_line(indent="")
+                else:
+                    doc[key][subkey] = subvalue
+
+    if "stages" in parameters:
+        add_section(doc, "Stages")
+        doc["stages"] = aot()
+        for stage in parameters["stages"]:
+            flat = table()
+            for key, value in stage.serialize().items():
+                if isinstance(value, Mapping):
+                    for subkey, subvalue in value.items():
+                        flat.append(toml_key([key, subkey]), subvalue)
+                else:
+                    flat.append(toml_key(key), value)
+            doc["stages"].append(flat)
+
+    add_section(doc, "Boundary and Axis degrees of freedom")
+    for key in DOF_PARAMS:
+        if key in parameters:
+            doc[key] = parameters[key]
+
+    return doc
 
 
 def bspl2gvec(
