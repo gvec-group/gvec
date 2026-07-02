@@ -296,13 +296,12 @@ SUBROUTINE InitMHD3D(sf)
   nDOF_LA = LA_base%s%nBase* LA_base%f%modes
 
 
-
-  !X1X2_BCtype_axis(MN_ZERO    )= GETINT("X1X2_BCtype_axis_mn_zero"    ,Proposal=0 ) !AUTOMATIC,m-dependent
-  !X1X2_BCtype_axis(M_ZERO     )= GETINT("X1X2_BCtype_axis_m_zero"     ,Proposal=0 ) !AUTOMATIC,m-dependent
-  !X1X2_BCtype_axis(M_ODD_FIRST)= GETINT("X1X2_BCtype_axis_m_odd_first",Proposal=0 ) !AUTOMATIC,m-dependent
-  !X1X2_BCtype_axis(M_ODD      )= GETINT("X1X2_BCtype_axis_m_odd"      ,Proposal=0 ) !AUTOMATIC,m-dependent
-  !X1X2_BCtype_axis(M_EVEN     )= GETINT("X1X2_BCtype_axis_m_even"     ,Proposal=0 ) !AUTOMATIC,m-dependent
-  X1X2_BCtype_axis= 0 !fix to AUTOMATIC, m-dependent
+  !default =0, Automatic m-dependent BC
+  X1X2_BCtype_axis(MN_ZERO    )= GETINT("X1X2_BCtype_axis_mn_zero"    ,Proposal=0 )
+  X1X2_BCtype_axis(M_ZERO     )= GETINT("X1X2_BCtype_axis_m_zero"     ,Proposal=0 )
+  X1X2_BCtype_axis(M_ODD_FIRST)= GETINT("X1X2_BCtype_axis_m_odd_first",Proposal=0 )
+  X1X2_BCtype_axis(M_ODD      )= GETINT("X1X2_BCtype_axis_m_odd"      ,Proposal=0 )
+  X1X2_BCtype_axis(M_EVEN     )= GETINT("X1X2_BCtype_axis_m_even"     ,Proposal=0 )
 
   !boundary conditions (used in force, in init slightly changed)
   ASSOCIATE(modes        =>X1_base%f%modes, zero_odd_even=>X1_base%f%zero_odd_even)
@@ -341,12 +340,12 @@ SUBROUTINE InitMHD3D(sf)
   END DO
   END ASSOCIATE !X2
 
-  !LA_BCtype_axis(MN_ZERO    )= GETINT("LA_BCtype_axis_mn_zero"    ,Proposal=BC_TYPE_SYMMZERO )
-  !LA_BCtype_axis(M_ZERO     )= GETINT("LA_BCtype_axis_m_zero"     ,Proposal=BC_TYPE_SYMM     )
-  !LA_BCtype_axis(M_ODD_FIRST)= GETINT("LA_BCtype_axis_m_odd_first",Proposal=0 ) !AUTOMATIC,m-dependent
-  !LA_BCtype_axis(M_ODD      )= GETINT("LA_BCtype_axis_m_odd"      ,Proposal=0 ) !AUTOMATIC,m-dependent
-  !LA_BCtype_axis(M_EVEN     )= GETINT("LA_BCtype_axis_m_even"     ,Proposal=0 ) !AUTOMATIC,m-dependent
-  LA_BCtype_axis= 0 !fix to AUTOMATIC, m-dependent
+  !default =0, Automatic m-dependent BC
+  LA_BCtype_axis(MN_ZERO    )= GETINT("LA_BCtype_axis_mn_zero"    ,Proposal=0 )
+  LA_BCtype_axis(M_ZERO     )= GETINT("LA_BCtype_axis_m_zero"     ,Proposal=0 )
+  LA_BCtype_axis(M_ODD_FIRST)= GETINT("LA_BCtype_axis_m_odd_first",Proposal=0 )
+  LA_BCtype_axis(M_ODD      )= GETINT("LA_BCtype_axis_m_odd"      ,Proposal=0 )
+  LA_BCtype_axis(M_EVEN     )= GETINT("LA_BCtype_axis_m_even"     ,Proposal=0 )
 
   ASSOCIATE(modes        =>LA_base%f%modes, zero_odd_even=>LA_base%f%zero_odd_even)
   ALLOCATE(LA_BC_type(1:2,modes))
@@ -751,16 +750,30 @@ SUBROUTINE InitSolutionMHD3D(sf, RestartFile_in, do_WriteState_in)
     END IF
 
     CALL vars%dofs(-1)%set_to(vars%dofs(0))
+    CALL vars%dofs(-2)%set_to(vars%dofs(0))
+    CALL vars%dofs(-3)%set_to(vars%dofs(0))
 
     JacCheck=2
     CALL InitProfilesGP() !evaluate profiles once at Gauss Points (on MPIroot + BCast)
 
     CALL enter_subregion("check-solution")
     vars%dofs(0)%W_MHD3D=EvalEnergy(vars%dofs(0),.TRUE.,JacCheck)
-    IF(JacCheck.EQ.-1)THEN
+    IF(JacCheck.LE.-1)THEN
       CALL Analyze(0, vars%dofs(0), vars%force(0))
-      CALL abort(__STAMP__,&
-          "NEGATIVE JACOBIAN FOUND AFTER INITIALIZATION!",TypeInfo="InitializationError")
+      SELECT CASE(JacCheck)
+      CASE(-1)
+        CALL abort(__STAMP__,&
+          "JACOBIAN WITH SIGN CHANGE FOUND AFTER INITIALIZATION!", &
+          TypeInfo="InitializationError")
+      CASE(-2)
+        CALL abort(__STAMP__,&
+          "RELATIVE JACOBIAN TOO SMALL AFTER INITIALIZATION!", &
+          TypeInfo="InitializationError")
+      CASE(-3)
+        CALL abort(__STAMP__,&
+          "ALL JACOBIANS NEGATIVE AFTER INITIALIZATION! (LEFT-HANDED COORDINATES)", &
+          TypeInfo="InitializationError")
+      END SELECT
     END IF
 
     CALL vars%dofs(-3)%set_to(vars%dofs(0)) ! initial valid solution should remain unchanged

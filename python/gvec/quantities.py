@@ -913,8 +913,8 @@ def J(ds: xr.Dataset):
 @register(
     requirements=("J", "B", "dp_dr", "grad_rho"),
     attrs=dict(
-        long_name="MHD force",
-        symbol=r"F",
+        long_name="MHD force balance",
+        symbol=r"\mathbf{J}\times \mathbf{B}-\nabla p",
     ),
 )
 def F(ds: xr.Dataset):
@@ -933,6 +933,57 @@ def F_r_avg(ds: xr.Dataset):
     ds["F_r_avg"] = fluxsurface_integral(
         xr.dot(ds.F, ds.e_rho, dim="xyz") * ds.Jac
     ) / fluxsurface_integral(ds.Jac)
+
+
+@register(
+    requirements=("mod_B", "grad_mod_B", "mu0", "Jac"),
+    integration=("rho", "theta", "zeta"),
+    attrs=dict(
+        long_name="volume-averaged gradient of magnetic pressure",
+        symbol=r"\left\langle\left|\nabla\frac{B^2}{2\mu_0}\right|\right\rangle_\text{vol}",
+    ),
+)
+def gradB2_volavg(ds):
+    B_grad_B = ds.mod_B * ds.grad_mod_B
+    grad_B2_over_2mu0 = np.sqrt(xr.dot(B_grad_B, B_grad_B, dim="xyz")) / ds.mu0
+    ds["gradB2_volavg"] = volume_integral(grad_B2_over_2mu0 * ds.Jac) / volume_integral(ds.Jac)
+
+
+@register(
+    requirements=("mod_F", "gradB2_volavg"),
+    attrs=dict(
+        long_name="relative MHD force balance",
+        symbol=r"\frac{|\mathbf{J}\times\mathbf{B}-\nabla p|}{\left\langle\left|\nabla(B^2/2\mu_0)\right|\right\rangle_\text{vol}}",
+    ),
+)
+def mod_F_rel(ds):
+    ds["mod_F_rel"] = ds.mod_F / ds.gradB2_volavg
+
+
+@register(
+    requirements=("mod_F_rel", "Jac"),
+    integration=("theta", "zeta"),
+    attrs=dict(
+        long_name="flux surface average of the relative MHD force balance",
+        symbol=r"\frac{\left\langle|\mathbf{J}\times\mathbf{B}-\nabla p|\right\rangle_\text{surf}}{\left\langle\left|\nabla(B^2/2\mu_0)\right|\right\rangle_\text{vol}}",
+    ),
+)
+def mod_F_rel_surfavg(ds):
+    ds["mod_F_rel_surfavg"] = fluxsurface_integral(
+        ds.mod_F_rel * ds.Jac
+    ) / fluxsurface_integral(ds.Jac)
+
+
+@register(
+    requirements=("mod_F_rel", "Jac"),
+    integration=("rho", "theta", "zeta"),
+    attrs=dict(
+        long_name="volume average of the relative MHD force balance",
+        symbol=r"\frac{\left\langle|\mathbf{J}\times\mathbf{B}-\nabla p|\right\rangle_\text{vol}}{\left\langle\left|\nabla(B^2/2\mu_0)\right|\right\rangle_\text{vol}}",
+    ),
+)
+def mod_F_rel_volavg(ds):
+    ds["mod_F_rel_volavg"] = volume_integral(ds.mod_F_rel * ds.Jac) / volume_integral(ds.Jac)
 
 
 def _mod_factory(v):
@@ -1814,18 +1865,15 @@ def B_zeta_avg(ds: xr.Dataset):
 
 @register(
     requirements=("B_zeta_avg", "mu0"),
-    integration=("theta", "zeta"),
     attrs=dict(
         long_name="poloidal current, relative to the magnetic axis", symbol=r"I_\text{pol}"
     ),
 )
-def I_pol(ds: xr.Dataset):
-    ds["I_pol"] = ds.B_zeta_avg * 2 * np.pi / ds.mu0
-    ds["I_pol"] = ds.I_pol.sel(rho=0, method="nearest") - ds.I_pol
-    if not np.isclose(ds.rho.sel(rho=0, method="nearest"), 0):
-        logging.warning(
-            f"Computation of `I_pol` uses `rho={ds.rho[0].item():e}` instead of the magnetic axis."
-        )
+def I_pol(ds: xr.Dataset, state: State):
+    B_zeta_avg_axis = state.evaluate_on_axis(
+        "B_zeta_avg", theta="int", zeta="int"
+    ).B_zeta_avg.item()
+    ds["I_pol"] = (ds.B_zeta_avg - B_zeta_avg_axis) * 2 * np.pi / ds.mu0
 
 
 # --- other --- #
@@ -1863,7 +1911,7 @@ def beta_avg(ds: xr.Dataset):
     ),
 )
 def vacuum_magnetic_well_depth(ds: xr.Dataset, state: State):
-    aux = state.evaluate("dV_dPhi_n", rho=[1e-4, 1.0], theta="int", zeta="int")
+    aux = state.evaluate("dV_dPhi_n", rho=[0.0, 1.0], theta="int", zeta="int")
     Vp_edge = aux.dV_dPhi_n.isel(rad=1)
     Vp_axis = aux.dV_dPhi_n.isel(rad=0)
     ds["vacuum_magnetic_well_depth"] = (Vp_axis - Vp_edge) / Vp_axis
