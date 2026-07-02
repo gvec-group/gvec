@@ -220,12 +220,12 @@ def get_json_from_quasr(configuration: int, filename: str | Path = None):
     return filename
 
 
-def get_surface_from_json_file(filename: Path | str):
+def get_surface_from_json_file(filename: Path | str, which_surface: int):
     """Get the boundary surface as a SIMSOPT Surface object from a QUASR JSON file."""
     from simsopt._core import load
 
     surfaces, coils = load(filename)
-    return surfaces[-1]
+    return surfaces[which_surface]
 
 
 def get_xyz_from_surface(nt: int, nz: int, surface):
@@ -483,6 +483,7 @@ def load_quasr(
     stellsym: bool = False,
     boundary_coefficients: bool = False,
     logger: logging.Logger | None = None,
+    which_surface: int = -1,
 ):
     """Load a QUASR configuration and convert it to a G-Frame and boundary for use with GVEC.
 
@@ -521,6 +522,9 @@ def load_quasr(
         Write the boundary data as fourier coefficients in the parameter file instead of points in the netCDF file.
     logger : Logger | None, optional
         If None a new logger will be created.
+    which_surface : int, optional
+        Which surface to select as the equilibrium boundary from the quasr-jason file.
+        Deafault is the last one, i.e. `which_surface=-1`.
 
     Returns
     -------
@@ -555,7 +559,7 @@ def load_quasr(
     match filetype:
         case "json":
             logger.info("Loading SIMSOPT surface")
-            surface = get_surface_from_json_file(filename)
+            surface = get_surface_from_json_file(filename, which_surface=which_surface)
             nfp = surface.nfp
             xyz = get_xyz_from_surface(nt, nz, surface)
             name_aux = str(filename.stem)

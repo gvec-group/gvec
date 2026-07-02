@@ -475,29 +475,13 @@ class CoilSet(Coil, Mapping):
             raise ValueError(
                 f"pos.ndim > 2! Expected array of shape (3,n_positions), but got shape {pos.shape}."
             )
-
-        n_positions = pos.shape[1]
-        B_aux = np.asfortranarray(np.zeros(pos.shape))
         ds = xr.Dataset(
             data_vars=dict(B=(("xyz", "points"), np.zeros(pos.shape))),
             coords={"xyz": ("xyz", ["x", "y", "z"])},
         )
-
         ds["pos"] = pos
-        for coil_name in self.coils:
-            coil = self.coils[coil_name]
-            _BS.biotsavart(
-                n_positions=n_positions,
-                xyz=np.asfortranarray(pos),
-                n_points=coil.n_points,
-                coil_points=np.asfortranarray(coil.coil_points),
-                prefactor=coil.prefactor,
-                b=B_aux,
-            )
-            ds.B[:, :] += B_aux
-            B_aux *= 0.0
         ds.B.attrs = dict(long_name="magnetic coil field", symbol=r"\mathbf{B}_C")
-
+        ds.B[:, :] += self._eval_B_direct(pos)
         if stacked:
             ds = _unstack_BS_ds(ds)
 
@@ -849,7 +833,8 @@ def trace_fieldlines(
         return solves
     else:
         dt = xr.DataTree()
-        for fieldline, output in enumerate(solves):
+        logger.debug("creating data-tree")
+        for fieldline, output in tqdm(enumerate(solves)):
             coords = {
                 "t": output.t,
                 "xyz": ["x", "y", "z"],
@@ -1033,8 +1018,13 @@ def get_phi_edge_from_coils(state: State, coil_set: CoilSet | Coil):
         Averaged total toroidal flux.
     """
     ev = state.evaluate("pos", "B", "grad_zeta")
-    B_coils = coil_set.eval_mod_B(ev.pos)
-
+    # TODO: this loop over rho is to avoid segfaults from the fortran part,
+    # since the array of positions becomes too large (?) for the volume integral otherwise.
+    # Hence the calculation of B_coils is split in the radial direction.
+    Bs = []
+    for r in ev.rho:
+        Bs.append(coil_set.eval_B(ev.pos.sel(rho=r)))
+    B_coils = xr.concat(Bs, dim="rad")
     Bn = xr.dot(B_coils.B, ev.grad_zeta, dim="xyz")
     BnJac = Bn * ev.Jac
     Psi_vol = volume_integral(BnJac) / (np.pi * 2)
