@@ -15,6 +15,8 @@ import functools
 import traceback
 import tempfile
 
+ALWAYS_PRINT_FULL_TRACEBACK = False
+
 # === Exception Classes === #
 
 
@@ -94,7 +96,6 @@ def write_traceback_to_tmp(error: Exception):
     with tempfile.NamedTemporaryFile(
         delete=False, mode="w", prefix="gvec-traceback-", suffix=".log"
     ) as tb_file:
-        # traceback.print_exc(file=tmp_file)
         traceback.print_exception(error, file=tb_file)
         tb_file.flush()
     return tb_file.name
@@ -109,7 +110,7 @@ def log_errors(logger=None, exit=False):
             logger = logging.getLogger("gvec")
         if not getattr(error, "logged", False):
             logger.error(f"{type(error).__name__}: {str(error).strip()}")
-        if exit:
+        if exit and not ALWAYS_PRINT_FULL_TRACEBACK:
             tb_file = write_traceback_to_tmp(error)
             logger.error(f"Full traceback written to {tb_file}")
             sys.exit(1)
