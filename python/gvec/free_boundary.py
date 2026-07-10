@@ -108,9 +108,7 @@ class FreeBoundaryState(State):
             self.current_constraint = False
             self.rho_iota = None
             self.I_tor = None
-            self.I_tor_boundary = (
-                self.I_tor_boundary
-            )  # self.evaluate("I_tor", rho=1.0).I_tor.item()
+            self.I_tor_boundary = self.evaluate("I_tor", rho=1.0).I_tor.item()
 
         # initialize diagnostics dataset for quantities at the boundary for each free-boundary update
 
