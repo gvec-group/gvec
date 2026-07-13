@@ -189,6 +189,11 @@ include:
 
   - local: CI_templates/env.yml
     inputs:
+      env: .ubuntu-26
+      rules: .rules_minimal
+
+  - local: CI_templates/env.yml
+    inputs:
       env: .fedora
 
   # Raven private runner
@@ -448,6 +453,14 @@ include:
   - local: CI_templates/build.yml
     inputs:
       env: .ubuntu-24
+      vars: .vars_matrix_py
+      script-postfix: _py
+      build-postfix: _py
+      rules: .rules_minimal
+
+  - local: CI_templates/build.yml
+    inputs:
+      env: .ubuntu-26
       vars: .vars_matrix_py
       script-postfix: _py
       build-postfix: _py
@@ -962,6 +975,11 @@ include:
   - local: CI_templates/unit.yml
     inputs:
       env: .ubuntu-24
+      rules: .rules_minimal
+
+  - local: CI_templates/unit.yml
+    inputs:
+      env: .ubuntu-26
       rules: .rules_minimal
 
   - local: CI_templates/unit.yml
@@ -1730,6 +1748,19 @@ include:
     CI_HOSTNAME: "ubuntu-24"
     CURR_CMP: "gfortran-13"
     #PYTHON_VERSION: "3.12"
+    SETUP_SCRIPT: "none"
+
+.ubuntu-26:
+  tags:
+    - mpcdf-shared
+  image: gitlab-registry.mpcdf.mpg.de/gvec-group/gvec/ubuntu-26:latest
+  extends:
+    - .vars_mpiOFF
+  variables:
+    CMAKE_HOSTNAME: "none"
+    CI_HOSTNAME: "ubuntu-26"
+    CURR_CMP: "gfortran-15"
+    #PYTHON_VERSION: "3.14"
     SETUP_SCRIPT: "none"
 
 .fedora:
