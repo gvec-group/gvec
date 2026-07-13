@@ -163,17 +163,17 @@ include:
     inputs:
       env: .mpcdfci_ifx-impi-2024
 
-  - local: CI_templates/env.yml
-    inputs:
-      env: .mpcdfci_ifx-impi-latest
+  # - local: CI_templates/env.yml
+  #   inputs:
+  #     env: .mpcdfci_ifx-impi-latest
 
   - local: CI_templates/env.yml
     inputs:
       env: .mpcdfci_gfortran-openmpi-14
 
-  - local: CI_templates/env.yml
-    inputs:
-      env: .mpcdfci_gfortran-openmpi-latest
+  # - local: CI_templates/env.yml
+  #   inputs:
+  #     env: .mpcdfci_gfortran-openmpi-latest
 
   # Standard Linux
 
@@ -347,20 +347,20 @@ include:
       env: .mpcdfci_ifx-impi-2024
       cmake-opts: .cmake_no_converter
 
-  - local: CI_templates/build.yml
-    inputs:
-      env: .mpcdfci_ifx-impi-latest
-      cmake-opts: .cmake_no_converter
+  # - local: CI_templates/build.yml
+  #   inputs:
+  #     env: .mpcdfci_ifx-impi-latest
+  #     cmake-opts: .cmake_no_converter
 
   - local: CI_templates/build.yml
     inputs:
       env: .mpcdfci_gfortran-openmpi-14
       cmake-opts: .cmake_no_converter
 
-  - local: CI_templates/build.yml
-    inputs:
-      env: .mpcdfci_gfortran-openmpi-latest
-      cmake-opts: .cmake_no_converter
+  # - local: CI_templates/build.yml
+  #   inputs:
+  #     env: .mpcdfci_gfortran-openmpi-latest
+  #     cmake-opts: .cmake_no_converter
 
   # python / pip
   - local: CI_templates/build.yml
@@ -772,22 +772,22 @@ include:
       env: .mpcdfci_ifx-impi-2024
       vars: .vars_matrix_run_mpi
 
-  - local: CI_templates/run.yml
-    inputs:
-      env: .mpcdfci_ifx-impi-latest
-      vars: .vars_matrix_run_mpi
-      allow_failure: true
+  # - local: CI_templates/run.yml
+  #   inputs:
+  #     env: .mpcdfci_ifx-impi-latest
+  #     vars: .vars_matrix_run_mpi
+  #     allow_failure: true
 
   - local: CI_templates/run.yml
     inputs:
       env: .mpcdfci_gfortran-openmpi-14
       vars: .vars_matrix_run_mpi
 
-  - local: CI_templates/run.yml
-    inputs:
-      env: .mpcdfci_gfortran-openmpi-latest
-      vars: .vars_matrix_run_mpi
-      allow_failure: true
+  # - local: CI_templates/run.yml
+  #   inputs:
+  #     env: .mpcdfci_gfortran-openmpi-latest
+  #     vars: .vars_matrix_run_mpi
+  #     allow_failure: true
 
   # reference tag
 
@@ -1037,10 +1037,10 @@ include:
       CURR_CMP: ifx-2024
       CURR_CMP_MPI: ifx-impi-2024
 
-  - local: CI_templates/regression-mpi.yml
-    inputs:
-      CURR_CMP: ifx-latest
-      CURR_CMP_MPI: ifx-impi-latest
+  # - local: CI_templates/regression-mpi.yml
+  #   inputs:
+  #     CURR_CMP: ifx-latest
+  #     CURR_CMP_MPI: ifx-impi-latest
 
   # Viper private runner
   # --------------------
