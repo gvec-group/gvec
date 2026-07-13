@@ -1704,7 +1704,10 @@ def elongation(ds: xr.Dataset):
     from gvec.util import ellipse_circumference_factor as ecf
 
     C = (ds.A_surface / 2 / np.sqrt(np.pi * ds.V * ds.L_axis)).item()
-    ds["elongation"] = newton(lambda e: ecf(e) - C, 2)
+    if C < 1:
+        ds["elongation"] = np.nan
+    else:
+        ds["elongation"] = newton(lambda e: ecf(e) - C, 2)
 
 
 # --- profiles --- #
@@ -2052,8 +2055,9 @@ def L_gradB(ds: xr.Dataset):
         "mod_B",
     ),
     attrs=dict(
-        long_name="field line curvature",
+        long_name="field line curvature vector",
         symbol=r"\mathbf{\kappa}_B",
+        formula=r"\mathbf{b}\cdot\mathbf{\nabla b}",
     ),
 )
 def kappa_B(ds: xr.Dataset):
@@ -2075,8 +2079,24 @@ def kappa_B(ds: xr.Dataset):
     attrs=dict(
         long_name="geodesic curvature",
         symbol=r"\kappa_G",
+        formula=r"\mathbf{b}\cdot\mathbf{\nabla b} \cdot \mathbf{n} \times \mathbf{b}",
     ),
 )
 def kappa_G(ds: xr.Dataset):
     b = ds.B / ds.mod_B
     ds["kappa_G"] = xr.dot(ds.kappa_B, xr.cross(ds.normal, b, dim="xyz"), dim="xyz")
+
+
+@register(
+    requirements=(
+        "kappa_B",
+        "normal",
+    ),
+    attrs=dict(
+        long_name="normal curvature",
+        symbol=r"\kappa_N",
+        formula=r"\mathbf{b}\cdot\mathbf{\nabla b} \cdot \mathbf{n}",
+    ),
+)
+def kappa_N(ds: xr.Dataset):
+    ds["kappa_N"] = xr.dot(ds.kappa_B, ds.normal, dim="xyz")
