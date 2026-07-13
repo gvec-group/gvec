@@ -69,24 +69,10 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
 
     Q_geo = ["V", "L_axis", "A_surface", "r_major", "r_minor", "aspect_ratio", "elongation"]
     Q_other = ["beta_avg", "mod_F_rel_volavg", "W_MHD", "vacuum_magnetic_well_depth"]
-    ev_vol = state.evaluate(
-        *Q_geo,
-        "iota",
-        "iota_avg",
-        "shear_avg",
-        "mod_B",
-        "Phi_edge",
-        "p",
-        *Q_other,
-    )
-    ev_lcfs = state.evaluate(
-        "I_tor",
-        "I_pol",
-        "iota",
-        "mirror_ratio",
-        "L_gradB",
-        rho=1.0,
-    )
+    Q_vol = ["iota", "iota_avg", "shear_avg", "mod_B", "Phi_edge", "p"]
+    Q_lcfs = ["I_tor", "I_pol", "iota", "mirror_ratio", "L_gradB"]
+    ev_vol = state.evaluate(*Q_geo, *Q_vol, *Q_other)
+    ev_lcfs = state.evaluate(*Q_lcfs, rho=1.0)
 
     output = [get_info(ev_vol, q) for q in Q_geo]
     R_avg = (
