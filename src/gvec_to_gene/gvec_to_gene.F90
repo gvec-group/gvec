@@ -15,7 +15,6 @@ MODULE MODgvec_gvec_to_gene
 ! MODULES
 USE MODgvec_Globals, ONLY:wp
 USE MODgvec_output_vtk,     ONLY: WriteDataToVTK
-USE MODgvec_base, ONLY: t_base
 IMPLICIT NONE
 PRIVATE
 
@@ -217,7 +216,6 @@ END SUBROUTINE gvec_to_gene_coords
 SUBROUTINE gvec_to_gene_coords_old(nthet,nzeta,spos_in,theta_star_in,zeta_in,theta_out,cart_coords)
 ! MODULES
 USE MODgvec_ReadState_Vars
-USE MODgvec_globals, ONLY: PI
 USE MODgvec_Transform_SFL, ONLY: get_pest_newton
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -368,7 +366,7 @@ END SUBROUTINE gvec_to_gene_metrics
 SUBROUTINE gvec_to_gene_metrics_old(nthet,nzeta,spos_in,theta_star_in,zeta_in,grad_s,grad_theta_star,grad_zeta,Bfield,grad_absB)
 ! MODULES
 USE MODgvec_ReadState_Vars
-USE MODgvec_globals, ONLY: PI,CROSS
+USE MODgvec_globals, ONLY: CROSS
 USE MODgvec_Transform_SFL, ONLY: get_pest_newton
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------

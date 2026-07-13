@@ -739,7 +739,7 @@ END SUBROUTINE gvec_to_jorek_prepare
 !SUBROUTINE Get_Field_base(mn_max,fac_nyq,field_type,vector_component,sgrid_in,out_base, field_out)
 SUBROUTINE Get_Field(field_type,vector_component, field_out)
 ! MODULES
-USE MODgvec_Globals,ONLY: UNIT_stdOut,CROSS,TWOPI,PI,ProgressBar
+USE MODgvec_Globals,ONLY: UNIT_stdOut,CROSS,TWOPI,ProgressBar
 !USE MODgvec_LinAlg
 !USE MODgvec_base   ,ONLY: t_base,base_new
 !USE MODgvec_sGrid  ,ONLY: t_sgrid

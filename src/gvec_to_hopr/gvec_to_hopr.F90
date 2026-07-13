@@ -138,7 +138,7 @@ END SUBROUTINE gvec_to_hopr
 !===================================================================================================================================
 SUBROUTINE gvec_to_hopr_SFL(nNodes,xIn,X1_base_in,X1_in,X2_base_in,X2_in,LG_base_in,LG_in,xOut,data_out)
 ! MODULES
-USE MODgvec_Globals, ONLY: CROSS,ProgressBar
+USE MODgvec_Globals, ONLY: CROSS
 USE MODgvec_gvec_to_hopr_vars
 USE MODgvec_ReadState_Vars, ONLY: profiles_1d,hmap_r,sbase_prof !for profiles
 USE MODgvec_Base,   ONLY: t_base
