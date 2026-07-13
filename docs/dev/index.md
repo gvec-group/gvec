@@ -108,6 +108,7 @@ pipeline
 docs
 python
 fortran
+tensor-product-fourier
 derivations
 Contributors <CONTRIBUTORS>
 ```

@@ -10,8 +10,9 @@ from pathlib import Path
 from tabulate import tabulate
 import numpy as np
 
-from gvec import State, find_state, volume_integral
+from gvec import find_state, volume_integral
 from gvec.util import logging_setup
+from gvec.gframe import writhe
 
 parser = argparse.ArgumentParser(
     prog="pygvec-info", description="Print overview information for a given GVEC State."
@@ -122,6 +123,16 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
             ev_lcfs.L_gradB.min().item(),
             "minimum mag. gradient length scale (on LCFS)",
         ]
+    ]
+
+    zeta = np.linspace(0, 2 * np.pi, 500, endpoint=False)
+    aux = state.evaluate_on_axis("pos", "normal", theta=0.0, zeta=zeta)
+    aux = aux[["pos", "normal"]].squeeze().transpose("tor", "xyz")
+    Wr, Lk, Tw = writhe(aux.pos.data, aux.normal.data)
+    output += [
+        ["axis_writhe", Wr, "writhe of the magnetic axis"],
+        ["frame_linking_number", Lk, "linking number of the coordinate frame"],
+        ["frame_twist", Tw, "twist of the coordinate frame"],
     ]
 
     if args.raw:
