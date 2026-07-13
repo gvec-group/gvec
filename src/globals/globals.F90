@@ -130,9 +130,9 @@ CONTAINS
 !> reset global variables for the subregion output to default
 !==================================================================================================================================
 SUBROUTINE reset_subregion
-! MODULES
+  ! MODULES
   IMPLICIT NONE
-!==================================================================================================================================
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
   iregion=0
   active_region=""
 END SUBROUTINE reset_subregion
@@ -143,17 +143,16 @@ END SUBROUTINE reset_subregion
 !!
 !==================================================================================================================================
 SUBROUTINE enter_subregion(subregion_name)
-! MODULES
+  ! MODULES
   IMPLICIT NONE
-!----------------------------------------------------------------------------------------------------------------------------------
-! INPUT/OUTPUT VARIABLES
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   CHARACTER(LEN=*), INTENT(IN) :: subregion_name
-!----------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
 #if DEBUG
   CHARACTER(LEN=MAXLEN) :: regions
   INTEGER :: i
 #endif
-!==================================================================================================================================
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
   IF(MPIroot)THEN
     IF(iregion>4) CALL Abort(__STAMP__,&
                          "active subregion reached maximum depth of 5")
@@ -174,17 +173,16 @@ END SUBROUTINE enter_subregion
 !!
 !==================================================================================================================================
 SUBROUTINE exit_subregion(subregion_name)
-! MODULES
+  ! MODULES
   IMPLICIT NONE
-!----------------------------------------------------------------------------------------------------------------------------------
-! INPUT/OUTPUT VARIABLES
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   CHARACTER(LEN=*), INTENT(IN) :: subregion_name
-!----------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
 #if DEBUG
   CHARACTER(LEN=MAXLEN) :: regions
   INTEGER :: i
 #endif
-!==================================================================================================================================
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
   IF(MPIroot)THEN
 #if DEBUG
     regions=active_region(1)
@@ -210,61 +208,59 @@ END SUBROUTINE exit_subregion
 !!
 !==================================================================================================================================
 SUBROUTINE Abort(SourceFile,SourceLine,CompDate,CompTime,ErrorMessage,IntInfo,RealInfo,ErrorCode,TypeInfo)
-! MODULES
-IMPLICIT NONE
-!----------------------------------------------------------------------------------------------------------------------------------
-! INPUT/OUTPUT VARIABLES
-CHARACTER(LEN=*)                  :: SourceFile      !! Source file where error has occurred
-INTEGER                           :: SourceLine      !! Line in source file
-CHARACTER(LEN=*)                  :: CompDate        !! Compilation date
-CHARACTER(LEN=*)                  :: CompTime        !! Compilation time
-CHARACTER(LEN=*)                  :: ErrorMessage    !! Error message
-INTEGER,OPTIONAL                  :: IntInfo         !! additional integer value for error message
-REAL(wp),OPTIONAL                 :: RealInfo        !! additional real value for error message
-INTEGER,OPTIONAL                  :: ErrorCode       !! used for MPI
-CHARACTER(LEN=*),OPTIONAL         :: TypeInfo        !! Error type, default is "RuntimeError". Or e.g.
-                                                     !! "MissingParameterError","InvalidParameterError","FileNotFoundError","InitializationError"
-!----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-CHARACTER(LEN=50)                 :: IntString,RealString,errtype
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  CHARACTER(LEN=*)                  :: SourceFile      !! Source file where error has occurred
+  INTEGER                           :: SourceLine      !! Line in source file
+  CHARACTER(LEN=*)                  :: CompDate        !! Compilation date
+  CHARACTER(LEN=*)                  :: CompTime        !! Compilation time
+  CHARACTER(LEN=*)                  :: ErrorMessage    !! Error message
+  INTEGER,OPTIONAL                  :: IntInfo         !! additional integer value for error message
+  REAL(wp),OPTIONAL                 :: RealInfo        !! additional real value for error message
+  INTEGER,OPTIONAL                  :: ErrorCode       !! used for MPI
+  CHARACTER(LEN=*),OPTIONAL         :: TypeInfo        !! Error type, default is "RuntimeError". Or e.g.
+                                                       !! "MissingParameterError","InvalidParameterError","FileNotFoundError","InitializationError"
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  CHARACTER(LEN=50)                 :: IntString,RealString,errtype
 #if MPI
-INTEGER                           :: errOut          ! Output of MPI_ABORT
-INTEGER                           :: signalout       ! Output errorcode
+  INTEGER                           :: errOut          ! Output of MPI_ABORT
+  INTEGER                           :: signalout       ! Output errorcode
 #endif
-CHARACTER(LEN=MAXLEN)             :: errmsg
-INTEGER                           :: i
-!==================================================================================================================================
-IntString = ""
-RealString = ""
-errtype="RuntimeError"
-errmsg=""
-IF(MPIroot)THEN
-  errmsg=TRIM(active_region(1))
-  DO i=2,iregion
-    errmsg=TRIM(errmsg)//"."//TRIM(active_region(i))
-  END DO
-  CALL reset_subregion()
-END IF
-IF(PRESENT(TypeInfo)) errtype = TRIM(TypeInfo)
-errmsg=TRIM(errmsg) // " | "//TRIM(errtype)
+  CHARACTER(LEN=MAXLEN)             :: errmsg
+  INTEGER                           :: i
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  IntString = ""
+  RealString = ""
+  errtype="RuntimeError"
+  errmsg=""
+  IF(MPIroot)THEN
+    errmsg=TRIM(active_region(1))
+    DO i=2,iregion
+      errmsg=TRIM(errmsg)//"."//TRIM(active_region(i))
+    END DO
+    CALL reset_subregion()
+  END IF
+  IF(PRESENT(TypeInfo)) errtype = TRIM(TypeInfo)
+  errmsg=TRIM(errmsg) // " | "//TRIM(errtype)
 
-IF (PRESENT(IntInfo))  THEN
-  WRITE(IntString,"(I8)")  IntInfo
-  IntString=",IntInfo="//TRIM(IntString)
-END IF
-IF (PRESENT(RealInfo)) THEN
-   WRITE(RealString,"(F24.19)") RealInfo
-   RealString=",RealInfo="//TRIM(RealString)
-END IF
-errmsg=TRIM(errmsg)//" | "//TRIM(ErrorMessage)//TRIM(IntString)//TRIM(RealString)
+  IF (PRESENT(IntInfo))  THEN
+    WRITE(IntString,"(I8)")  IntInfo
+    IntString=",IntInfo="//TRIM(IntString)
+  END IF
+  IF (PRESENT(RealInfo)) THEN
+     WRITE(RealString,"(F24.19)") RealInfo
+     RealString=",RealInfo="//TRIM(RealString)
+  END IF
+  errmsg=TRIM(errmsg)//" | "//TRIM(ErrorMessage)//TRIM(IntString)//TRIM(RealString)
 
-WRITE(UNIT_stdOut,*) '_____________________________________________________________________________\n', &
-                     'Program abort caused on Proc ',myRank, '\n', &
-                     '  in File : ',TRIM(SourceFile),' Line ',SourceLine, '\n', &
-                     '  This file was compiled at ',TRIM(CompDate),'  ',TRIM(CompTime), '\n', &
-                     'Message: ',TRIM(errmsg)
+  WRITE(UNIT_stdOut,*) '_____________________________________________________________________________\n', &
+                       'Program abort caused on Proc ',myRank, '\n', &
+                       '  in File : ',TRIM(SourceFile),' Line ',SourceLine, '\n', &
+                       '  This file was compiled at ',TRIM(CompDate),'  ',TRIM(CompTime), '\n', &
+                       'Message: ',TRIM(errmsg)
 
-CALL FLUSH(UNIT_stdOut)
+  CALL FLUSH(UNIT_stdOut)
 
 #if MPI
 signalout=2 ! MPI_ABORT requires an output error-code /=0
@@ -273,13 +269,13 @@ CALL MPI_ABORT(MPI_COMM_WORLD,signalout,errOut)
 #endif
 
 #if GNU
-IF(print_backtrace) CALL BACKTRACE
+  IF(print_backtrace) CALL BACKTRACE
 #endif
 
-IF (ASSOCIATED(RaiseExceptionPtr)) THEN
-  CALL RaiseExceptionPtr(errmsg)
-END IF
-ERROR STOP 2
+  IF (ASSOCIATED(RaiseExceptionPtr)) THEN
+    CALL RaiseExceptionPtr(errmsg)
+  END IF
+  ERROR STOP 2
 END SUBROUTINE Abort
 
 !==================================================================================================================================
@@ -287,18 +283,16 @@ END SUBROUTINE Abort
 !!
 !==================================================================================================================================
 FUNCTION GetTime() RESULT(t)
-! MODULES
+  ! MODULES
 !$ USE omp_lib
   IMPLICIT NONE
-!----------------------------------------------------------------------------------------------------------------------------------
-! INPUT/OUTPUT VARIABLES
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   REAL(wp) :: t   !< output time
-!----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
 #if MPI
   LOGICAL :: barr
   INTEGER :: ierr
-!==================================================================================================================================
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)  ! not possible to 'CALL parBarrier()' because MODgvec_MPI uses MODgvec_Globals!
   t = MPI_WTIME()
 #else
@@ -312,15 +306,13 @@ END FUNCTION GetTime
 !!
 !==================================================================================================================================
 FUNCTION GetTimeSerial() RESULT(t)
-! MODULES
+  ! MODULES
 !$ USE omp_lib
   IMPLICIT NONE
-!----------------------------------------------------------------------------------------------------------------------------------
-! INPUT/OUTPUT VARIABLES
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   REAL(wp) :: t   !< output time
-!----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-!==================================================================================================================================
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL CPU_TIME(t)
 !$ t=OMP_GET_WTIME()
 END FUNCTION GetTimeSerial
@@ -330,18 +322,16 @@ END FUNCTION GetTimeSerial
 !!
 !==================================================================================================================================
 SUBROUTINE ProgressBar(iter,n_iter)
-! MODULES
+  ! MODULES
 !$ USE omp_lib
-IMPLICIT NONE
-!----------------------------------------------------------------------------------------------------------------------------------
-! INPUT/OUTPUT VARIABLES
-INTEGER,INTENT(IN) :: iter,n_iter  !! iter ranges from 1...n_iter
-!----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-CHARACTER(LEN=8)  :: fmtstr
-INTEGER           :: newpercent
-REAL(wp)          :: endTime
-!==================================================================================================================================
+  IMPLICIT NONE
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  INTEGER,INTENT(IN) :: iter,n_iter  !! iter ranges from 1...n_iter
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  CHARACTER(LEN=8)  :: fmtstr
+  INTEGER           :: newpercent
+  REAL(wp)          :: endTime
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
   IF(.NOT.MPIroot)RETURN
   IF(iter.LE.0)THEN !INIT
     ProgressBar_oldpercent=0
@@ -369,24 +359,22 @@ END SUBROUTINE ProgressBar
 !> Get unused file unit number
 !==================================================================================================================================
 FUNCTION GETFREEUNIT()
-! MODULES
-IMPLICIT NONE
-!----------------------------------------------------------------------------------------------------------------------------------
-! INPUT/OUTPUT VARIABLES
-INTEGER :: GetFreeUnit !! File unit number
-!----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-LOGICAL :: connected
-!==================================================================================================================================
-GetFreeUnit=55
-INQUIRE(UNIT=GetFreeUnit, OPENED=connected)
-IF(connected)THEN
-  DO
-    GetFreeUnit=GetFreeUnit+1
-    INQUIRE(UNIT=GetFreeUnit, OPENED=connected)
-    IF(.NOT.connected)EXIT
-  END DO
-END IF
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  INTEGER :: GetFreeUnit !! File unit number
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  LOGICAL :: connected
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  GetFreeUnit=55
+  INQUIRE(UNIT=GetFreeUnit, OPENED=connected)
+  IF(connected)THEN
+    DO
+      GetFreeUnit=GetFreeUnit+1
+      INQUIRE(UNIT=GetFreeUnit, OPENED=connected)
+      IF(.NOT.connected)EXIT
+    END DO
+  END IF
 END FUNCTION GETFREEUNIT
 
 
@@ -395,24 +383,20 @@ END FUNCTION GETFREEUNIT
 !!
 !===================================================================================================================================
 PURE FUNCTION Eval1DPoly(nCoefs,Coefs,x)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-INTEGER,  INTENT(IN)  :: nCoefs                   !! number of coefficients
-REAL(wp), INTENT(IN)  :: Coefs(nCoefs)            !! coefficients
-REAL(wp), INTENT(IN)  :: x                        !! evaluation position
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-REAL(wp)              :: Eval1DPoly
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-INTEGER               :: i
-!===================================================================================================================================
-Eval1DPoly=0.
-DO i=nCoefs,1,-1
-  Eval1DPoly=Eval1DPoly*x+Coefs(i)
-END DO
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  INTEGER,  INTENT(IN)  :: nCoefs                   !! number of coefficients
+  REAL(wp), INTENT(IN)  :: Coefs(nCoefs)            !! coefficients
+  REAL(wp), INTENT(IN)  :: x                        !! evaluation position
+  REAL(wp)              :: Eval1DPoly
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  INTEGER               :: i
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  Eval1DPoly=0.
+  DO i=nCoefs,1,-1
+    Eval1DPoly=Eval1DPoly*x+Coefs(i)
+  END DO
 
 END FUNCTION Eval1DPoly
 
@@ -422,24 +406,20 @@ END FUNCTION Eval1DPoly
 !!
 !===================================================================================================================================
 PURE FUNCTION Eval1DPoly_deriv(nCoefs,Coefs,x)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-INTEGER,  INTENT(IN)  :: nCoefs                   !! number of coefficients
-REAL(wp), INTENT(IN)  :: Coefs(nCoefs)            !! coefficients
-REAL(wp), INTENT(IN)  :: x                        !! evaluation position
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-REAL(wp)              :: Eval1DPoly_deriv
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-INTEGER               :: i
-!===================================================================================================================================
-Eval1DPoly_deriv=0.
-DO i=nCoefs,2,-1
-  Eval1DPoly_deriv=Eval1DPoly_deriv*x+REAL(i-1,wp)*Coefs(i)
-END DO
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  INTEGER,  INTENT(IN)  :: nCoefs                   !! number of coefficients
+  REAL(wp), INTENT(IN)  :: Coefs(nCoefs)            !! coefficients
+  REAL(wp), INTENT(IN)  :: x                        !! evaluation position
+  REAL(wp)              :: Eval1DPoly_deriv
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  INTEGER               :: i
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  Eval1DPoly_deriv=0.
+  DO i=nCoefs,2,-1
+    Eval1DPoly_deriv=Eval1DPoly_deriv*x+REAL(i-1,wp)*Coefs(i)
+  END DO
 
 END FUNCTION Eval1DPoly_deriv
 
@@ -449,19 +429,15 @@ END FUNCTION Eval1DPoly_deriv
 !!
 !===================================================================================================================================
 PURE FUNCTION NORMALIZE(v1,nVal)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-INTEGER,INTENT(IN)  :: nVal     !! vector size
-REAL(wp),INTENT(IN) :: v1(nVal) !! vector
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-REAL(wp)            :: normalize(nVal) !! result, normalized vector
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-!===================================================================================================================================
-normalize=v1/SQRT(SUM(v1*v1))
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  INTEGER,INTENT(IN)  :: nVal     !! vector size
+  REAL(wp),INTENT(IN) :: v1(nVal) !! vector
+  REAL(wp)            :: normalize(nVal) !! result, normalized vector
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  normalize=v1/SQRT(SUM(v1*v1))
 END FUNCTION NORMALIZE
 
 
@@ -470,19 +446,15 @@ END FUNCTION NORMALIZE
 !!
 !===================================================================================================================================
 PURE FUNCTION CROSS(v1,v2)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-REAL(wp),INTENT(IN) :: v1(3) !! first input vector
-REAL(wp),INTENT(IN) :: v2(3) !! second input vector
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-REAL(wp)            :: cross(3)  !! result v1 x v2
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-!===================================================================================================================================
-cross=(/v1(2)*v2(3)-v1(3)*v2(2),v1(3)*v2(1)-v1(1)*v2(3),v1(1)*v2(2)-v1(2)*v2(1)/)
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  REAL(wp),INTENT(IN) :: v1(3) !! first input vector
+  REAL(wp),INTENT(IN) :: v2(3) !! second input vector
+  REAL(wp)            :: cross(3)  !! result v1 x v2
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  cross=(/v1(2)*v2(3)-v1(3)*v2(2),v1(3)*v2(1)-v1(1)*v2(3),v1(1)*v2(2)-v1(2)*v2(1)/)
 END FUNCTION CROSS
 
 
@@ -491,20 +463,16 @@ END FUNCTION CROSS
 !!
 !===================================================================================================================================
 PURE FUNCTION DET33(Mat)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-REAL(wp),INTENT(IN)  :: Mat(3,3) !! input matrix
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-REAL(wp)             :: DET33 !! determinant of the input matrix
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-!===================================================================================================================================
-DET33=   ( Mat(1,1) * Mat(2,2) - Mat(1,2) * Mat(2,1) ) * Mat(3,3) &
-         + ( Mat(1,2) * Mat(2,3) - Mat(1,3) * Mat(2,2) ) * Mat(3,1) &
-         + ( Mat(1,3) * Mat(2,1) - Mat(1,1) * Mat(2,3) ) * Mat(3,2)
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  REAL(wp),INTENT(IN)  :: Mat(3,3) !! input matrix
+  REAL(wp)             :: DET33 !! determinant of the input matrix
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  DET33=   ( Mat(1,1) * Mat(2,2) - Mat(1,2) * Mat(2,1) ) * Mat(3,3) &
+           + ( Mat(1,2) * Mat(2,3) - Mat(1,3) * Mat(2,2) ) * Mat(3,1) &
+           + ( Mat(1,3) * Mat(2,1) - Mat(1,1) * Mat(2,3) ) * Mat(3,2)
 END FUNCTION DET33
 
 
@@ -513,33 +481,29 @@ END FUNCTION DET33
 !!
 !===================================================================================================================================
 PURE FUNCTION INV33(Mat, Det_in)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-REAL(wp),INTENT(IN)             :: Mat(3,3) !! input matrix
-REAL(wp),INTENT(IN),OPTIONAL    ::  Det_in  !! determinant of input matrix (otherwise computed here)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-REAL(wp)             :: INV33(3,3) !! inverse matrix
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-REAL(wp)             :: sDet
-!===================================================================================================================================
-IF(PRESENT(Det_in))THEN
-  sDet=1.0_wp/Det_in
-ELSE
-  sDet=1.0_wp/DET33(Mat)
-END IF
-INV33(1,1) = ( Mat(2,2) * Mat(3,3) - Mat(2,3) * Mat(3,2) ) * sDet
-INV33(1,2) = ( Mat(1,3) * Mat(3,2) - Mat(1,2) * Mat(3,3) ) * sDet
-INV33(1,3) = ( Mat(1,2) * Mat(2,3) - Mat(1,3) * Mat(2,2) ) * sDet
-INV33(2,1) = ( Mat(2,3) * Mat(3,1) - Mat(2,1) * Mat(3,3) ) * sDet
-INV33(2,2) = ( Mat(1,1) * Mat(3,3) - Mat(1,3) * Mat(3,1) ) * sDet
-INV33(2,3) = ( Mat(1,3) * Mat(2,1) - Mat(1,1) * Mat(2,3) ) * sDet
-INV33(3,1) = ( Mat(2,1) * Mat(3,2) - Mat(2,2) * Mat(3,1) ) * sDet
-INV33(3,2) = ( Mat(1,2) * Mat(3,1) - Mat(1,1) * Mat(3,2) ) * sDet
-INV33(3,3) = ( Mat(1,1) * Mat(2,2) - Mat(1,2) * Mat(2,1) ) * sDet
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  REAL(wp),INTENT(IN)             :: Mat(3,3) !! input matrix
+  REAL(wp),INTENT(IN),OPTIONAL    ::  Det_in  !! determinant of input matrix (otherwise computed here)
+  REAL(wp)                        :: INV33(3,3) !! inverse matrix
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  REAL(wp)                        :: sDet
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  IF(PRESENT(Det_in))THEN
+    sDet=1.0_wp/Det_in
+  ELSE
+    sDet=1.0_wp/DET33(Mat)
+  END IF
+  INV33(1,1) = ( Mat(2,2) * Mat(3,3) - Mat(2,3) * Mat(3,2) ) * sDet
+  INV33(1,2) = ( Mat(1,3) * Mat(3,2) - Mat(1,2) * Mat(3,3) ) * sDet
+  INV33(1,3) = ( Mat(1,2) * Mat(2,3) - Mat(1,3) * Mat(2,2) ) * sDet
+  INV33(2,1) = ( Mat(2,3) * Mat(3,1) - Mat(2,1) * Mat(3,3) ) * sDet
+  INV33(2,2) = ( Mat(1,1) * Mat(3,3) - Mat(1,3) * Mat(3,1) ) * sDet
+  INV33(2,3) = ( Mat(1,3) * Mat(2,1) - Mat(1,1) * Mat(2,3) ) * sDet
+  INV33(3,1) = ( Mat(2,1) * Mat(3,2) - Mat(2,2) * Mat(3,1) ) * sDet
+  INV33(3,2) = ( Mat(1,2) * Mat(3,1) - Mat(1,1) * Mat(3,2) ) * sDet
+  INV33(3,3) = ( Mat(1,1) * Mat(2,2) - Mat(1,2) * Mat(2,1) ) * sDet
 
 END FUNCTION INV33
 
