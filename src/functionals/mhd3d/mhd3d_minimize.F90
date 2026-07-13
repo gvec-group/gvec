@@ -34,7 +34,7 @@ MODULE MODgvec_MHD3D_minimize
 
         ! Logging variables
         REAL(wp) :: min_dt_out,max_dt_out,min_dw_out,max_dw_out,sum_dW_out
-        LOGICAL  :: DoCheckDistance, DoCheckAxis
+        LOGICAL  :: DoCheckDistance, DoCheckAxis, logUnit_open
         INTEGER  :: outputIter, nlogScreen, logIter, logUnit, StartTimeArray(8)
 
         TYPE(t_sol_var_MHD3D), ALLOCATABLE :: dofs(:)      !! degrees of freedom at levels (k-1),(k),(k+1)
@@ -174,7 +174,7 @@ MODULE MODgvec_MHD3D_minimize
             vars%JacCheck = 1
 
 
-
+            vars%logUnit_open = .FALSE.
             vars%restart_iter = .TRUE.
             vars%logger_is_initialized = .FALSE.
 
@@ -292,6 +292,8 @@ MODULE MODgvec_MHD3D_minimize
                 FILE     = TRIM(FileString) ,&
                 STATUS   = 'REPLACE'   ,&
                 ACCESS   = 'SEQUENTIAL' )
+            vars%logUnit_open = .TRUE.
+
             !header
             iLogDat=0
             WRITE(vars%logUnit,'(A)',ADVANCE="NO")'"#iterations","runtime(s)","min_dt","max_dt"'
@@ -334,6 +336,10 @@ MODULE MODgvec_MHD3D_minimize
         ! MODULES
         USE MODgvec_MHD3D_visu, ONLY: checkDistance
         USE MODgvec_MHD3D_visu, ONLY: checkPos
+        USE MODgvec_Output_Vars, ONLY: ProjectName,outputLevel
+        USE MODgvec_Globals,     ONLY: GETFREEUNIT
+
+
         IMPLICIT NONE
         !-------------------------------------------------------------------------------------------------------------------------------
         ! INPUT VARIABLES
@@ -347,10 +353,20 @@ MODULE MODgvec_MHD3D_minimize
         REAL(wp)            :: Pos(2,2),maxDist,avgDist,W_MHD3D
         INTEGER,PARAMETER   :: nLogDat=25
         REAL(wp)            :: LogDat(1:nLogDat)
+        CHARACTER(LEN=255)  :: fileString !! filename
         !=================================================================================================================================
         IF(.NOT.MPIroot) RETURN
         __PERFON('log_output')
         ASSOCIATE(vars=>sf%vars)
+            IF (.NOT.vars%logUnit_open) THEN
+                vars%logUnit=GETFREEUNIT()
+                WRITE(FileString,'("logMinimizer_",A,"_",I4.4,".csv")')TRIM(ProjectName),outputLevel
+                OPEN(UNIT     = vars%logUnit       ,&
+                    FILE     = TRIM(FileString) ,&
+                    STATUS   = 'OLD'   ,&
+                    ACCESS   = 'APPEND' )
+                vars%logUnit_open = .TRUE.
+            END IF
             CALL DATE_AND_TIME(values=TimeArray) ! get System time
             W_MHD3D=vars%dofs(0)%W_MHD3D
             IF(.NOT.quiet)THEN

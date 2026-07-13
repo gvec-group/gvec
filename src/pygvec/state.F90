@@ -93,7 +93,7 @@ SUBROUTINE ReadState(statefile)
   CHARACTER(LEN=255) :: statefile
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL enter_subregion("read statefile")
-  ProjectName='POST_'//TRIM(StateFile(1:INDEX(StateFile,'_State_')-1))
+  ! ProjectName='POST_'//TRIM(StateFile(1:INDEX(StateFile,'_State_')-1))
   CALL RestartFromState(StateFile,functional%minimizer%vars%dofs(0))
   outputLevel=outputLevel_r
   CALL exit_subregion("read statefile")
@@ -117,9 +117,12 @@ SUBROUTINE minimize(dt_in, logfinaliter, maxIter_in, minimize_tol)
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   StartTime=GetTime()
   CALL functional%minimize(dt_in, logfinaliter, maxIter_in, minimize_tol)
+  CLOSE (functional%minimizer%vars%logUnit)
+  functional%minimizer%vars%logUnit_open = .FALSE.
   EndTime=GetTime()
   SWRITE(Unit_stdOut,'(A,2(F8.2,A))') ' FUNCTIONAL MINIMISATION FINISHED! [',EndTime-StartTime,' sec ], corresponding to [', &
         (EndTime-StartTime)/REAL(MaxIter,wp)*1.e3_wp,' msec/iteration ]'
+  FLUSH(UNIT_stdOut)
 END SUBROUTINE minimize
 
 

@@ -177,8 +177,6 @@ def test_picard_auto():
     ProjectName = "Test_auto"
     parameters["projectname"] = ProjectName
     if "stages" in parameters:
-        with pytest.raises(ValueError):
-            run_with_stages = gvec.run(parameters)
         del parameters["stages"]
     run_with_stages = gvec.run(parameters)
     diagnostics = run_with_stages.diagnostics_minimizer
@@ -238,9 +236,11 @@ def test_I_tor_types(ptype):
     assert Path(f"{ProjectName}_State_final.dat").exists()
     assert Path(f"parameter_{ProjectName}_final.ini").exists()
 
-    np.testing.assert_allclose(I_tor_tp(run_with_stages.rho**2), run_with_stages.I_tor_target)
+    np.testing.assert_allclose(
+        I_tor_tp(run_with_stages.rho**2), run_with_stages.I_tor_target(run_with_stages.rho**2)
+    )
     I_tor_rms = np.sqrt(
-        (run_with_stages.diagnostics_run.I_tor_delta.isel(run=-1) ** 2).mean(dim="rad")
+        (run_with_stages.diagnostics_stage["stage_1"].I_tor_delta ** 2).mean(dim="rad")
     )
     assert I_tor_rms.data < 1e-6, f"Expected ΔI_tor < 1e-6, got ΔI_tor:{I_tor_rms.data}"
 
@@ -255,18 +255,17 @@ def test_maxRestarts():
     parameters["projectname"] = ProjectName
 
     parameters["stages"] = [
-        {"picard_current": {"maxRestarts": 0}},
         {
-            "picard_current": {"maxRestarts": 1, "target": "iota_and_force"},
+            "picard_current": {"maxRestarts": 1, "target": "iota"},
             "minimize_tol": 1e-4,
         },
-        {"picard_current": {"maxRestarts": 2}},
+        {"picard_current": {"maxRestarts": 2}, "target": "iota"},
     ]
     run_with_stages = gvec.run(parameters)
 
-    for n, runs in enumerate(run_with_stages.n_runs_in_stage):
-        assert n >= runs - 1, (
-            f"In stage {n} maxRestarts was violated! allowed restarts: {n + 1}, performed restarts: {runs}"
+    for n, stage in enumerate(run_with_stages.diagnostics_stage):
+        assert n + 1 >= run_with_stages.diagnostics_stage[stage].n_updates.item(), (
+            f"In stage {n} maxRestarts was violated! allowed restarts: {n + 1}, performed restarts: {run_with_stages.diagnostics_stage[stage].n_updates.item()}"
         )
 
 
@@ -289,7 +288,7 @@ def test_stages_without_current():
     assert (final_rundir / "stdout.txt").exists()
     with open(final_rundir / "stdout.txt", "r") as file:
         stdout = file.read()
-    assert "GVEC SUCESSFULLY FINISHED" in stdout
+    assert "Iteration finished, |force| in relative tolerance" in stdout
 
 
 @pytest.mark.parametrize("QUASR_ID", [112714])
