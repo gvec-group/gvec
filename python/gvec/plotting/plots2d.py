@@ -7,12 +7,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import cm, colors
 
-from gvec.core.state import State
 from gvec.plotting.utils import _design_subgrid, _subplots, _symbol_check
 
 
 def plot_poloidal_plane(
-    state: State,
+    state,
     quantity: None | str = "mod_B",
     rho: int | np.ndarray | list[float] = 21,
     ntheta: int = 51,
@@ -263,7 +262,7 @@ def plot_poloidal_plane(
 
 
 def plot_on_flux_surface(
-    state: State,
+    state,
     quantities: str | list[str] = "mod_B",
     rho: float | np.ndarray | list = 1.0,
     ntheta: int = 51,
@@ -450,7 +449,7 @@ def plot_on_flux_surface(
 
 
 def plot_fourier_on_surface(
-    state: State,
+    state,
     quantity: str = "mod_B",
     rho: float = 1.0,
     ntheta: int = 101,

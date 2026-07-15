@@ -179,5 +179,15 @@ class State:
 
         return compute(ev, *quantities, state=self)
 
-    # def evaluate(...) -> injected in gvec.core.compute
-    # def evaluate_sfl(...) -> injected in gvec.core.compute
+    from gvec.core.compute import evaluate, evaluate_sfl, evaluate_on_axis
+
+    # === Plotting Methods === #
+
+    from gvec.plotting import (
+        plot_on_axis,
+        plot_radial_profile,
+        plot_on_flux_surface,
+        plot_fourier_on_surface,
+        plot_poloidal_plane,
+        plot_3d_surface,
+    )

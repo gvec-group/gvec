@@ -6,7 +6,6 @@ from warnings import warn
 import matplotlib.pyplot as plt
 import numpy as np
 
-from gvec.core.state import State
 from gvec.plotting.utils import (
     _design_subgrid,
     _subplots,
@@ -52,7 +51,7 @@ def _plot_line_quantities_from_xarray(
 
 
 def plot_radial_profile(
-    state: State,
+    state,
     quantities: str | list[str] = ["iota", "p", "I_tor", "I_pol"],
     nrho: int | np.ndarray = 101,
     subplot_grid: list[int] | None = None,
@@ -122,7 +121,7 @@ def plot_radial_profile(
 
 
 def plot_on_axis(
-    state: State,
+    state,
     quantities: str | list[str] = "mod_B",
     nzeta: int | np.ndarray = 51,
     subplot_grid: list[int] | None = None,

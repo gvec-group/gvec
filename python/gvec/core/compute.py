@@ -7,12 +7,10 @@ from collections.abc import Sequence, Collection, Mapping, MutableMapping, Calla
 import logging
 import inspect
 import re
-import warnings
 
 import numpy as np
 import xarray as xr
 
-from gvec.core.state import State
 import gvec.fourier
 
 # === Globals === #
@@ -95,6 +93,8 @@ def register(
     * the names of the integration axes required for the computation
     * the attributes of the computed quantity (``long_name``, ``symbol``, etc.)
     """
+    from gvec.core.state import State
+
     if registry is None:
         registry = QUANTITIES
 
@@ -177,7 +177,7 @@ def table_of_quantities(
 def compute(
     ev: xr.Dataset,
     *quantities: str,
-    state: State | None = None,
+    state=None,
     registry: Mapping | None = None,
 ) -> xr.Dataset:
     """
@@ -362,7 +362,7 @@ def Evaluations(
     rho: Literal["int"] | CoordinateSpec | None = "int",
     theta: Literal["int"] | CoordinateSpec | None = "int",
     zeta: Literal["int"] | CoordinateSpec | None = "int",
-    state: State | None = None,
+    state=None,
     nfp: int | None = None,
 ):
     coords = {}
@@ -482,7 +482,7 @@ def EvaluationsBoozer(
     rho: Literal["int"] | CoordinateSpec,
     theta_B: CoordinateSpec,
     zeta_B: CoordinateSpec,
-    state: State,
+    state,
     radial_derivative: bool = True,
     epsilon_FD: float = 1e-8,
     **boozer_kwargs,
@@ -734,7 +734,7 @@ def EvaluationsPEST(
     rho: Literal["int"] | CoordinateSpec,
     theta_P: CoordinateSpec,
     zeta: CoordinateSpec,
-    state: State,
+    state,
 ):
     """Create an Evaluations dataset with a grid in PEST coordinates.
 
@@ -869,7 +869,7 @@ def EvaluationsPEST(
     return ds
 
 
-def add_Boozer_LA_NU(ds: xr.Dataset, state: State, sfl_boozer):
+def add_Boozer_LA_NU(ds: xr.Dataset, state, sfl_boozer):
     """Add the LA and NU_B variables as computed by the boozer transform to the dataset.
 
     Helper function for EvaluationsBoozer and related methods.
@@ -923,7 +923,7 @@ def add_Boozer_LA_NU(ds: xr.Dataset, state: State, sfl_boozer):
 
 
 def evaluate(
-    state: State,
+    state,
     *quantities: str,
     rho: Literal["int"] | CoordinateSpec | None = "int",
     theta: Literal["int"] | CoordinateSpec | None = "int",
@@ -991,6 +991,8 @@ def evaluate(
     gvec.core.compute.compute: compute quantities and add them to an existing dataset.
     gvec.core.compute.evaluate_sfl: evaluate quantities on a grid in straight-fieldline coordinates.
     """
+    from gvec.core.state import State
+
     if not isinstance(state, State):
         raise TypeError(f"Expected a gvec.State object, got {type(state)}.")
     ev = Evaluations(rho, theta, zeta, state)
@@ -1007,7 +1009,7 @@ def evaluate(
 
 
 def evaluate_sfl(
-    state: State,
+    state,
     *quantities: str,
     rho: CoordinateSpec | Literal["int"],
     theta: CoordinateSpec,
@@ -1085,6 +1087,8 @@ def evaluate_sfl(
     gvec.core.compute.compute: compute quantities and add them to an existing dataset.
     gvec.core.compute.evaluate: evaluate quantities on a grid in logical coordinates.
     """
+    from gvec.core.state import State
+
     if not isinstance(state, State):
         raise TypeError(f"Expected a gvec.State object, got {type(state)}.")
     if sfl.lower() == "boozer":
@@ -1108,7 +1112,7 @@ def evaluate_sfl(
 
 
 def evaluate_on_axis(
-    state: State,
+    state,
     *quantities: str,
     theta: CoordinateSpec | Literal["int"],
     zeta: CoordinateSpec | Literal["int"],
@@ -1143,11 +1147,6 @@ def evaluate_on_axis(
     on_axis = 3 * (r1 - r2) + r3
     on_axis.rho[...] = 0.0
     return on_axis
-
-
-State.evaluate = evaluate
-State.evaluate_sfl = evaluate_sfl
-State.evaluate_on_axis = evaluate_on_axis
 
 
 # === Fourier Transform === #
