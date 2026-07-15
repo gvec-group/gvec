@@ -13,7 +13,7 @@ from scipy.constants import mu_0
 from scipy.integrate import solve_ivp
 from tqdm import tqdm
 
-from gvec.core.state import CoordinateSpec, State
+from gvec.core.compute import CoordinateSpec, State
 from gvec.lib import modgvec_biotsavart as _BS
 from gvec.util import logging_setup
 from gvec.core.compute import volume_integral

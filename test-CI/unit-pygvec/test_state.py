@@ -154,9 +154,9 @@ def test_state_netcdf_error(testfiles, which_read):
 
 def test_state_bind_implicit(testfiles):
     state = State(*testfiles)
-    assert gvec.core.state.bound_state is not state
+    assert gvec.core.state._binding.bound_state is not state
     nfp = state.nfp
-    assert gvec.core.state.bound_state is state
+    assert gvec.core.state._binding.bound_state is state
     assert len(state.stdout)
 
 
@@ -164,9 +164,9 @@ def test_state_bind_twice(testfiles):
     state1 = State(*testfiles)
     state2 = State(*testfiles)
     nfp1 = state1.nfp
-    assert gvec.core.state.bound_state is state1
+    assert gvec.core.state._binding.bound_state is state1
     nfp2 = state2.nfp
-    assert gvec.core.state.bound_state is state2
+    assert gvec.core.state._binding.bound_state is state2
 
 
 def test_state_stdout(testfiles):
