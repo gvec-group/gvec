@@ -95,7 +95,6 @@ class RunState(State):
         logger.debug("Resetting accelerated descent")
         _state.reset_descent()
 
-    @with_binding
     def save(self):
         self.save_statefile()
         iters = self.get_iterations()
@@ -105,7 +104,6 @@ class RunState(State):
             self._parameter_dict["ProjectName"] + f"_parameters_{outid:04}_{iters:08}.ini",
         )
 
-    @with_binding
     def _get_new_iota(self):
         """Calculate a new iota profile. Extracted from gvec-run, to be used for current constraint
 
@@ -139,7 +137,6 @@ class RunState(State):
         rms_iota = np.sqrt((delta_iota**2).mean(dim="rad")).item()
         return (iota_values, ev.rho**2, rms_iota, delta_iota)
 
-    @with_binding
     def _minimize_single_current_constraint(
         self,
         maxIter: int,
@@ -224,7 +221,6 @@ class RunState(State):
             nth_update,
         )
 
-    @with_binding
     def _minimize_current_constraint(
         self,
         iota_target: float,
@@ -327,7 +323,6 @@ class RunState(State):
         )
         self.save()
 
-    @with_binding
     def minimize(
         self,
         iota_target: float,

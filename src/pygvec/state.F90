@@ -264,6 +264,9 @@ SUBROUTINE update_iota_for_current_constraint(rho2, vals, reset_LA)
   ! HACK: hardcode not-a-knot BC vals
   CALL interpolate_cubic_spline(rho2, vals, coefs, knots, (/0,0/))
 
+  SDEALLOCATE(iota_profile)
+  SDEALLOCATE(chi_profile)
+
   iota_profile = t_rProfile_bspl(knots, coefs)
   chi_profile = iota_profile%antiderivative()
   !iota= (dChi/ds) / (dPhi/ds) = dchi_ds / Phi_edge  => chi = Phi_edge * int(iota ds)
