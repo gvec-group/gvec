@@ -9,8 +9,7 @@ from typing import Literal
 
 import numpy as np
 
-import gvec.lib
-from gvec.lib import modgvec_py_state as _state
+from gvec.lib import _state, t_sfl_boozer
 from ._binding import with_binding
 
 # === Globals === #
@@ -109,7 +108,7 @@ def get_boozer(
 @with_binding
 def get_boozer_angles(
     self,
-    sfl_boozer: gvec.lib.Modgvec_Sfl_Boozer.t_sfl_boozer,
+    sfl_boozer: t_sfl_boozer,
     tz_list: np.ndarray,
     rad: int | None = None,
 ):
@@ -133,7 +132,7 @@ def get_boozer_angles(
         If rad is None, returns a 3D array of shape (2, n, nrho), where nrho is the number of radial surfaces in sfl_boozer.
         If rad is specified, returns a 2D array of shape (2, n).
     """
-    if not isinstance(sfl_boozer, gvec.lib.Modgvec_Sfl_Boozer.t_sfl_boozer):
+    if not isinstance(sfl_boozer, t_sfl_boozer):
         raise ValueError(f"Boozer object {sfl_boozer!r} must be of type `t_sfl_boozer`.")
     if sfl_boozer not in self._children:
         raise ValueError(f"Boozer object {sfl_boozer!r} is not known to the state {self!r}.")
@@ -159,7 +158,7 @@ def get_boozer_angles(
 @with_binding
 def evaluate_boozer_list_tz_all(
     self,
-    sfl_boozer: gvec.lib.Modgvec_Sfl_Boozer.t_sfl_boozer,
+    sfl_boozer: t_sfl_boozer,
     quantity: str,
     rad: np.ndarray,
     thetazeta: np.ndarray,
@@ -168,7 +167,7 @@ def evaluate_boozer_list_tz_all(
         raise ValueError("Quantity must be a string.")
     elif quantity not in ["LA", "NU"]:
         raise ValueError(f"Unknown quantity: {quantity}, expected one of 'LA', 'NU'.")
-    if not isinstance(sfl_boozer, gvec.lib.Modgvec_Sfl_Boozer.t_sfl_boozer):
+    if not isinstance(sfl_boozer, t_sfl_boozer):
         raise ValueError(f"Boozer object {sfl_boozer!r} must be of type `t_sfl_boozer`.")
     if sfl_boozer not in self._children:
         raise ValueError(f"Boozer object {sfl_boozer!r} is not known to the state {self!r}.")

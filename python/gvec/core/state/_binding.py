@@ -8,13 +8,9 @@ import functools
 import logging
 import tempfile
 
-import gvec.lib
 import gvec.util
 from gvec.errors import catch_gvec_errors
-from gvec.lib import modgvec_py_binding as _binding
-from gvec.lib import modgvec_py_run as _run
-from gvec.lib import modgvec_py_state as _state
-from gvec.lib import modgvec_globals as _globals
+from gvec.lib import _binding, _run, _state, _globals, t_sfl_boozer
 
 # === Globals === #
 
@@ -139,7 +135,7 @@ def unbind(self, cleanup: bool = False):
 
     with catch_gvec_errors():
         for child in self._children:
-            if isinstance(child, gvec.lib.Modgvec_Sfl_Boozer.t_sfl_boozer):
+            if isinstance(child, t_sfl_boozer):
                 logger.debug(f"Unbinding child {child!r} from the fortran library.")
                 del child
             else:

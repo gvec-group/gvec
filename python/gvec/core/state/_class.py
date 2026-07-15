@@ -12,7 +12,7 @@ from pathlib import Path
 
 import xarray as xr
 
-import gvec.lib
+from gvec.lib import t_sfl_boozer
 import gvec.util
 
 from . import _binding
@@ -39,7 +39,7 @@ class State:
         self.statefile: Path | None = Path(statefile).absolute() if statefile else None
 
         self._stdout: tempfile.NamedTemporaryFile | None = None
-        self._children: list[gvec.lib.Modgvec_Sfl_Boozer.t_sfl_boozer] = []
+        self._children: list[t_sfl_boozer] = []
         self.parameters: gvec.util.CaseInsensitiveDict = None
 
         if not self.parameterfile.exists():

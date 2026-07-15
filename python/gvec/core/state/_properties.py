@@ -8,7 +8,7 @@ import logging
 
 import numpy as np
 
-from gvec.lib import modgvec_py_state as _state
+from gvec.lib import _state
 from ._binding import with_binding
 
 # === Globals === #

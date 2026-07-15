@@ -10,7 +10,7 @@ from collections.abc import Iterable
 
 import numpy as np
 
-from gvec.lib import modgvec_py_state as _state
+from gvec.lib import _state
 from ._binding import with_binding
 
 # === Decorators & Utility Functions === #
