@@ -1120,8 +1120,8 @@ def fortran_run(
     """
     logger = logging.getLogger("gvec.run")
     logger.debug(f"Running GVEC with parameter file: {parameterfile}")
-    if gvec.core.state.bound_state is not None:
-        gvec.core.state.bound_state.unbind()
+    if gvec.core.state._binding.bound_state is not None:
+        gvec.core.state._binding.bound_state.unbind()
 
     _binding.redirect_abort()
     if stdout_path is not None:

@@ -669,6 +669,9 @@ def format_toml(parameters: CaseInsensitiveDict):
     from tomlkit import document, comment, nl, array, table, aot, key as toml_key
     from gvec._version import __version__
 
+    if isinstance(parameters, CaseInsensitiveDict):
+        parameters = parameters.serialize()
+
     def add_params(doc, keys, parameters):
         if any(key in parameters for key in keys):
             for key in keys:
@@ -681,7 +684,7 @@ def format_toml(parameters: CaseInsensitiveDict):
         doc.add(comment(f"--- {section_name} --- #"))
         doc.add(nl())
 
-    parameters = stringify_mn_parameters(parameters.serialize())
+    parameters = stringify_mn_parameters(parameters)
 
     doc = document()
     doc.add(comment("GVEC parameter file"))
