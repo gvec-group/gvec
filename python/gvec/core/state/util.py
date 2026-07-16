@@ -29,9 +29,16 @@ def find_state(rundir: Path | str | None = None):
         rundir = Path(rundir)
     parameterfiles = list(rundir.glob("parameter*.ini"))
     if len(parameterfiles) > 1:
-        raise ValueError(
-            f"found more than one candidate parameterfile: {[file.name for file in parameterfiles]}"
-        )
+        # If there is more than one parameter file we check if a "final" set is present
+        final_found = False
+        for param_file in parameterfiles:
+            if "final" in param_file.name:
+                parameterfiles = [parameterfiles[0]]
+                final_found = True
+        if not final_found:
+            raise ValueError(
+                f"found more than one candidate parameterfile: {[file.name for file in parameterfiles]}"
+            )
     elif len(parameterfiles) == 0:
         raise ValueError("no parameterfile found")
     logger.info(f"found parameterfile '{parameterfiles[0].name}'")
