@@ -25,7 +25,7 @@ from gvec.core.compute import (
     EvaluationsPEST,
     table_of_quantities,
 )
-from gvec.core.run import run, Run
+from gvec.core.run import run, FixedBoundaryRun
 
 # submodules
 

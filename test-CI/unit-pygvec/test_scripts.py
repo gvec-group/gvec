@@ -91,7 +91,7 @@ def test_help(mode):
 def test_run():
     parameters = gvec.util.read_parameters("parameter.ini")
     run = gvec.run(parameters)
-    assert isinstance(run, gvec.Run)
+    assert isinstance(run, gvec.FixedBoundaryRun)
 
 
 def test_run_recover_from_error():

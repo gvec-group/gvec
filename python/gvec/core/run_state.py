@@ -145,6 +145,7 @@ class RunState(State):
         minimize_tol: float | None,
         maxUpdates: int,
         reset_LA: bool,
+        **kwargs_minimize,
     ):
         """Single current optimization stage.
 
@@ -210,7 +211,7 @@ class RunState(State):
                 "Targeted iota has not been reached!\n"
                 + f"iota_tol.: {iota_tol:.2e}, achieved rms Δiota.: {rms_iota:.2e}"
             )
-        logger.info(
+        logger.debug(
             f"Terminated current minimization after {nth_update} updates. Δiota = {rms_iota:.3e}, target Δiota = {iota_tol:.3e}. Used {iters_used} / {maxIter} iterations."
         )
         return (
@@ -249,6 +250,7 @@ class RunState(State):
                 f"""Unknown picard_current["target"]: {target}! target has to be "iota","iota_and_force" or "auto"."""
             )
         t0 = time.time()
+        self.iota = self._get_new_iota()[0]
         log_minimize_target = np.log10(minimize_tol)
         log_iota_target = np.log10(iota_target)
         n_stages = max(int(max(-2 - log_minimize_target, log_minimize_target)), 1)
