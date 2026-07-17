@@ -30,12 +30,11 @@ def find_state(rundir: Path | str | None = None):
     parameterfiles = list(rundir.glob("parameter*.ini"))
     if len(parameterfiles) > 1:
         # If there is more than one parameter file we check if a "final" set is present
-        final_found = False
-        for param_file in parameterfiles:
-            if "final" in param_file.name:
-                parameterfiles = [parameterfiles[0]]
-                final_found = True
-        if not final_found:
+        parameterfiles_final = [file for file in parameterfiles if "final" in file.name]
+        if len(parameterfiles_final) == 1:
+            logger.info("found more than one candidate parameterfile, with one '*final*' file")
+            parameterfiles = parameterfiles_final
+        else:
             raise ValueError(
                 f"found more than one candidate parameterfile: {[file.name for file in parameterfiles]}"
             )

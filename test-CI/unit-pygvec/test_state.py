@@ -70,6 +70,28 @@ def test_find_state_two_candidates(testfiles, tmp_path):
         state = find_state(tmp_path)
 
 
+def test_find_state_two_parameterfiles(testfiles, tmp_path):
+    shutil.copy(testfiles[0], tmp_path / "parameter_foo.ini")
+    shutil.copy(testfiles[0], tmp_path / "parameter_bar.ini")
+    shutil.copy(testfiles[1], tmp_path / "Test_State-0.dat")
+    with pytest.raises(ValueError, match="found more than one candidate parameterfile"):
+        state = find_state(tmp_path)
+
+
+def test_find_state_parameter_final(testfiles, tmp_path, caplog):
+    shutil.copy(testfiles[0], tmp_path / "parameter.ini")
+    shutil.copy(testfiles[0], tmp_path / "parameter_final.ini")
+    shutil.copy(testfiles[1], tmp_path / "Test_State-0.dat")
+    with caplog.at_level("INFO"):
+        state = find_state(tmp_path)
+        assert (
+            "found more than one candidate parameterfile, with one '*final*' file"
+            in caplog.text
+        )
+    assert isinstance(state, State)
+    assert state.parameterfile == tmp_path / "parameter_final.ini"
+
+
 def test_find_states(testfiles, tmp_path):
     shutil.copy(testfiles[0], tmp_path / "parameter.ini")
     shutil.copy(testfiles[1], tmp_path / "Test_State-0.dat")
