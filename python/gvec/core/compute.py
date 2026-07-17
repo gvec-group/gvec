@@ -35,6 +35,8 @@ __all__ = [
 QUANTITIES = {}  # dictionary to store the registered quantities (compute functions)
 logger = logging.getLogger(__name__)
 
+EXTRAPOLATE_RHO = 1.1e-4  # the extrapolation is done using the values at EXTRAPOLATE_RHO, 2 * EXTRAPOLATE_RHO and 3 * EXTRAPOLATE_RHO
+
 
 # === helpers ========================================================================== #
 
@@ -928,6 +930,7 @@ def evaluate(
     rho: Literal["int"] | CoordinateSpec | None = "int",
     theta: Literal["int"] | CoordinateSpec | None = "int",
     zeta: Literal["int"] | CoordinateSpec | None = "int",
+    extrapolate: bool = True,
 ) -> xr.Dataset:
     r"""
     Evaluate the specified quantities on a grid in logical coordinates (rho, theta, zeta).
@@ -975,6 +978,8 @@ def evaluate(
         - A 1D array-like (list, numpy.ndarray) of values.
         - An xarray.DataArray containing at least the required dimension ``tor`` respectively.
         - ``None`` to omit this dimension and coordinate.
+    extrapolate: bool, default: True
+        When ``True``, values close to the ``rho=0`` coordinate singularity are extrapolated quadratically.
 
     Returns
     -------
@@ -1000,7 +1005,7 @@ def evaluate(
     # --- extrapolate to axis if needed --- #
     # compute is incorrect at rho=0.0 as Jac=0.0 causes all kinds of issues there.
     # recompute all quantities away from the axis, extrapolate towards the axis and overwrite the wrong values
-    if "rho" in ev and 0.0 in ev.rho:
+    if extrapolate and "rho" in ev and 0.0 in ev.rho:
         ev_axis = evaluate_on_axis(state, *quantities, theta=theta, zeta=zeta)
         for q in ev.data_vars:
             if "rad" in ev[q].dims:
@@ -1015,6 +1020,7 @@ def evaluate_sfl(
     theta: CoordinateSpec,
     zeta: CoordinateSpec,
     sfl: Literal["boozer", "pest"],
+    extrapolate: bool = True,
     **boozer_kwargs,
 ) -> xr.Dataset:
     r"""
@@ -1066,6 +1072,8 @@ def evaluate_sfl(
         - An xarray.DataArray containing at least the dimension ``tor``.
     sfl : "boozer" | "pest"
         The type of straight-fieldline coordinates to use for the grid.
+    extrapolate: bool, default: True
+        When ``True``, values close to the ``rho=0`` coordinate singularity are extrapolated quadratically.
     boozer_kwargs : optional
         Additional keyword arguments to pass to the ``get_boozer`` method of the ``state`` object.
         These can be used to specify the Boozer transform parameters.
@@ -1101,7 +1109,7 @@ def evaluate_sfl(
     # --- extrapolate to axis if needed --- #
     # compute is incorrect at rho=0.0 as Jac=0.0 causes all kinds of issues there.
     # recompute all quantities away from the axis, extrapolate towards the axis and overwrite the wrong values
-    if "rho" in ev and 0.0 in ev.rho:
+    if extrapolate and "rho" in ev and 0.0 in ev.rho:
         ev_axis = evaluate_on_axis(
             state, *quantities, theta=theta, zeta=zeta, sfl=sfl, **boozer_kwargs
         )
@@ -1122,7 +1130,7 @@ def evaluate_on_axis(
     """
     Evaluate the values of the specified quantities on the magnetic axis using quadratic extrapolation from off-axis evaluations at ``rho=[1.1e-4, 2.2e-4, 3.3e-4]``.
     """
-    rhos = [1.1e-4, 2.2e-4, 3.3e-4]  # must be >=1e-4
+    rhos = [1 * EXTRAPOLATE_RHO, 2 * EXTRAPOLATE_RHO, 3 * EXTRAPOLATE_RHO]
 
     if not sfl:
         ev = state.evaluate(
