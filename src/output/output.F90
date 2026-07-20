@@ -41,7 +41,10 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE InitOutput
 ! MODULES
-USE MODgvec_Globals, ONLY:wp,UNIT_stdOut,fmt_sep,MPIroot
+USE MODgvec_Globals, ONLY:UNIT_stdOut,fmt_sep
+#if MPI
+USE MODgvec_Globals, ONLY:MPIroot
+#endif
 USE MODgvec_Output_Vars
 USE MODgvec_ReadInTools,ONLY:GETSTR
 IMPLICIT NONE

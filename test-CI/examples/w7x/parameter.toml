@@ -21,30 +21,18 @@ X2_sin_cos = "_sin_"
 MinimizerType = 10
 PrecondType = 1
 start_dt = 0.5
-maxIter = 10000
 minimize_tol = 1e-4
 
 # limits the total number of gvec iterations used over all stages
 totaliter = 1000
 
-# Run GVEC in several stages, changing targets and decreasing
-# targeted tolerances. Each stage overrides specified parameters.
-stages = [
-    {maxIter=10, picard_current.iota_tol=1e-3},
-    {sgrid.nelems = 3, picard_current={target="iota_and_force", nPoints=20}},
-    {sgrid.nelems = 4, picard_current="off"}
-]
+picard_current = "auto"
 
 # optimize for zero-current with picard iterations
 [I_tor]
 type = "polynomial"
 scale = 1000
 coefs = [0.0]
-
-# current optimization picard iteration parameters
-[picard_current]
-target = "iota"
-iota_tol = 1e-10
 
 [sgrid]
 grid_type = 4
@@ -53,8 +41,8 @@ nElems = 2
 # initial iota profile (set from Itor in each picard iteration/run)
 [iota]
 type = "polynomial"
-coefs = [0.9]
-# final coefs = [-0.8625290502868942, 0.08116648327976568, -0.3057372847655277, 0.4672872124759052, -0.23677929291598848, -3.126329344369636, 10.14720008596784, -14.253993484428593, 9.742801872387513, -2.657588003523321]
+# coefs = [0.9]
+coefs = [-0.8625290502868942, 0.08116648327976568, -0.3057372847655277, 0.4672872124759052, -0.23677929291598848, -3.126329344369636, 10.14720008596784, -14.253993484428593, 9.742801872387513, -2.657588003523321]
 
 [pres]
 type = "polynomial"

@@ -6,7 +6,6 @@ from warnings import warn
 import matplotlib.pyplot as plt
 import numpy as np
 
-from gvec.core.state import State
 from gvec.plotting.utils import (
     _design_subgrid,
     _subplots,
@@ -52,7 +51,7 @@ def _plot_line_quantities_from_xarray(
 
 
 def plot_radial_profile(
-    state: State,
+    state,
     quantities: str | list[str] = ["iota", "p", "I_tor", "I_pol"],
     nrho: int | np.ndarray = 101,
     subplot_grid: list[int] | None = None,
@@ -116,13 +115,13 @@ def plot_radial_profile(
     if n_rationals:  # if n_rationals > 0 or not None
         for ax, quantity in zip(np.asarray(axs).flat, quantities):
             if quantity == "iota":
-                _add_rationals_to_iota_plot(state, ax, n_rationals=n_rationals, nfp=state.nfp)
+                _add_rationals_to_iota_plot(ax, n_rationals=n_rationals, nfp=state.nfp)
 
     return fig, axs
 
 
 def plot_on_axis(
-    state: State,
+    state,
     quantities: str | list[str] = "mod_B",
     nzeta: int | np.ndarray = 51,
     subplot_grid: list[int] | None = None,
@@ -179,11 +178,11 @@ def plot_on_axis(
 
 
 def _add_rationals_to_iota_plot(
-    state,
     ax,
     limits: tuple[float, float] | None = None,
     n_rationals: int = 3,
     nfp: int = 1,
+    labels_inside: bool = False,
 ):
     """
     Add rationals as a secondary y-axis to an iota profile plot. Denominator is restricted to multiples of number of field periods.
@@ -200,6 +199,8 @@ def _add_rationals_to_iota_plot(
     nfp : int, optional
         The number of field periods. Only rationals with numerator that are multiples of this will be plotted.
         Default ``1``
+    labels_inside : bool, default: False
+        If True, the rational labels will be placed inside the plot area.
     """
     from math import gcd
 
@@ -238,7 +239,8 @@ def _add_rationals_to_iota_plot(
             yticks=[n / m for n, m in rationals],
             yticklabels=[f"$\\frac{{{n}}}{{{m}}}$" for n, m in rationals],
         )
-        secax.tick_params(direction="in", pad=-10)
+        if labels_inside:
+            secax.tick_params(direction="in", pad=-10)
     elif pre_mult == -1:
         # if not we need to flip the sign on the ticks, add the sign
         #   and move them inside the plot further
@@ -246,7 +248,8 @@ def _add_rationals_to_iota_plot(
             yticks=[pre_mult * n / m for n, m in rationals],
             yticklabels=[f"$-\\frac{{{n}}}{{{m}}}$" for n, m in rationals],
         )
-        secax.tick_params(direction="in", pad=-17)
+        if labels_inside:
+            secax.tick_params(direction="in", pad=-17)
 
     for n, m in rationals:
         ax.axhline(pre_mult * n / m, color="gray", linestyle="--", alpha=0.2)

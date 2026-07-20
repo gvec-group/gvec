@@ -84,7 +84,7 @@ def poly2bspl_coeff(c, j, t):
 @pytest.fixture(scope="module", autouse=True)
 def redirect_abort():
     """Redirect abort to raise an exception instead."""
-    gvec.lib.modgvec_py_binding.redirect_abort()
+    gvec.lib._binding.redirect_abort()
 
 
 # === Tests === #
@@ -109,7 +109,7 @@ class BaseTestProfile(ABC):
         return polynomial(rho)
 
     def test_init(self, profile):
-        assert isinstance(profile, gvec.lib.modgvec_rprofile_base.c_rProfile)
+        assert isinstance(profile, gvec.lib.c_rProfile)
         assert profile._alloc
 
     @pytest.mark.parametrize("deriv", [0])
@@ -143,7 +143,7 @@ class TestProfilePoly(BaseTestProfile):
 
     @pytest.fixture()
     def profile(self):
-        return gvec.lib.modgvec_rprofile_poly.t_rProfile_poly(poly_coefs)
+        return gvec.lib.t_rProfile_poly(poly_coefs)
 
     def test_init(self, profile):
         super().test_init(profile)
@@ -160,7 +160,7 @@ class TestProfileBSpline(BaseTestProfile):
         knots = np.concatenate([np.zeros(deg + 1), np.ones(deg + 1)])
         bspl_coefs = np.array([poly2bspl_coeff(poly_coefs, j, knots) for j in range(deg + 1)])
 
-        return gvec.lib.modgvec_rprofile_bspl.t_rProfile_bspl(knots, bspl_coefs)
+        return gvec.lib.t_rProfile_bspl(knots, bspl_coefs)
 
     def test_init(self, profile):
         super().test_init(profile)

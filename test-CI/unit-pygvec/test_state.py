@@ -70,6 +70,28 @@ def test_find_state_two_candidates(testfiles, tmp_path):
         state = find_state(tmp_path)
 
 
+def test_find_state_two_parameterfiles(testfiles, tmp_path):
+    shutil.copy(testfiles[0], tmp_path / "parameter_foo.ini")
+    shutil.copy(testfiles[0], tmp_path / "parameter_bar.ini")
+    shutil.copy(testfiles[1], tmp_path / "Test_State-0.dat")
+    with pytest.raises(ValueError, match="found more than one candidate parameterfile"):
+        state = find_state(tmp_path)
+
+
+def test_find_state_parameter_final(testfiles, tmp_path, caplog):
+    shutil.copy(testfiles[0], tmp_path / "parameter.ini")
+    shutil.copy(testfiles[0], tmp_path / "parameter_final.ini")
+    shutil.copy(testfiles[1], tmp_path / "Test_State-0.dat")
+    with caplog.at_level("INFO"):
+        state = find_state(tmp_path)
+        assert (
+            "found more than one candidate parameterfile, with one '*final*' file"
+            in caplog.text
+        )
+    assert isinstance(state, State)
+    assert state.parameterfile == tmp_path / "parameter_final.ini"
+
+
 def test_find_states(testfiles, tmp_path):
     shutil.copy(testfiles[0], tmp_path / "parameter.ini")
     shutil.copy(testfiles[1], tmp_path / "Test_State-0.dat")
@@ -154,9 +176,9 @@ def test_state_netcdf_error(testfiles, which_read):
 
 def test_state_bind_implicit(testfiles):
     state = State(*testfiles)
-    assert gvec.core.state.bound_state is not state
+    assert gvec.core.state._binding.bound_state is not state
     nfp = state.nfp
-    assert gvec.core.state.bound_state is state
+    assert gvec.core.state._binding.bound_state is state
     assert len(state.stdout)
 
 
@@ -164,9 +186,9 @@ def test_state_bind_twice(testfiles):
     state1 = State(*testfiles)
     state2 = State(*testfiles)
     nfp1 = state1.nfp
-    assert gvec.core.state.bound_state is state1
+    assert gvec.core.state._binding.bound_state is state1
     nfp2 = state2.nfp
-    assert gvec.core.state.bound_state is state2
+    assert gvec.core.state._binding.bound_state is state2
 
 
 def test_state_stdout(testfiles):
@@ -351,7 +373,7 @@ def test_evaluate_profile(teststate):
 @pytest.mark.parametrize("reLA", [True, False], ids=["reLA", "not reLA"])
 def test_get_boozer(teststate, reLA):
     booz = teststate.get_boozer([0.1, 0.5, 0.9], 1, recompute_lambda=reLA)
-    assert isinstance(booz, gvec.lib.Modgvec_Sfl_Boozer.t_sfl_boozer)
+    assert isinstance(booz, gvec.lib.t_sfl_boozer)
     assert booz.initialized
     # assert booz.relambda == reLA
     assert booz.nrho == 3

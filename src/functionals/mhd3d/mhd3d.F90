@@ -50,7 +50,6 @@ SUBROUTINE InitMHD3D(sf)
   ! MODULES
   USE MODgvec_MHD3D_Vars
   USE MODgvec_Globals        , ONLY: TWOPI
-  USE MODgvec_sgrid          , ONLY: t_sgrid
   USE MODgvec_base           , ONLY: base_new
   USE MODgvec_boundaryFromFile, ONLY: boundaryFromFile_new
   USE MODgvec_hmap           , ONLY: hmap_new,hmap_new_auxvar

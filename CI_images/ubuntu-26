@@ -1,9 +1,9 @@
 # container definition (OCI Containerfile/Dockerfile) for testing GVEC
-# Ubuntu 22.04 (Jammy)
-# - python 3.10
-# - gcc/gfortran 11.4
+# Ubuntu 26.04 (Resolute)
+# - python 3.14
+# - gcc/gfortran 15.2
 
-FROM ubuntu:22.04
+FROM ubuntu:26.04
 
 # install linux packages
 RUN apt-get update -y && \

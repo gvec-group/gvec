@@ -19,13 +19,15 @@ from pandas import read_csv
 import gvec
 from gvec.core.state import State
 from gvec.errors import catch_gvec_errors
-from gvec.lib import modgvec_py_binding as _binding
-from gvec.lib import modgvec_py_run as _run
+from gvec.lib import _binding, _run, _globals
 from gvec.util import CaseInsensitiveDict as cidict
 
 DEFAULT_MINIMIZE_TOL = 1e-6  # different to default `minimize_tol` in fortran
 DEFAULT_TOTALITER = 10**5  # different to default `maxIter` in fortran
 AUTO_IOTA_TARGET = 1e-10
+AUTO_IOTA_MAXITER = 10
+DEFAULT_PICARD_CURRENT_MAXRESTARTS = 30
+DEFAULT_PICARD_CURRENT_NPOINTS = 101
 
 
 def run(
@@ -337,7 +339,7 @@ class Run:
         ):
             nPoints = params["picard_current"]["nPoints"]
         else:
-            nPoints = 101
+            nPoints = DEFAULT_PICARD_CURRENT_NPOINTS
         self.rho = np.linspace(0, 1, nPoints)
 
         match params["I_tor"].get("type", "polynomial"):
@@ -777,12 +779,12 @@ class Run:
             Updated number of runs completed in the current stage.
         """
 
-        self.rms_iota = 1e6
+        self.rms_iota = np.inf
         self.nth_run = -1
         if "maxRestarts" in self._state_parameters["picard_current"]:
             max_restarts = self._state_parameters["picard_current"]["maxRestarts"]
         else:
-            max_restarts = 30
+            max_restarts = DEFAULT_PICARD_CURRENT_MAXRESTARTS
         iota_tol = self._state_parameters["picard_current"]["iota_tol"]
         while (self.rms_iota > iota_tol) and (self.GVEC_iter_used < self.totaliter):
             if self.nth_run + 1 > max_restarts:
@@ -806,7 +808,7 @@ class Run:
         if self.rms_iota > iota_tol:
             warnings.warn(
                 f"Targeted iota has not been reached during stage {self.nth_stage}!\n"
-                + f"iota_tol.: {iota_tol:.2e}, achieved rms Δiota.: {self.rms_iota.data:.2e}"
+                + f"iota_tol.: {iota_tol:.2e}, achieved rms Δiota.: {self.rms_iota.item():.2e}"
             )
 
     def _run_stage_target_iota_and_force(
@@ -827,12 +829,12 @@ class Run:
         n_runs_in_stage: ArrayLike
             Updated number of runs completed in the current stage.
         """
-        self.rms_iota = 1e6
+        self.rms_iota = np.inf
         self.nth_run = -1
         if "maxRestarts" in self._state_parameters["picard_current"]:
             max_restarts = self._state_parameters["picard_current"]["maxRestarts"]
         else:
-            max_restarts = 30
+            max_restarts = DEFAULT_PICARD_CURRENT_MAXRESTARTS
         self.logger.debug(f"maxRestarts: {max_restarts}")
         iota_tol = self._state_parameters["picard_current"]["iota_tol"]
         while (self.GVEC_iter_used < self.totaliter) and (self.rms_iota > iota_tol):
@@ -857,7 +859,7 @@ class Run:
         if self.rms_iota > iota_tol:
             warnings.warn(
                 f"Targeted iota has not been reached during stage {self.nth_stage}!\n"
-                + f"target tol.: {iota_tol:.2e}, achieved tol.: {self.rms_iota.data:.2e}\n"
+                + f"target tol.: {iota_tol:.2e}, achieved tol.: {self.rms_iota.item():.2e}\n"
                 + f"GVEC iterations used: {self.GVEC_iter_used}"
             )
         if self.max_force > self._state_parameters["minimize_tol"]:
@@ -1080,7 +1082,7 @@ def auto_generate_stages(minimize_target: float, iota_target: float):
         cidict(
             {
                 "minimize_tol": minimize_tols[0],
-                "maxIter": 10,
+                "maxIter": AUTO_IOTA_MAXITER,
                 "picard_current": cidict({"iota_tol": iota_tols[0], "target": "iota"}),
             }
         )
@@ -1118,8 +1120,8 @@ def fortran_run(
     """
     logger = logging.getLogger("gvec.run")
     logger.debug(f"Running GVEC with parameter file: {parameterfile}")
-    if gvec.core.state.bound_state is not None:
-        gvec.core.state.bound_state.unbind()
+    if gvec.core.state._binding.bound_state is not None:
+        gvec.core.state._binding.bound_state.unbind()
 
     _binding.redirect_abort()
     if stdout_path is not None:
@@ -1128,6 +1130,13 @@ def fortran_run(
 
     if not Path(parameterfile).exists():
         raise FileNotFoundError(f"Parameter file {parameterfile} does not exist.")
+    MAXLEN = _globals.maxlen
+    with open(parameterfile, "r") as f:
+        content = f.readlines()
+        if any([len(line) > MAXLEN for line in content]):
+            raise ValueError(
+                f"Parameter file {parameterfile} contains lines longer than {MAXLEN} characters."
+            )
     if restartfile is not None:
         if not Path(restartfile).exists():
             raise FileNotFoundError(f"Restart file {restartfile} does not exist.")

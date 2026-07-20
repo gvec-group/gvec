@@ -221,7 +221,10 @@ toq("toq_J_P", Qs_J_P)
 ## MHD Force
 ```{code-cell} ipython3
 :tags: [remove-input]
-Qs_force = ["W_MHD", "F", "mod_F", "F_r_avg"]
+Qs_force = [
+  "W_MHD", "F", "mod_F", "F_r_avg",
+  "gradB2_volavg", "mod_F_rel", "mod_F_rel_surfavg", "mod_F_rel_volavg",
+  ]
 toq("toq_force", Qs_force)
 ```
 ```{glue:md} toq_force
@@ -249,13 +252,9 @@ toq("toq_Mercier", Qs_Mercier)
 ```
 
 ### Geodesic curvature
-:::{versionadded} 1.4.0
-Experimental! See [the derivation](../dev/derivations.md#geodesic-curvature) for details.
-:::
-
 ```{code-cell} ipython3
 :tags: [remove-input]
-Qs_curvature = ["kappa_B", "kappa_G"]
+Qs_curvature = ["kappa_B", "kappa_G", "kappa_N"]
 toq("toq_curvature", Qs_curvature)
 ```
 ```{glue:md} toq_curvature
