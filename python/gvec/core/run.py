@@ -35,7 +35,7 @@ IOTA_SAMPLING_FACTOR = 4
 IOTA_KNOTS_PER_ELEMENT_MIN = 2
 IOTA_KNOTS_PER_ELEMENT_MAX = 256
 IOTA_COEFS_MAX = 768  # at 20 characters per coefficient: 15360 characters + overhead < 2^14
-IOTA_MIN_RHO = 1e-2
+IOTA_MIN_RHO = 1e-2  # ignore near-axis region for Δiota & Δfit, TODO: fix accuracy problems
 
 
 def run(
@@ -405,14 +405,16 @@ class Run:
                 rho = _linspace_sgrid(
                     sgrid, IOTA_SAMPLING_FACTOR * self.knots_per_sgrid_element
                 )
-                ev = self.state.evaluate(*Qs, rho=rho, theta="int", zeta="int")[Qs]
+                ev = _evaluate_extrapolate_in_rho2(
+                    self.state, *Qs, rho=rho, theta="int", zeta="int"
+                )[Qs]
                 iota_target = ev.iota_0 + self.I_tor(rho**2) * ev.iota_curr_0
 
                 # least-squares fit
                 bspline = scipy.interpolate.make_lsq_spline(
                     rho**2, iota_target, knots**2, k=IOTA_BSPLINE_DEGREE
                 )
-                # enforce boundary conditions with a smoothness provided by the B-Spline
+                # enforce boundary conditions
                 bspline.c[0] = iota_target[0]
                 bspline.c[-1] = iota_target[-1]
 
@@ -1124,6 +1126,7 @@ def auto_generate_stages(parameters: cidict, Itor: bool):
                     sgrid=cidict(nelems=sgrid_nelems),
                 )
             )
+    # TODO: what about restarts?!?
 
     # final stage
     stages.append(
@@ -1201,6 +1204,22 @@ def _add_knot_multiplicity(knots, degree):
     where the end conditions are controlled by boundary knot repetition.
     """
     return np.concatenate([np.zeros(degree)] + [knots] + [np.ones(degree)])
+
+
+def _evaluate_extrapolate_in_rho2(state, Qs, rho, theta, zeta):
+    rho_aux = np.sqrt([1e-8, 2e-8, 3e-8])
+    ev_aux = state.evaluate(*Qs, rho=rho_aux, theta=theta, zeta=zeta, extrapolate=False)[Qs]
+    r1 = ev_aux.isel(rad=0)
+    r2 = ev_aux.isel(rad=1)
+    r3 = ev_aux.isel(rad=2)
+    on_axis = 3 * (r1 - r2) + r3
+    on_axis.rho[...] = 0.0
+
+    ev = state.evaluate(*Qs, rho=rho, theta=theta, zeta=zeta, extrapolate=False)[Qs]
+    for q in ev.data_vars:
+        if "rad" in ev[q].dims:
+            ev[q].loc[dict(rho=0.0)] = on_axis[q]
+    return on_axis
 
 
 def fortran_run(
