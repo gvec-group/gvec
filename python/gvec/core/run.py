@@ -28,6 +28,8 @@ DEFAULT_TOTALITER = 10**5  # different to default `maxIter` in fortran
 AUTO_PICARD_CURRENT_IOTA_TOL = 1e-5
 AUTO_PICARD_CURRENT_IOTA_TOL_TARGET = 1e-12
 AUTO_STAGE_IOTA_INIT_MAXITER = 10
+AUTO_RAMP_NELEMS_MIN = 2
+AUTO_MINIMIZE_TOL_MIN = 1e-3
 DEFAULT_PICARD_CURRENT_MAXRESTARTS = 50
 DIAGNOSTICS_NPOINTS = 256 + 1
 IOTA_BSPLINE_DEGREE = 5
@@ -220,8 +222,9 @@ class Run:
             self.stages = self.parameters["stages"]
             del self.parameters["stages"]
         else:
+            ramp_elems = state is None  # only ramp radial elements if not restarting
             self.parameters, self.stages = auto_generate_stages(
-                self.parameters, self.curr_constraint
+                self.parameters, self.curr_constraint, ramp_elems
             )
             self.logger.info(f"... generated {len(self.stages)} stages.")
 
@@ -1067,18 +1070,19 @@ class Run:
         return fig
 
 
-def auto_generate_stages(parameters: cidict, Itor: bool):
+def auto_generate_stages(parameters: cidict, Itor: bool, ramp_nelems: bool = True):
     target_minimize_tol = parameters["minimize_tol"]
     target_sgrid_nelems = parameters["sgrid"]["nelems"]
+    if target_sgrid_nelems <= AUTO_RAMP_NELEMS_MIN:
+        ramp_nelems = False
     stages = []
 
     if Itor:
         parameters["picard_current"] = dict(
             iota_tol=AUTO_PICARD_CURRENT_IOTA_TOL,
         )
-    if target_sgrid_nelems > 2:
-        parameters["sgrid"]["nelems"] = 2
-        # TODO: WHAT ABOUT RESTARTS
+    if ramp_nelems:
+        parameters["sgrid"]["nelems"] = AUTO_RAMP_NELEMS_MIN
 
     # initial stage
     stages.append(cidict(maxIter=0, init_LA=parameters.get("init_LA", True)))
@@ -1098,7 +1102,7 @@ def auto_generate_stages(parameters: cidict, Itor: bool):
     if Itor:
         stages.append(
             cidict(
-                minimize_tol=1e-3,
+                minimize_tol=AUTO_MINIMIZE_TOL_MIN,
                 maxIter=AUTO_STAGE_IOTA_INIT_MAXITER,
                 picard_current=cidict(
                     target="iota",
@@ -1107,33 +1111,37 @@ def auto_generate_stages(parameters: cidict, Itor: bool):
         )
 
     # ramp up minimize_tol
-    minimize_tol_seq = 10 ** np.arange(-3, np.log10(target_minimize_tol), -1)
+    minimize_tol_seq = 10 ** np.arange(
+        np.log10(AUTO_MINIMIZE_TOL_MIN), np.log10(target_minimize_tol), -1
+    )
     for minimize_tol in minimize_tol_seq:
         stages.append(
             cidict(
                 minimize_tol=minimize_tol,
             )
         )
-    if target_sgrid_nelems > 2:
-        stages.append(cidict())
+    # final minimize_tol
+    stages.append(cidict())
 
-    # ramp up sgrid_nelems
-    if target_sgrid_nelems > 2:
-        sgrid_nelems_seq = (2 ** np.arange(2, np.log2(target_sgrid_nelems))).astype(int)
+    # ramp up sgrid.nelems
+    if ramp_nelems:
+        sgrid_nelems_seq = (
+            2 ** np.arange(np.log2(AUTO_RAMP_NELEMS_MIN), np.log2(target_sgrid_nelems))
+        ).astype(int)
         for sgrid_nelems in sgrid_nelems_seq:
             stages.append(
                 cidict(
                     sgrid=cidict(nelems=sgrid_nelems),
                 )
             )
-    # TODO: what about restarts?!?
-
-    # final stage
-    stages.append(
-        cidict(
-            sgrid=cidict(nelems=target_sgrid_nelems),
+        # final sgrid.nelems
+        stages.append(
+            cidict(
+                sgrid=cidict(nelems=target_sgrid_nelems),
+            )
         )
-    )
+
+    # set iota_tol in final stage
     if Itor:
         stages[-1]["picard_current"] = cidict(
             iota_tol=AUTO_PICARD_CURRENT_IOTA_TOL_TARGET,
