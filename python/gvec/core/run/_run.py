@@ -79,18 +79,39 @@ def run(
     else:
         params = gvec.util.stack_parameters(parameters)
 
+    # check if coil-set is specified in the parameters
+    if "free_boundary" in params:
+        if "coil_set" in params["free_boundary"]:
+            has_coilset = True
+        else:
+            has_coilset = False
+
+    # make sure only one coil-set is specified
+    if has_coilset and coil_set is not None:
+        raise ValueError(
+            "coil_set was handed as an input to run but is also present in the parameters! Either remove the coil_set from the specified parameters or do NOT hand it explicitly to gvec.run(...)."
+        )
+    elif has_coilset:
+        coil_set = parameters["free_boundary"]["coil_set"]
+
     match coil_set:
         case CoilSet():
             do_free_boundary = True
+            parameters["free_boundary"]["coil_set"] = "gvec-CoilSet"
         case str() | Path():
             do_free_boundary = True
+            parameters["free_boundary"]["coil_set"] = str(coil_set)
             coil_set = CoilSet.load(coil_set)
         case None:
             do_free_boundary = False
         case _:
-            raise TypeError(
-                f"Unknown coil_set type, expected either 'str', 'Path', 'CoilSet' or 'None' but got {type(coil_set)}"
-            )
+            if hasattr(coil_set, "eval_B") and callable(coil_set.eval_B):
+                do_free_boundary = True
+                parameters["free_boundary"]["coil_set"] = "custom field evaluation"
+            else:
+                raise TypeError(
+                    f"Unknown coil_set type, expected either 'str', 'Path', 'CoilSet' or 'None' but got {type(coil_set)} which does not have a method 'eval_B(...)'"
+                )
 
     # Run the case
     with gvec.util.chdir(runpath):

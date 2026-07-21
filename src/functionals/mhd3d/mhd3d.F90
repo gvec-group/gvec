@@ -491,7 +491,7 @@ SUBROUTINE InitMHD3D(sf)
 END SUBROUTINE InitMHD3D
 
 SUBROUTINE InitFreeBoundary(sf)
-  USE MODgvec_ReadInTools, ONLY: GETREAL, GETINT, GETLOGICAL
+  USE MODgvec_ReadInTools, ONLY: GETREAL, GETINT, GETLOGICAL, GETSTR
   USE MODgvec_MHD3D_Vars, ONLY: free_b_minimizer_type, free_b_minimizer, beta1, beta2
   USE MODgvec_MHD3D_Vars, ONLY: Bext_squared, Force_b_X1, Force_b_X2, Precond_b_X1, Precond_b_X2, precond_boundary
   USE MODgvec_MHD3D_Vars, ONLY: epsilon_spectral, Q_spectral
@@ -515,15 +515,15 @@ SUBROUTINE InitFreeBoundary(sf)
   REAL(wp) :: max_dt, M
   REAL(wp) :: mn_X1X2(2,X1_base%f%modes+X2_base%f%modes)
 !-----------------------------------------------------------------------------------------------------------------------------------
-  free_b_minimizer_type = GETINT("free_b_minimizer_type", Proposal=0)
-  Q_spectral = GETINT("Q_spectral", Proposal=5)
-  epsilon_spectral = GETREAL("epsilon_spectral",Proposal=0.001)
+  free_b_minimizer_type = GETSTR("free_boundary_minimizer_type", Proposal="GD")
+  Q_spectral = GETINT("free_boundary_Q_spectral", Proposal=5)
+  epsilon_spectral = GETREAL("free_boundary_epsilon_spectral",Proposal=0.001)
   ALLOCATE(Bext_squared(1:X1_base%f%mn_IP))
 
   ASSOCIATE(modes_X1 => X1_base%f%modes, modes_X2 => X2_base%f%modes)
     ALLOCATE(Force_b_X1(1:modes_X1))
     ALLOCATE(Force_b_X2(1:modes_X2))
-    precond_boundary = GETLOGICAL("precond_boundary", Proposal=.FALSE.)
+    precond_boundary = GETLOGICAL("free_boundary_precond_boundary", Proposal=.FALSE.)
     ALLOCATE(Precond_b_X1(1:modes_X1))
     ALLOCATE(Precond_b_X2(1:modes_X2))
 
@@ -539,36 +539,52 @@ SUBROUTINE InitFreeBoundary(sf)
     mode_scale_X2 = EXP(-SQRT(REAL(X2_base%f%Xmn(1,:))**2+REAL(X2_base%f%Xmn(2,:))**2))
 
     SELECT CASE(free_b_minimizer_type)
-    CASE(0)
+    CASE("GD")
       free_b_minimizer = t_free_b_minimizer_GD(modes_X1 + modes_X2)
-    CASE(1)
-      beta1 = GETREAL("beta1_adam", Proposal=0.9)
-      beta2 = GETREAL("beta2_adam", Proposal=0.999)
+    CASE("ADAM")
+      beta1 = GETREAL("free_boundary_beta1_adam", Proposal=0.9)
+      beta2 = GETREAL("free_boundary_beta2_adam", Proposal=0.999)
       free_b_minimizer = t_free_b_minimizer_ADAM(modes_X1 + modes_X2, beta1, beta2)
-    CASE(2)
-      beta1 = GETREAL("beta_moment_GD", Proposal=0.9)
+    CASE("mGD")
+      beta1 = GETREAL("free_boundary_beta_moment_GD", Proposal=0.9)
       free_b_minimizer = t_free_b_minimizer_moment_GD(modes_X1 + modes_X2, beta1)
-    CASE(3)
+    CASE("aGD")
       free_b_minimizer = t_free_b_minimizer_acc_GD(modes_X1 + modes_X2)
-    CASE(4)
-      n_grad_steps = GETINT("n_grad_steps", Proposal=0)
-      max_dt = GETREAL("max_dt", Proposal=0.1_wp)
-      M = GETREAL("M_BFGS", Proposal=0.001_wp)
+    CASE("BFGS")
+      IF (precond_boundary) THEN
+        WRITE(UNIT_stdOut,'(A)') "WARNING: precond_boundary is set to True for BFGS! Turning of additional preconditioning."
+      END IF
+      precond_boundary = .FALSE.
+      n_grad_steps = GETINT("free_boundary_n_grad_steps", Proposal=0)
+      max_dt = GETREAL("free_boundary_max_dt", Proposal=0.1_wp)
+      M = GETREAL("free_boundary_M_BFGS", Proposal=0.001_wp)
       free_b_minimizer = t_free_b_minimizer_BFGS(modes_X1 + modes_X2, n_grad_steps=n_grad_steps, max_dt=max_dt,M=M)
-    CASE(5)
-      n_grad_steps = GETINT("n_grad_steps", Proposal=0)
-      max_dt = GETREAL("max_dt", Proposal=0.1_wp)
-      M = GETREAL("M_BFGS", Proposal=0.001_wp)
+    CASE("dBFGS")
+      IF (precond_boundary) THEN
+        WRITE(UNIT_stdOut,'(A)') "WARNING: precond_boundary is set to True for dBFGS! Turning of additional preconditioning."
+      END IF
+      precond_boundary = .FALSE.
+      n_grad_steps = GETINT("free_boundary_n_grad_steps", Proposal=0)
+      max_dt = GETREAL("free_boundary_max_dt", Proposal=0.1_wp)
+      M = GETREAL("free_boundary_M_BFGS", Proposal=0.001_wp)
       free_b_minimizer = t_free_b_minimizer_damped_BFGS(modes_X1 + modes_X2, n_grad_steps=n_grad_steps, max_dt=max_dt,M=M)
-    CASE(6)
-      n_grad_steps = GETINT("n_grad_steps", Proposal=0)
-      max_dt = GETREAL("max_dt", Proposal=0.1_wp)
+    CASE("SR1")
+      IF (precond_boundary) THEN
+        WRITE(UNIT_stdOut,'(A)') "WARNING: precond_boundary is set to True for SR1! Turning of additional preconditioning."
+      END IF
+      precond_boundary = .FALSE.
+      n_grad_steps = GETINT("free_boundary_n_grad_steps", Proposal=0)
+      max_dt = GETREAL("free_boundary_max_dt", Proposal=0.1_wp)
       free_b_minimizer = t_free_b_minimizer_SR1(modes_X1 + modes_X2, n_grad_steps=n_grad_steps, max_dt=max_dt)
-    CASE(7)
+    CASE("lBFGS")
+      IF (precond_boundary) THEN
+        WRITE(UNIT_stdOut,'(A)') "WARNING: precond_boundary is set to True for lBFGS! Turning of additional preconditioning."
+      END IF
+      precond_boundary = .FALSE.
       free_b_minimizer = t_free_b_minimizer_LBFGS(modes_X1 + modes_X2)
     CASE DEFAULT
       CALL abort(__STAMP__,&
-    'unknown free_b_minimizer_type! Must be either 0 (=GD), 1 (=ADAM) or 2 (=moment GD) ')
+    'unknown free_b_minimizer_type! Must be either GD (=gradient descent), ADAM, mGD (=moment GD), aGD (=accelerated gradient descent), BFGS, dBFGS (=damped BFGS), SR1 or lBFGS!')
     END SELECT
   END ASSOCIATE
 END SUBROUTINE InitFreeBoundary

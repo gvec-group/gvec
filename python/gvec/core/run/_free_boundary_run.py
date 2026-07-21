@@ -56,6 +56,7 @@ class FreeBoundaryRun(AbstractRun):
         quiet: bool = True,
         parameter_format: Literal["toml", "yaml"] = "toml",
     ):
+        params["FreeBoundary"] = True
         super().__init__(params, state, redirect_gvec_stdout, quiet, parameter_format)
         self.coil_set = coil_set
 
@@ -380,12 +381,10 @@ class FreeBoundaryRun(AbstractRun):
 
             self.iters_used = self.state.get_iterations()
 
-            if self.curr_constraint:
-                self.I_tor_boundary = self.I_tor_target(1.0)
-            else:
-                self.I_tor_boundary = (
-                    self.state.evaluate("I_tor", rho=1.0).squeeze()["I_tor"].item()
-                )
+            # NOTE: always use self-consistent I_tor values
+            self.I_tor_boundary = (
+                self.state.evaluate("I_tor", rho=1.0).squeeze()["I_tor"].item()
+            )
 
             # Call to BIEST
             (B2, B_plas_ext, B_coils, B_ext_2) = _get_B2_fp(
@@ -401,7 +400,10 @@ class FreeBoundaryRun(AbstractRun):
             self._update_diagnostics(B_ext_2, B_coils, B_plas_ext, 0)
 
             try:  # allow clean abort with KeybordInterrupt
-                for i in tqdm(range(1, fb_updates)):
+                for i in range(1, fb_updates):
+                    logger.info(
+                        f"============= free-boundary step {i} / {fb_updates} ============="
+                    )
                     # abort if budget is used up
                     if self.iters_used >= self.totaliter:
                         logger.warning(
@@ -478,11 +480,10 @@ class FreeBoundaryRun(AbstractRun):
                             ),
                         )
 
-                        # TODO: use the consistent current or the prescribed current?
-                        if not self.curr_constraint:  # fixed iota
-                            self.I_tor_boundary = (
-                                self.state.evaluate("I_tor", rho=1.0).squeeze()["I_tor"].item()
-                            )
+                        # NOTE: always use self consistent I_tor
+                        self.I_tor_boundary = (
+                            self.state.evaluate("I_tor", rho=1.0).squeeze()["I_tor"].item()
+                        )
 
                         # Call to BIEST
                         (B2, B_plas_ext, B_coils, B_ext_2) = _get_B2_fp(
@@ -515,13 +516,16 @@ class FreeBoundaryRun(AbstractRun):
                     )
                     if save_diagnostics:
                         try:
-                            self.diagnostics_stage.to_netcdf("diagnostics_aux.nc")
+                            self.diagnostics_stage[f"stage_{self.nth_stage}"].to_netcdf(
+                                "diagnostics_aux.nc"
+                            )
                         except PermissionError:
                             logger.warning(
                                 "Permission error when attemting to write diagnostics to netcdf! Maybe the data-set is opened somewhere else?"
                             )
 
                 # ensure that the final result is in fixed-boundary equilibrium with specified tolerance
+                logger.info("=================================================================")
                 if self._state_parameters["maxIter"] > 0:
                     self.state.minimize(
                         iota_target=iota_tol,

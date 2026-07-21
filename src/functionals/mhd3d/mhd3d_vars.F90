@@ -108,7 +108,7 @@ REAL(wp), ALLOCATABLE :: Precond_b_X2(:) !! Preconditioner on X2 at the boundary
 LOGICAL               :: precond_boundary
 REAL(wp)              :: beta1 !! decay rate for the free boundary update using ADAM / moment GD
 REAL(wp)              :: beta2 !! decay rate for the free boundary update using ADAM
-INTEGER               :: free_b_minimizer_type ! 0=gradient descent, 1 = ADAM
+CHARACTER(24)         :: free_b_minimizer_type
 CLASS(c_free_b_minimizer), ALLOCATABLE :: free_b_minimizer
 REAL(wp)              :: Fnorm_X1_b_IP !! L2 norm of the forces on X1 at the boundary, calculated from the integration points
 REAL(wp)              :: Fnorm_X2_b_IP !! L2 norm of the forces on X2 at the boundary, calculated from the integration points
