@@ -26,7 +26,7 @@ from gvec.util import CaseInsensitiveDict as cidict
 DEFAULT_MINIMIZE_TOL = 1e-6  # different to default `minimize_tol` in fortran
 DEFAULT_TOTALITER = 10**5  # different to default `maxIter` in fortran
 AUTO_PICARD_CURRENT_IOTA_TOL = 1e-5
-AUTO_PICARD_CURRENT_IOTA_TOL_TARGET = 1e-12
+AUTO_PICARD_CURRENT_IOTA_TOL_TARGET = 1e-8  # least-squares fit: limited to single precision!
 AUTO_STAGE_IOTA_INIT_MAXITER = 10
 AUTO_RAMP_NELEMS_MIN = 2
 AUTO_MINIMIZE_TOL_MIN = 1e-3
@@ -1214,20 +1214,20 @@ def _add_knot_multiplicity(knots, degree):
     return np.concatenate([np.zeros(degree)] + [knots] + [np.ones(degree)])
 
 
-def _evaluate_extrapolate_in_rho2(state, Qs, rho, theta, zeta):
+def _evaluate_extrapolate_in_rho2(state, *Qs, rho, theta, zeta):
     rho_aux = np.sqrt([1e-8, 2e-8, 3e-8])
-    ev_aux = state.evaluate(*Qs, rho=rho_aux, theta=theta, zeta=zeta, extrapolate=False)[Qs]
+    ev_aux = state.evaluate(*Qs, rho=rho_aux, theta=theta, zeta=zeta, extrapolate=False)
     r1 = ev_aux.isel(rad=0)
     r2 = ev_aux.isel(rad=1)
     r3 = ev_aux.isel(rad=2)
     on_axis = 3 * (r1 - r2) + r3
     on_axis.rho[...] = 0.0
 
-    ev = state.evaluate(*Qs, rho=rho, theta=theta, zeta=zeta, extrapolate=False)[Qs]
+    ev = state.evaluate(*Qs, rho=rho, theta=theta, zeta=zeta, extrapolate=False)
     for q in ev.data_vars:
         if "rad" in ev[q].dims:
             ev[q].loc[dict(rho=0.0)] = on_axis[q]
-    return on_axis
+    return ev
 
 
 def fortran_run(

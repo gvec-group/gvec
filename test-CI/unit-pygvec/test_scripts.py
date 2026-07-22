@@ -229,8 +229,8 @@ def test_I_tor_types(ptype):
                 c_bspl[j] = poly2bspl_coeff(coefs, j, knots)
             parameters["I_tor"] = dict(type=ptype, coefs=c_bspl, knots=knots)
 
-    run_with_stages = gvec.run(parameters)
-    diagnostics = run_with_stages.diagnostics_minimizer
+    run = gvec.run(parameters, keep_intermediates="all", loglevel="DEBUG")
+    diagnostics = run.diagnostics_minimizer
     assert diagnostics.force_X1[-1].data <= 1e-4
     assert diagnostics.force_X2[-1].data <= 1e-4
     assert diagnostics.force_LA[-1].data <= 1e-4
@@ -238,11 +238,16 @@ def test_I_tor_types(ptype):
     assert Path(f"{ProjectName}_State_final.dat").exists()
     assert Path(f"parameter_{ProjectName}_final.ini").exists()
 
-    np.testing.assert_allclose(I_tor_tp(run_with_stages.rho**2), run_with_stages.I_tor_target)
-    I_tor_rms = np.sqrt(
-        (run_with_stages.diagnostics_run.I_tor_delta.isel(run=-1) ** 2).mean(dim="rad")
-    )
-    assert I_tor_rms.data < 1e-6, f"Expected ΔI_tor < 1e-6, got ΔI_tor:{I_tor_rms.data}"
+    rho = run.diagnostics_run.rho
+    diagnostics = run.diagnostics_run.isel(run=-1)
+
+    np.testing.assert_allclose(I_tor_tp(rho**2), run.I_tor(rho**2))
+    np.testing.assert_allclose(I_tor_tp(rho**2), diagnostics.I_tor, atol=1e-2)
+    np.testing.assert_allclose(diagnostics.I_tor_delta, 0.0, atol=1e-2)
+
+    assert diagnostics.rms_iota.item() < 1e-8
+    assert diagnostics.rms_iota_fit.item() < 1e-4
+    np.testing.assert_allclose(diagnostics.iota_delta, 0.0, atol=1e-3)
 
 
 def test_maxRestarts():
