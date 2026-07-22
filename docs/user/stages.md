@@ -148,7 +148,7 @@ $$
 Inserting this into the equation for $I_{\text{tor}}$ lets us solve for $\chi'$. As $\Phi'$ is known, we can also solve for $\iota = \frac{\chi'}{\Phi'}$. By introducing the quantities $\Gamma_\vartheta=\frac{g_{\vartheta\vartheta}}{\mathcal{J}}$ and $\Gamma_\zeta=\frac{g_{\vartheta\zeta}}{\mathcal{J}}$ the final expression for $\iota$ reads:
 
 $$
-  \iota(\rho) = \frac{2\pi\mu_0}{\Phi'(\rho)\left\langle\Gamma_\vartheta|_{\rho}\right\rangle}I_{\text{tor}}(\rho)+\frac{\Phi'(\rho)}{\left\langle\Gamma_\vartheta|_{\rho}\right\rangle}\left\langle\left.\left(\Gamma_\vartheta\frac{\partial\lambda}{\partial\zeta}-\Gamma_\zeta\left(1+\frac{\partial\lambda}{\partial\vartheta}\right)\right)\right|_{\rho}\right\rangle
+  \iota(\rho) = \frac{2\pi\mu_0}{\Phi'(\rho)\left\langle\Gamma_\vartheta|_{\rho}\right\rangle}I_{\text{tor}}(\rho)+\frac{1}{\left\langle\Gamma_\vartheta|_{\rho}\right\rangle}\left\langle\left.\left(\Gamma_\vartheta\frac{\partial\lambda}{\partial\zeta}-\Gamma_\zeta\left(1+\frac{\partial\lambda}{\partial\vartheta}\right)\right)\right|_{\rho}\right\rangle
 $$
 
 Here, we can identify two contributions to the rotational transform; one independent of $I_{\text{tor}}$ which we refer to as $\iota_0$ and one depending on $I_{\text{tor}}$ referred to here as $\iota_{\text{curr}}$:
@@ -156,7 +156,7 @@ Here, we can identify two contributions to the rotational transform; one indepen
 $$
 \begin{align*}
   \iota_{\text{curr}}(\rho) &:= \frac{2\pi\mu_0}{\Phi'(\rho)\left\langle\Gamma_\vartheta|_{\rho}\right\rangle}I_{\text{tor}}(\rho),\\
-  \iota_{0}(\rho)&:= \frac{\Phi'(\rho)}{\left\langle\Gamma_\vartheta|_{\rho}\right\rangle}\left\langle\left.\left(\Gamma_\vartheta\frac{\partial\lambda}{\partial\zeta}-\Gamma_\zeta\left(1+\frac{\partial\lambda}{\partial\vartheta}\right)\right)\right|_{\rho}\right\rangle.
+  \iota_{0}(\rho)&:= \frac{1}{\left\langle\Gamma_\vartheta|_{\rho}\right\rangle}\left\langle\left.\left(\Gamma_\vartheta\frac{\partial\lambda}{\partial\zeta}-\Gamma_\zeta\left(1+\frac{\partial\lambda}{\partial\vartheta}\right)\right)\right|_{\rho}\right\rangle.
 \end{align*}
 $$
 

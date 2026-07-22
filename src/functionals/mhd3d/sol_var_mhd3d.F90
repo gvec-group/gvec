@@ -13,7 +13,10 @@
 !===================================================================================================================================
 MODULE MODgvec_sol_var_MHD3D
 ! MODULES
-USE MODgvec_Globals,ONLY:wp,Unit_stdOut,abort,MPIRoot
+USE MODgvec_Globals,ONLY:wp,Unit_stdOut,abort
+#if MPI
+USE MODgvec_Globals,ONLY:MPIRoot
+#endif
 USE MODgvec_c_sol_var,ONLY:c_sol_var
 IMPLICIT NONE
 

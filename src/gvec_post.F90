@@ -22,7 +22,7 @@ PROGRAM GVEC_POST
   USE MODgvec_ReadState_Vars,ONLY: fileID_r,outputLevel_r
   USE MODgvec_MHD3D_visu   ,ONLY:WriteSFLoutfile
   USE MODgvec_MHD3D_EvalFunc , ONLY: InitProfilesGP,EvalEnergy,EvalForce
-  USE MODgvec_ReadInTools  ,ONLY: FillStrings,GETLOGICAL,GETINT,IgnoredStrings
+  USE MODgvec_ReadInTools  ,ONLY: FillStrings,IgnoredStrings
   USE MODgvec_MHD3D, ONLY:t_functional_mhd3d
 !$ USE omp_lib
   IMPLICIT NONE

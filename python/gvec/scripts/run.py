@@ -110,6 +110,7 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         loglevel = logging.INFO
     elif args.verbose >= 2:
         loglevel = logging.DEBUG
+        gvec.errors.ALWAYS_PRINT_FULL_TRACEBACK = True
 
     if args.keep == 0:
         keep_intermediates = None

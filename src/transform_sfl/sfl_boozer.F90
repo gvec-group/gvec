@@ -12,7 +12,10 @@
 !===================================================================================================================================
 MODULE MODgvec_SFL_Boozer
 ! MODULES
-USE MODgvec_Globals, ONLY:wp,abort,MPIroot
+USE MODgvec_Globals, ONLY:wp,abort
+#if MPI
+USE MODgvec_Globals, ONLY:MPIroot
+#endif
 USE MODgvec_fbase   ,ONLY: t_fbase
 USE MODgvec_hmap,  ONLY: PP_T_HMAP,PP_T_HMAP_AUXVAR
 USE MODgvec_Newton, ONLY: c_newton_Root2D

@@ -3,12 +3,11 @@
 
 import numpy as np
 
-from gvec.core.state import State
 from typing import Literal
 
 
 def plot_3d_surface(
-    state: State,
+    state,
     quantity: str = "mod_B",
     rho: float | np.ndarray | list = 1.0,
     ntheta: int = 41,

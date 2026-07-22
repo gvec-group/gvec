@@ -7,12 +7,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import cm, colors
 
-from gvec.core.state import State
 from gvec.plotting.utils import _design_subgrid, _subplots, _symbol_check
 
 
 def plot_poloidal_plane(
-    state: State,
+    state,
     quantity: None | str = "mod_B",
     rho: int | np.ndarray | list[float] = 21,
     ntheta: int = 51,
@@ -263,7 +262,7 @@ def plot_poloidal_plane(
 
 
 def plot_on_flux_surface(
-    state: State,
+    state,
     quantities: str | list[str] = "mod_B",
     rho: float | np.ndarray | list = 1.0,
     ntheta: int = 51,
@@ -450,13 +449,14 @@ def plot_on_flux_surface(
 
 
 def plot_fourier_on_surface(
-    state: State,
+    state,
     quantity: str = "mod_B",
     rho: float = 1.0,
     ntheta: int = 101,
     nzeta: int = 101,
     sfl: Literal["pest", "boozer"] | None = None,
     limit: float | None = 1e-15,
+    contour: bool = False,
     plot_kwargs: dict[str] = {},
     **boozer_kwargs,
 ):
@@ -484,6 +484,8 @@ def plot_fourier_on_surface(
     limit: float, optional
         Cut-off value for the Fourier amplitudes to plot.
         Default is ``1e-15``
+    contour: bool, default: False
+        If ``True``, plot filled contours, otherwise plot on a rectangular grid.
     plot_kwargs: dict, optional
         Any ``**kwargs`` to send to the ``plt.figure()`` function.
         For example ``plot_kwargs={'figsize': (8,8)}``. See the `matplotlib documentation <https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.figure.html>`_ for a list of kwargs.
@@ -514,16 +516,29 @@ def plot_fourier_on_surface(
 
     levels = np.linspace(-14, 0, 8)
     symbol = evaluations[quantity].attrs.get("symbol", f"\\mathrm{{{quantity}}}")
+    if not contour:
+        cmap = cm.get_cmap("plasma", 7)
+        norm = colors.LogNorm(vmin=1e-14, vmax=1)
 
     fig, axs = _subplots([1, 2], sharex=True, sharey=True, **plot_kwargs)
     for ax, suffix in zip(axs, ["mnc", "mns"]):
-        c = ax.contourf(
-            evft.n,
-            evft.m,
-            np.log10(np.maximum(np.abs(evft[f"{quantity}_{suffix}"]), 1e-16)),
-            levels=levels,
-            extend="both",
-        )
+        if contour:
+            c = ax.contourf(
+                evft.n,
+                evft.m,
+                np.log10(np.maximum(np.abs(evft[f"{quantity}_{suffix}"]), 1e-16)),
+                levels=levels,
+                extend="both",
+            )
+        else:
+            c = ax.pcolormesh(
+                evft.n,
+                evft.m,
+                np.abs(evft[f"{quantity}_{suffix}"]),
+                shading="nearest",
+                cmap=cmap,
+                norm=norm,
+            )
     fig.colorbar(c, ax=axs, label=rf"$\log_{{10}}|{symbol}|$")
     coords = {
         None: "logical coordinates",

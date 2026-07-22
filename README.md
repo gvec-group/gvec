@@ -74,6 +74,10 @@ More information on how to contribute can be found in the [developer documentati
 
 If you don't know where to start, don't hesitate to contact [the maintainers](https://www.ipp.mpg.de/person/139885/5497858) directly or join the [matrix-chat channel](https://matrix.to/#/#gvec:mpg.de) for questions and discussions.
 
+### Use of AI / LLMs
+
+Humans should always review and verify contributions to GVEC and take responsibility for them. As such, a commit should always be attributed to a human author, and not their assisting coding agent. Such assistance should be acknowledged in the commit message using `Assisted-by: AGENT_NAME:MODEL_VERSION` (e.g. `Assisted-by: Copilot:GPT-5.3-Codex`, see [Linux Kernel Policy on Attribution](https://www.kernel.org/doc/html/latest/process/coding-assistants.html#attribution)).
+
 ## License
 
 GVEC is released under the terms of the [MIT License](https://spdx.org/licenses/MIT.html).

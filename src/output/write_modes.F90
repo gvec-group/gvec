@@ -13,7 +13,7 @@
 !===================================================================================================================================
 MODULE MODgvec_write_modes
 ! MODULES
-USE MODgvec_Globals, ONLY:wp,abort
+USE MODgvec_Globals, ONLY:wp
 IMPLICIT NONE
 PRIVATE
 

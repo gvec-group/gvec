@@ -17,57 +17,10 @@ USE MODgvec_Globals,    ONLY : wp,Unit_stdOut,abort,MPIRoot
 IMPLICIT NONE
 
 PRIVATE
-PUBLIC c_sgrid,t_sgrid
+PUBLIC t_sgrid
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! TYPES
-TYPE, ABSTRACT :: c_sgrid
-  CONTAINS
-    PROCEDURE(i_sub_sgrid_init     ),DEFERRED :: init
-    PROCEDURE(i_sub_sgrid_free     ),DEFERRED :: free
-    PROCEDURE(i_sub_sgrid_copy     ),DEFERRED :: copy
-    PROCEDURE(i_sub_sgrid_compare  ),DEFERRED :: compare
-    PROCEDURE(i_fun_sgrid_find_elem),DEFERRED :: find_elem
-
-END TYPE c_sgrid
-
-ABSTRACT INTERFACE
-  SUBROUTINE i_sub_sgrid_init( sf , nElems_in, grid_type_in,sp_in)
-    IMPORT wp,c_sgrid
-    INTEGER       , INTENT(IN   ) :: nElems_in
-    INTEGER       , INTENT(IN   ) :: grid_type_in
-    REAL(wp),INTENT(IN),OPTIONAL  :: sp_in(0:nElems_in)
-    CLASS(c_sgrid), INTENT(INOUT) :: sf
-  END SUBROUTINE i_sub_sgrid_init
-
-  SUBROUTINE i_sub_sgrid_free( sf )
-    IMPORT c_sgrid
-    CLASS(c_sgrid), INTENT(INOUT) :: sf
-  END SUBROUTINE i_sub_sgrid_free
-
-  SUBROUTINE i_sub_sgrid_copy( sf, tocopy )
-    IMPORT c_sgrid
-    CLASS(c_sgrid), INTENT(INOUT) :: sf
-    CLASS(c_sgrid), INTENT(IN   ) :: tocopy
-  END SUBROUTINE i_sub_sgrid_copy
-
-  SUBROUTINE i_sub_sgrid_compare( sf, tocompare, is_same )
-    IMPORT c_sgrid
-    CLASS(c_sgrid), INTENT(IN   ) :: sf
-    CLASS(c_sgrid), INTENT(IN   ) :: tocompare
-    LOGICAL       , INTENT(  OUT) :: is_same
-  END SUBROUTINE i_sub_sgrid_compare
-
-  FUNCTION i_fun_sgrid_find_elem( sf ,x) RESULT(iElem)
-    IMPORT wp,c_sgrid
-    CLASS(c_sgrid), INTENT(IN   ) :: sf
-    REAL(wp)      , INTENT(IN   ) :: x
-    INTEGER                       :: iElem
-  END FUNCTION i_fun_sgrid_find_elem
-
-END INTERFACE
-
-
-TYPE,EXTENDS(c_sgrid) :: t_sGrid
+TYPE :: t_sGrid
   LOGICAL :: initialized=.FALSE.
   !---------------------------------------------------------------------------------------------------------------------------------
   !input parameters
@@ -233,7 +186,7 @@ SUBROUTINE sGrid_copy( sf , tocopy)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(c_sgrid), INTENT(IN) :: tocopy
+  CLASS(t_sgrid), INTENT(IN) :: tocopy
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(t_sgrid), INTENT(INOUT) :: sf !! self
@@ -264,7 +217,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_sgrid), INTENT(IN   ) :: sf !! self
-  CLASS(c_sgrid), INTENT(IN   ) :: tocompare
+  CLASS(t_sgrid), INTENT(IN   ) :: tocompare
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   LOGICAL       , INTENT(  OUT) :: is_same   !

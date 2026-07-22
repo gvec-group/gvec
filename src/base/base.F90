@@ -16,7 +16,10 @@
 !===================================================================================================================================
 MODULE MODgvec_base
 ! MODULES
-USE MODgvec_Globals ,ONLY: wp,Unit_stdOut,abort,MPIRoot
+USE MODgvec_Globals ,ONLY: wp,Unit_stdOut
+#if MPI
+USE MODgvec_Globals ,ONLY: MPIRoot
+#endif
 USE MODgvec_sBase   ,ONLY: t_sbase,sbase_new
 USE MODgvec_fBase   ,ONLY: t_fbase
 USE MODgvec_sGrid   ,ONLY: t_sgrid

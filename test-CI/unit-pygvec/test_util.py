@@ -1,4 +1,5 @@
 import pytest
+from pathlib import Path
 
 try:
     from gvec import util
@@ -8,6 +9,8 @@ try:
     from copy import deepcopy
 except ImportError:
     pass  # tests will be skipped via the `check_import` fixture
+
+EXAMPLES = Path(__file__).parent / "../examples"
 
 # === TESTS === #
 
@@ -190,6 +193,20 @@ def test_read_write_parameters_ini(testcaserundir, testfiles, tmp_path):
     # Read the new parameters file
     new_params = util.read_parameter_file_ini(new_params_file)
     assert new_params == params
+
+
+@pytest.mark.parametrize("suffix", ["ini", "toml", "yaml"])
+def test_read_write_parameters_full(suffix, tmp_path):
+    base = EXAMPLES / "w7x"
+    source = base / f"parameter.{suffix}"
+
+    parameters = util.read_parameters(source)
+    target = tmp_path / f"parameter-copy.{suffix}"
+    util.write_parameters(parameters, target)
+    roundtrip = util.read_parameters(target)
+
+    assert isinstance(roundtrip, util.CaseInsensitiveDict)
+    assert roundtrip == parameters
 
 
 @pytest.mark.parametrize(

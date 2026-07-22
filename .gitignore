@@ -51,7 +51,7 @@ share/python-wheels/
 *.egg
 MANIFEST
 python/gvec/_version.py
-python/gvec/lib.py
+python/gvec/_lib.py
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

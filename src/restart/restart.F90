@@ -83,7 +83,6 @@ USE MODgvec_Globals,ONLY:Unit_stdOut,PI,TWOPI,GETFREEUNIT
 USE MODgvec_Output_Vars, ONLY:ProjectName,OutputLevel
 USE MODgvec_MHD3D_Vars, ONLY:X1_base,X2_base,LA_base,sgrid,which_hmap
 USE MODgvec_MHD3D_vars, ONLY: Phi_profile, chi_profile, pres_profile, iota_profile
-USE MODgvec_MPI, ONLY:par_Reduce
 USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
 USE MODgvec_MHD3D_evalFunc, ONLY: EvalTotals
 IMPLICIT NONE
@@ -179,8 +178,6 @@ USE MODgvec_Globals,ONLY:Unit_stdOut,GETFREEUNIT
 USE MODgvec_Output_Vars, ONLY:OutputLevel
 USE MODgvec_MHD3D_Vars,  ONLY:X1_base,X2_base,LA_base,sgrid,hmap
 USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
-USE MODgvec_sgrid,  ONLY: t_sgrid
-USE MODgvec_base,   ONLY: t_base, base_new
 USE MODgvec_readState_Vars, ONLY:sgrid_r,X1_base_r,X2_base_r,LA_base_r,X1_r,X2_r,LA_r,outputLevel_r
 USE MODgvec_readState, ONLY: ReadState,Finalize_ReadState
 IMPLICIT NONE

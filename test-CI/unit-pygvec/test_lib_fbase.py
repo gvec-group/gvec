@@ -4,7 +4,7 @@ try:
     import numpy as np
 
     import gvec.lib
-    from gvec.lib import modgvec_fbase as mod
+    from gvec.lib import t_fBase
 except ImportError:
     pytest.skip("Import Error", allow_module_level=True)
 
@@ -15,26 +15,26 @@ except ImportError:
 @pytest.fixture(scope="module", autouse=True)
 def redirect_abort():
     """Redirect abort to raise an exception instead."""
-    gvec.lib.modgvec_py_binding.redirect_abort()
+    gvec.lib._binding.redirect_abort()
 
 
 @pytest.fixture()
 def fbase():
     """Fixture to create a fBase object for testing."""
-    return mod.t_fBase((3, 4), (7, 9), 2, "_sin_", True)
+    return t_fBase((3, 4), (7, 9), 2, "_sin_", True)
 
 
 # === Tests === #
 
 
 def test_lib_fbase_init():
-    fbase = mod.t_fBase((3, 4), (7, 9), 2, "_sin_", True)
+    fbase = t_fBase((3, 4), (7, 9), 2, "_sin_", True)
     assert fbase._alloc
     del fbase
 
 
 def test_lib_fbase_properties():
-    fbase = mod.t_fBase((3, 4), (7, 9), 2, "_sin_", True)
+    fbase = t_fBase((3, 4), (7, 9), 2, "_sin_", True)
 
     assert all(fbase.mn_max == (3, 4))
     assert all(fbase.mn_nyq == (7, 9))

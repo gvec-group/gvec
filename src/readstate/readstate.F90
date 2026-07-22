@@ -64,8 +64,7 @@ SUBROUTINE ReadStateFileFromASCII(fileString,hmap_in)
 ! MODULES
 USE MODgvec_ReadState_Vars
 USE MODgvec_Globals,ONLY: Unit_stdOut,GETFREEUNIT,abort
-USE MODgvec_sgrid,  ONLY: t_sgrid
-USE MODgvec_base,   ONLY: t_base, base_new
+USE MODgvec_base,   ONLY: base_new
 USE MODgvec_sbase,  ONLY: sbase_new
 USE MODgvec_fbase,  ONLY: sin_cos_map
 USE MODgvec_hmap

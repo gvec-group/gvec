@@ -13,7 +13,10 @@
 !===================================================================================================================================
 MODULE MODgvec_Transform_SFL
 ! MODULES
-USE MODgvec_Globals, ONLY:wp,abort,MPIroot
+USE MODgvec_Globals, ONLY:wp,abort
+#if MPI
+USE MODgvec_Globals, ONLY:MPIroot
+#endif
 USE MODgvec_base   ,ONLY: t_base
 USE MODgvec_fbase   ,ONLY: t_fbase
 USE MODgvec_sGrid   ,ONLY: t_sgrid
@@ -228,7 +231,6 @@ END SUBROUTINE transform_sfl_init
 SUBROUTINE BuildTransform_SFL(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA_in)
 ! MODULES
 USE MODgvec_base   ,ONLY: t_base,base_new
-USE MODgvec_SFL_Boozer,ONLY: find_boozer_Angles
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 

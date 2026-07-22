@@ -32,7 +32,7 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE WriteDataToNETCDF(dim1,vecdim,nVal,ndims,Dimnames,VarNames,Coord,Values,FileString,coord1,coord2,coord3, CoordNames, attr_values, attr_coords)
 ! MODULES
-USE MODgvec_Globals, ONLY:wp,abort,UNIT_stdOut
+USE MODgvec_Globals, ONLY:wp,UNIT_stdOut
 USE MODgvec_io_netcdf, ONLY:t_ncfile,ncfile_init
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE

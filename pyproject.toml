@@ -39,10 +39,11 @@ maintainers = [
 requires-python = ">=3.10" # match-case, intrinsic typing union
 classifiers = [
     "Development Status :: 3 - Alpha",
-    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.10", # Ubuntu 22.04
     "Programming Language :: Python :: 3.11", # not routinely tested
-    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.12", # Ubuntu 24.04
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14", # Ubuntu 26.04
     "Programming Language :: Fortran",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Physics",
