@@ -12,7 +12,7 @@ from pathlib import Path
 
 import xarray as xr
 
-from gvec.lib import t_sfl_boozer
+from gvec.lib import t_sfl_boozer, _globals
 import gvec.util
 
 from . import _binding
@@ -34,11 +34,27 @@ class State:
         self,
         parameterfile: str | Path,
         statefile: str | Path | None = None,
+        stdout_path: str | None = None,
+        init_for_minimization: bool = False,
     ):
         self.parameterfile: Path = Path(parameterfile).absolute()
         self.statefile: Path | None = Path(statefile).absolute() if statefile else None
 
-        self._stdout: tempfile.NamedTemporaryFile | None = None
+        self._init_for_minimization: bool = init_for_minimization
+
+        if stdout_path is None:
+            self._stdout: tempfile.NamedTemporaryFile | None = None
+        else:
+            self._stdout = stdout_path
+
+        MAXLEN = _globals.maxlen
+        with open(parameterfile, "r") as f:
+            content = f.readlines()
+            if any([len(line) > MAXLEN for line in content]):
+                raise ValueError(
+                    f"Parameter file {parameterfile} contains lines longer than {MAXLEN} characters."
+                )
+
         self._children: list[t_sfl_boozer] = []
         self.parameters: gvec.util.CaseInsensitiveDict = None
 
@@ -49,13 +65,29 @@ class State:
         self.parameters = gvec.util.read_parameters(
             self.parameterfile, format="ini"
         )  # read-only !!!
+        if init_for_minimization:
+            # these parameters are modified during current constraint!
+            self._parameter_dict = gvec.util.read_parameters(parameterfile)
+
+            r_GP, r_w, t_n, t_w, z_n, z_w = self.get_integration_points()
+            self.clockwise_zeta = self._determine_clockwise_zeta()
+
+            self.t_n = t_n
+            self.z_n = z_n
+
+            self.iters_used = 0
+            self.rms_iota = None
+            self.delta_iota = None
 
     def __del__(self):
         logger.debug(f"Deleting state {self!r}")
         if _binding.bound_state is self:
             self.unbind()
         if self._stdout is not None:
-            self._stdout.close()
+            if isinstance(self._stdout, str) or isinstance(self._stdout, Path):
+                pass
+            else:
+                self._stdout.close()
 
     # === Additional Constructors === #
 
@@ -121,6 +153,12 @@ class State:
         get_integration_points,
         get_radial_gridpoints,
         get_mn_max,
+        get_outputlevel,
+        get_iterations,
+        get_minimize_tol,
+        _get_angle_integration_points,
+        _get_X1_n_modes,
+        _get_X2_n_modes,
     )
 
     # === Evaluation Methods === #
@@ -138,6 +176,32 @@ class State:
         evaluate_jac_h_derivs,
         evaluate_profile,
         evaluate_rho2_profile,
+    )
+
+    # === Fixed Boundary Minimization Methods === #
+    from ._minimize import (
+        minimize,
+        save_statefile,
+        update_iota_for_current_constraint,
+        reset_descent,
+        save,
+        _minimize,
+        _minimize_current_constraint,
+        _minimize_single_current_constraint,
+        _get_new_iota,
+    )
+
+    # === Free Boundary Minimization Methods === #
+    from ._minimize import (
+        set_Bext_squared,
+        _get_boundary_forces,
+        get_Fnorm_boundary,
+        get_gnorm,
+        get_xnorm,
+        update_boundary,
+        _determine_clockwise_zeta,
+        _free_boundary_target,
+        _free_boundary_update,
     )
 
     # === Boozer Potential === #

@@ -57,3 +57,50 @@ def get_mn_max(self, quantity: str = "all") -> tuple[int, int]:
         return max(m), max(n)
 
     return _state.get_mn_max(quantity)
+
+
+@with_binding
+def get_outputlevel(self):
+    logger.debug("Extracting outputlevel")
+    outid = _state.get_outputlevel()
+    return outid
+
+
+@with_binding
+def get_iterations(self):
+    logger.debug("Extracting iterations")
+    iters = _state.get_iterations()
+    return iters
+
+
+@with_binding
+def get_minimize_tol(self):
+    logger.debug("Extracting minimize tol")
+    tol = _state.get_minimize_tol()
+    return tol
+
+
+@with_binding
+def _get_angle_integration_points(self):
+    """Extracts the theta and zeta integration points from fortran GVEC
+
+    Returns
+    -------
+    (np.ndarray, np.ndarray)
+        theta and zeta integration points.
+    """
+    r_GP, r_w, t_n, t_w, z_n, z_w = self.get_integration_points(quantity="X1")
+    theta = np.zeros(t_n)
+    zeta = np.zeros(z_n)
+    _state.get_angle_integration_points(theta, t_n, zeta, z_n)
+    return theta, zeta
+
+
+@with_binding
+def _get_X1_n_modes(self):
+    return _state.get_x1_n_modes()
+
+
+@with_binding
+def _get_X2_n_modes(self):
+    return _state.get_x2_n_modes()

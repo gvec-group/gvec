@@ -99,11 +99,16 @@ def bind(self, force: bool = False):
                 _state.init(self.parameterfile.name)
                 if self.statefile is not None:
                     logger.debug("Read state from statefile")
-                    if not self.statefile.is_absolute():
-                        statefile = self.statefile.relative_to(self.rundir)
+                    if self._init_for_minimization:
+                        # initialize a GVEC state as during a GVEC run
+                        logger.debug("Initialize solution from statefile for minimization")
+                        _state.initsolution(self.statefile.absolute(), False)
                     else:
-                        statefile = self.statefile
-                    _state.readstate(statefile)
+                        if not self.statefile.is_absolute():
+                            statefile = self.statefile.relative_to(self.rundir)
+                        else:
+                            statefile = self.statefile
+                        _state.readstate(statefile)
                 else:
                     logger.debug("Initialize solution without statefile")
                     _state.initsolution()

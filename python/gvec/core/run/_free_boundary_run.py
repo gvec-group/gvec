@@ -1,3 +1,5 @@
+# Copyright (c) 2026 GVEC Contributors, Max Planck Institute for Plasma Physics
+# License: MIT
 import numpy as np
 import xarray as xr
 from collections.abc import Mapping
@@ -14,17 +16,18 @@ from pathlib import Path
 # GVEC
 import gvec
 from gvec.coils import CoilSet, Coil
-from gvec.core.free_boundary_state import FreeBoundaryState
+from gvec.core.state import State, DEFAULT_N_IOTA_RHOS
 from ._abstract_run import (
     AbstractRun,
     DEFAULT_MINIMIZE_TOL,
     DEFAULT_TOTALITER,
     AUTO_IOTA_TARGET,
+    DEFAULT_PICARD_CURRENT_MAXRESTARTS,
 )
 from gvec.util import write_parameter_file_ini, flatten_parameters, chdir
 from gvec.core.compute import ev2ft
 from gvec import fourier
-from gvec.lib import modgvec_py_state as _state
+from gvec.lib import _state
 
 try:
     import fbtools
@@ -51,7 +54,7 @@ class FreeBoundaryRun(AbstractRun):
         self,
         params: Mapping,
         coil_set: CoilSet | Coil,
-        state: Path | FreeBoundaryState | None = None,
+        state: Path | State | None = None,
         redirect_gvec_stdout: bool = True,
         quiet: bool = True,
         parameter_format: Literal["toml", "yaml"] = "toml",
@@ -202,7 +205,12 @@ class FreeBoundaryRun(AbstractRun):
         self.diagnostics_stage[f"stage_{self.nth_stage}"] = force_balance_ds
 
     def _update_diagnostics(
-        self, B_ext_2: np.ndarray, B_coils: np.ndarray, B_plas_ext: np.ndarray, iteration: int
+        self,
+        B_ext_2: np.ndarray,
+        B_coils: np.ndarray,
+        B_plas_ext: np.ndarray,
+        iteration: int,
+        dt: float,
     ):
         """Helper function to fill the diagnostics dataset
 
@@ -242,7 +250,7 @@ class FreeBoundaryRun(AbstractRun):
 
         diag_aux.spectral_width[iteration] = _state.get_spectral_width()
 
-        diag_aux.dt[iteration] = self.state.dt
+        diag_aux.dt[iteration] = dt
         self.free_boundary_target = free_boundary_target.item()
         self._update_force_ratio(iteration)
         diag_aux.resolved_force_ratio[iteration] = self._resolved_force_ratio
@@ -357,16 +365,12 @@ class FreeBoundaryRun(AbstractRun):
         )
         with chdir(self.rundir):
             # write parameterfile & run GVEC
-            self.state = FreeBoundaryState(
+            self.state = State(
                 parameterfile="parameter.ini",
                 statefile=self.state.statefile,
-                I_tor=self.I_tor_target if self.curr_constraint else None,
-                reset_LA=self._state_parameters["picard_current"].get("reset_LA", None),
-                n_iota_rhos=self._state_parameters["picard_current"].get("nPoints", 101),
                 stdout_path=Path("stdout.txt") if self.redirect_gvec_stdout else None,
-                dt=dt,
+                init_for_minimization=True,
             )
-            self._allocate_diagnostics(track_boundary_fields)
             iota_tol = self._state_parameters["picard_current"].get(
                 "iota_tol", AUTO_IOTA_TARGET
             )
@@ -375,10 +379,17 @@ class FreeBoundaryRun(AbstractRun):
                 iota_target=iota_tol,
                 minimize_tol=minimize_tol,
                 maxIter=self._state_parameters["maxIter"],
-                maxUpdates=self._state_parameters["picard_current"].get("maxRestarts", 30),
+                maxUpdates=self._state_parameters["picard_current"].get(
+                    "maxRestarts", DEFAULT_PICARD_CURRENT_MAXRESTARTS
+                ),
                 target=self._state_parameters["picard_current"].get("target", "auto"),
+                I_tor=self.I_tor_target if self.curr_constraint else None,
+                reset_LA=self._state_parameters["picard_current"].get("reset_LA", None),
+                n_iota_rhos=self._state_parameters["picard_current"].get(
+                    "nPoints", DEFAULT_N_IOTA_RHOS
+                ),
             )
-
+            self._allocate_diagnostics(track_boundary_fields)
             self.iters_used = self.state.get_iterations()
 
             # NOTE: always use self-consistent I_tor values
@@ -397,7 +408,7 @@ class FreeBoundaryRun(AbstractRun):
                 digits=digits_BIEST,
             )
 
-            self._update_diagnostics(B_ext_2, B_coils, B_plas_ext, 0)
+            self._update_diagnostics(B_ext_2, B_coils, B_plas_ext, 0, dt)
 
             try:  # allow clean abort with KeybordInterrupt
                 for i in range(1, fb_updates):
@@ -463,11 +474,12 @@ class FreeBoundaryRun(AbstractRun):
                         )
                         t_fb_0 = time.time()
                         # pushes boundary and does a fixed-b run
-                        self.state._free_boundary_update(
+                        dt = self.state._free_boundary_update(
                             maxIter=min(
                                 max_iter_per_update_aux, self._state_parameters["maxIter"]
                             ),
                             B2=B2,
+                            dt=dt,
                             reset_minimizer=reset_minimizer,
                             blend_depth=blend_depth,
                             iota_target=iota_tol,
@@ -496,7 +508,7 @@ class FreeBoundaryRun(AbstractRun):
                             digits=digits_BIEST,
                         )
 
-                        self._update_diagnostics(B_ext_2, B_coils, B_plas_ext, i)
+                        self._update_diagnostics(B_ext_2, B_coils, B_plas_ext, i, dt)
 
                         t_fb_1 = time.time()
                         logger.info(f"Time for free boundary update: {t_fb_1 - t_fb_0:.4}s")
@@ -622,7 +634,7 @@ class FreeBoundaryRun(AbstractRun):
 
 # ============= BIEST CALLS ===========================
 def _get_B2_all_fp(
-    state: FreeBoundaryState,
+    state: State,
     coil_set: CoilSet | Coil,
     ntheta: int,
     nzeta: int,
@@ -726,7 +738,7 @@ def _get_B2_all_fp(
 
 
 def _get_B2_fp(
-    state: FreeBoundaryState,
+    state: State,
     coil_set: CoilSet | Coil,
     ntheta: int,
     nzeta: int,

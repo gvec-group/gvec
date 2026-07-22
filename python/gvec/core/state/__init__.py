@@ -10,4 +10,5 @@ The `State` class is distributed across multiple files, grouping the methods and
 """
 
 from ._class import State
+from ._minimize import DEFAULT_N_IOTA_RHOS
 from .util import load_state, find_state, find_states

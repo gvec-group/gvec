@@ -1,16 +1,18 @@
+# Copyright (c) 2026 GVEC Contributors, Max Planck Institute for Plasma Physics
+# License: MIT
 import numpy as np
 from gvec import State, fluxsurface_integral
 from gvec.coils import CoilSet, Coil
 from gvec.util import read_parameters, write_parameters, CaseInsensitiveDict, chdir
 from gvec.core.compute import ev2ft
 from gvec import fourier
-from gvec.core.state import with_binding
+from gvec.core.state._binding import with_binding
 from scipy.constants import mu_0
 import shutil
 from tqdm import tqdm
 from typing import Callable
 
-from gvec.lib import modgvec_py_state as _state
+from gvec.lib import _state
 
 import time
 import logging

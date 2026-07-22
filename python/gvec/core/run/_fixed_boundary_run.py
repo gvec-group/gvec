@@ -1,4 +1,5 @@
-import logging
+# Copyright (c) 2026 GVEC Contributors, Max Planck Institute for Plasma Physics
+# License: MIT
 import shutil
 import time
 from collections.abc import Mapping
@@ -11,9 +12,13 @@ import xarray as xr
 from pandas import read_csv
 
 import gvec
-from gvec.core.state import State
-from gvec.core.run_state import RunState
-from ._abstract_run import AbstractRun, DEFAULT_MINIMIZE_TOL, AUTO_IOTA_TARGET
+from gvec.core.state import State, DEFAULT_N_IOTA_RHOS
+from ._abstract_run import (
+    AbstractRun,
+    DEFAULT_MINIMIZE_TOL,
+    AUTO_IOTA_TARGET,
+    DEFAULT_PICARD_CURRENT_MAXRESTARTS,
+)
 
 
 class FixedBoundaryRun(AbstractRun):
@@ -71,12 +76,10 @@ class FixedBoundaryRun(AbstractRun):
 
         with gvec.util.chdir(self.rundir):
             # write parameterfile & run GVEC
-            self.state = RunState(
+            self.state = State(
                 parameterfile="parameter.ini",
                 statefile=self.state.statefile,
-                I_tor=self.I_tor_target if self.curr_constraint else None,
-                reset_LA=self._state_parameters["picard_current"].get("reset_LA", None),
-                n_iota_rhos=self._state_parameters["picard_current"].get("nPoints", 101),
+                init_for_minimization=True,
                 stdout_path=Path("stdout.txt") if self.redirect_gvec_stdout else None,
             )
             iota_tol = self._state_parameters["picard_current"].get(
@@ -84,10 +87,17 @@ class FixedBoundaryRun(AbstractRun):
             )
             minimize_target = self._state_parameters.get("minimize_tol", DEFAULT_MINIMIZE_TOL)
             self.state.minimize(
+                I_tor=self.I_tor_target if self.curr_constraint else None,
+                reset_LA=self._state_parameters["picard_current"].get("reset_LA", None),
+                n_iota_rhos=self._state_parameters["picard_current"].get(
+                    "nPoints", DEFAULT_N_IOTA_RHOS
+                ),
                 iota_target=iota_tol,
                 minimize_tol=minimize_target,
                 maxIter=self._state_parameters["maxIter"],
-                maxUpdates=self._state_parameters["picard_current"].get("maxRestarts", 30),
+                maxUpdates=self._state_parameters["picard_current"].get(
+                    "maxRestarts", DEFAULT_PICARD_CURRENT_MAXRESTARTS
+                ),
                 target=self._state_parameters["picard_current"].get("target", "auto"),
             )
 

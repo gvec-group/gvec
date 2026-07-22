@@ -6,7 +6,6 @@ from collections.abc import Iterable, Mapping, MutableMapping
 from copy import deepcopy
 from pathlib import Path
 from typing import Literal
-
 import numpy as np
 from numpy.typing import ArrayLike
 
@@ -553,6 +552,14 @@ def flatten_parameters(parameters: Mapping) -> CaseInsensitiveDict:
             r"(x1|x2|la)(pert:?)?_[a|b]_(sin|cos)", key.lower()
         ):
             for subkey, subvalue in value.items():
+                if subkey in ["save_diagnostics", "track_boundary_fields"]:
+                    continue  # free boundary parameters not supported by fortran-GVEC
+                elif subkey == "coil_set":
+                    if hasattr(subvalue, "eval_B"):
+                        subvalue = "python class"
+                    else:
+                        subvalue = str(subkey)
+
                 output[f"{key}_{subkey}"] = subvalue
         else:
             output[key] = value
@@ -721,7 +728,15 @@ def format_toml(parameters: CaseInsensitiveDict):
     ]
     add_params(doc, MINIMIZER_PARAMS, parameters)
 
-    EXTRA_PARAMS = ["sgrid", "iota", "pres", "I_tor", "picard_current", "stages"]
+    EXTRA_PARAMS = [
+        "sgrid",
+        "iota",
+        "pres",
+        "I_tor",
+        "picard_current",
+        "stages",
+        "free_boundary",
+    ]
     DOF_PARAMS = [
         f"{Q}{pert}_{x}_{fun}"
         for Q in ["X1", "X2", "LA"]
@@ -765,6 +780,10 @@ def format_toml(parameters: CaseInsensitiveDict):
                         doc[key][subkey].add_line(indent="")
                 else:
                     doc[key][subkey] = subvalue
+
+    add_section(doc, "Free Boundary")
+    if "free_boundary" in parameters and isinstance(parameters["free_boundary"], Mapping):
+        doc["free_boundary"] = parameters["free_boundary"].serialize()
 
     if "stages" in parameters:
         add_section(doc, "Stages")

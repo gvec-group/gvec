@@ -1,3 +1,5 @@
+# Copyright (c) 2026 GVEC Contributors, Max Planck Institute for Plasma Physics
+# License: MIT
 import logging
 import shutil
 import time
@@ -18,6 +20,7 @@ from gvec.util import CaseInsensitiveDict as cidict
 DEFAULT_MINIMIZE_TOL = 1e-6  # different to default `minimize_tol` in fortran
 DEFAULT_TOTALITER = 10**5  # different to default `maxIter` in fortran
 AUTO_IOTA_TARGET = 1e-10
+DEFAULT_PICARD_CURRENT_MAXRESTARTS = 30
 
 
 class AbstractRun(ABC):

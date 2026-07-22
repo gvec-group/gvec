@@ -79,12 +79,11 @@ def run(
     else:
         params = gvec.util.stack_parameters(parameters)
 
+    has_coilset = False
     # check if coil-set is specified in the parameters
     if "free_boundary" in params:
         if "coil_set" in params["free_boundary"]:
             has_coilset = True
-        else:
-            has_coilset = False
 
     # make sure only one coil-set is specified
     if has_coilset and coil_set is not None:
