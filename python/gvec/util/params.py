@@ -676,7 +676,10 @@ def format_toml(parameters: CaseInsensitiveDict):
         if any(key in parameters for key in keys):
             for key in keys:
                 if key in parameters:
-                    doc[key] = parameters[key]
+                    value = parameters[key]
+                    if isinstance(value, CaseInsensitiveDict):
+                        value = value.serialize()
+                    doc[key] = value
             doc.add(nl())
 
     def add_section(doc, section_name):
@@ -684,7 +687,7 @@ def format_toml(parameters: CaseInsensitiveDict):
         doc.add(comment(f"--- {section_name} --- #"))
         doc.add(nl())
 
-    parameters = stringify_mn_parameters(parameters)
+    parameters: CaseInsensitiveDict = stringify_mn_parameters(parameters)
 
     doc = document()
     doc.add(comment("GVEC parameter file"))
