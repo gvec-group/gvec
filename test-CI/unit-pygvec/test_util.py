@@ -73,7 +73,7 @@ def test_copy_test_CaseInsensitiveDict():
     recursive_is_not(cid_copy, cid)
 
 
-def test_serialize_CaseInsensitiveDict():
+def test_serialize():
     """Verify serialize() converts numpy scalars/0D arrays and iterables."""
     cid = util.CaseInsensitiveDict(
         a=np.int64(1),
@@ -109,6 +109,30 @@ def test_serialize_CaseInsensitiveDict():
     # Path objects become strings
     assert isinstance(serialized["p"], str)
     assert serialized["p"] == "test"
+
+
+def test_recursive_CaseInsensitiveDict():
+    """Verify recursive() converts nested dicts to CaseInsensitiveDict."""
+    nested_dict = {
+        "A": 1,
+        "b": {"C": 2, "d": {"E": 3}},
+        "f": [4, 5],
+    }
+
+    cid = util.CaseInsensitiveDict.recursive(nested_dict)
+
+    # Top-level must be a CaseInsensitiveDict
+    assert isinstance(cid, util.CaseInsensitiveDict)
+
+    # Nested dicts must also be CaseInsensitiveDict
+    assert isinstance(cid["b"], util.CaseInsensitiveDict)
+    assert isinstance(cid["b"]["d"], util.CaseInsensitiveDict)
+
+    # Values should remain unchanged
+    assert cid["A"] == 1
+    assert cid["b"]["C"] == 2
+    assert cid["b"]["d"]["E"] == 3
+    assert cid["f"] == [4, 5]
 
 
 def test_stringify_mn():

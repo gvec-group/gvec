@@ -156,6 +156,7 @@ class Run:
             raise ValueError(
                 f"Neither valid 'params' nor a valid 'state' are provided! params: {params}, state: {state}"
             )
+        self.parameters = cidict.recursive(self.parameters)
 
         # params: user provided parameters
         # self.parameters: global/fallback parameters
@@ -1071,8 +1072,11 @@ class Run:
 
 
 def auto_generate_stages(parameters: cidict, Itor: bool, ramp_nelems: bool = True):
-    target_minimize_tol = parameters["minimize_tol"]
-    target_sgrid_nelems = parameters["sgrid"]["nelems"]
+    target_minimize_tol = parameters.get("minimize_tol", DEFAULT_MINIMIZE_TOL)
+    try:
+        target_sgrid_nelems = parameters["sgrid"]["nelems"]
+    except KeyError:
+        raise gvec.errors.MissingParameterError("Missing mandatory parameter 'sgrid.nelems'.")
     if target_sgrid_nelems <= AUTO_RAMP_NELEMS_MIN:
         ramp_nelems = False
     stages = []
