@@ -58,11 +58,11 @@ class CaseInsensitiveDict(MutableMapping):
 
     @classmethod
     def recursive(cls, data):
-        """Recursively convert a mapping to a CaseInsensitiveDict."""
+        """Recursively convert a mapping to a CaseInsensitiveDict. Also converts iterables to lists."""
         if isinstance(data, Mapping):
             return cls({k: cls.recursive(v) for k, v in data.items()})
         elif isinstance(data, Iterable) and not isinstance(data, str):
-            return type(data)(cls.recursive(v) for v in data)
+            return [cls.recursive(v) for v in data]
         else:
             return data
 
@@ -167,7 +167,7 @@ def serialize(value):
             return mapping(value)
         case np.ndarray():
             return array(value)
-        case str():
+        case str() | int() | float() | bool():
             return value
         case Iterable():
             return iterable(value)

@@ -82,6 +82,8 @@ def test_serialize():
         nested=util.CaseInsensitiveDict(X=np.array(5)),
         tuple_iter=(1, 2),
         p=Path("test"),
+        l=True,
+        s="foo",
     )
 
     serialized = util.serialize(cid)
@@ -110,6 +112,10 @@ def test_serialize():
     assert isinstance(serialized["p"], str)
     assert serialized["p"] == "test"
 
+    # Boolean and string values remain unchanged
+    assert serialized["l"] is True
+    assert serialized["s"] == "foo"
+
 
 def test_recursive_CaseInsensitiveDict():
     """Verify recursive() converts nested dicts to CaseInsensitiveDict."""
@@ -117,6 +123,8 @@ def test_recursive_CaseInsensitiveDict():
         "A": 1,
         "b": {"C": 2, "d": {"E": 3}},
         "f": [4, 5],
+        "ar": np.array([6, 0.5]),
+        "l": True,
     }
 
     cid = util.CaseInsensitiveDict.recursive(nested_dict)
@@ -133,6 +141,11 @@ def test_recursive_CaseInsensitiveDict():
     assert cid["b"]["C"] == 2
     assert cid["b"]["d"]["E"] == 3
     assert cid["f"] == [4, 5]
+    assert cid["l"] is True
+
+    # but arrays are converted to lists
+    assert isinstance(cid["ar"], list)
+    assert cid["ar"] == [6, 0.5]
 
 
 def test_stringify_mn():
@@ -248,6 +261,7 @@ def test_write_parameters_conversion(suffix, tmp_path):
         },
         "X1_mn_max": (1, 2),
         "X2_mn_max": [1, 2],
+        "init_average_axis": True,
     }
 
     target = tmp_path / f"parameter-converted.{suffix}"
@@ -259,6 +273,7 @@ def test_write_parameters_conversion(suffix, tmp_path):
     assert roundtrip["hmap_ncfile"] == str(parameters["hmap_ncfile"])
     assert roundtrip["nfp"] == int(parameters["nfp"])
     assert np.allclose(roundtrip["iota"]["coefs"], parameters["iota"]["coefs"])
+    assert roundtrip["init_average_axis"] is parameters["init_average_axis"]
     if suffix == "ini":
         assert roundtrip["X1_mn_max"] == tuple(parameters["X1_mn_max"])
         assert roundtrip["X2_mn_max"] == tuple(parameters["X2_mn_max"])
