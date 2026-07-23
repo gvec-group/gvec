@@ -25,9 +25,10 @@ from gvec.util import CaseInsensitiveDict as cidict
 
 DEFAULT_MINIMIZE_TOL = 1e-6  # different to default `minimize_tol` in fortran
 DEFAULT_TOTALITER = 10**5  # different to default `maxIter` in fortran
+AUTO_STAGE_IOTA_INIT_MAXITER = 10
+AUTO_STAGE_IOTA_INIT_IOTA_TOL = 1e-3
 AUTO_PICARD_CURRENT_IOTA_TOL = 1e-5
 AUTO_PICARD_CURRENT_IOTA_TOL_TARGET = 1e-8  # least-squares fit: limited to single precision!
-AUTO_STAGE_IOTA_INIT_MAXITER = 10
 AUTO_RAMP_NELEMS_MIN = 2
 AUTO_MINIMIZE_TOL_MIN = 1e-3
 DEFAULT_PICARD_CURRENT_MAXRESTARTS = 50
@@ -1110,6 +1111,7 @@ def auto_generate_stages(parameters: cidict, Itor: bool, ramp_nelems: bool = Tru
                 maxIter=AUTO_STAGE_IOTA_INIT_MAXITER,
                 picard_current=cidict(
                     target="iota",
+                    iota_tol=AUTO_STAGE_IOTA_INIT_IOTA_TOL,
                 ),
             )
         )
