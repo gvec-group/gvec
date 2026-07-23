@@ -1876,7 +1876,7 @@ def I_pol(ds: xr.Dataset, state: State):
     B_zeta_avg_axis = state.evaluate_on_axis(
         "B_zeta_avg", theta="int", zeta="int"
     ).B_zeta_avg.item()
-    ds["I_pol"] = (ds.B_zeta_avg - B_zeta_avg_axis) * 2 * np.pi / ds.mu0
+    ds["I_pol"] = (B_zeta_avg_axis - ds.B_zeta_avg) * 2 * np.pi / ds.mu0
 
 
 # --- other --- #
