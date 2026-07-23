@@ -84,32 +84,34 @@ def test_serialize():
         p=Path("test"),
         l=True,
         s="foo",
+        f=np.float64(3.14),
     )
 
     serialized = util.serialize(cid)
 
     # Top-level must be a plain dict-like mapping
-    assert isinstance(serialized, dict)
+    assert type(serialized) is dict
 
     # Numeric conversions
-    assert serialized["a"] == 1 and isinstance(serialized["a"], int)
-    assert serialized["b"] == 2 and isinstance(serialized["b"], int)
+    assert serialized["a"] == 1 and type(serialized["a"]) is int
+    assert serialized["b"] == 2 and type(serialized["b"]) is int
+    assert serialized["f"] == 3.14 and type(serialized["f"]) is float
 
     # Iterable and 0D conversions
-    assert isinstance(serialized["c"], list)
+    assert type(serialized["c"]) is list
     assert serialized["c"][0] == 3.5
     assert serialized["c"][1] == 4
 
     # Nested mapping becomes plain dict-like structure
-    assert isinstance(serialized["nested"], dict)
+    assert type(serialized["nested"]) is dict
     assert serialized["nested"]["X"] == 5
 
     # Tuples become lists
-    assert isinstance(serialized["tuple_iter"], list)
+    assert type(serialized["tuple_iter"]) is list
     assert serialized["tuple_iter"] == [1, 2]
 
     # Path objects become strings
-    assert isinstance(serialized["p"], str)
+    assert type(serialized["p"]) is str
     assert serialized["p"] == "test"
 
     # Boolean and string values remain unchanged

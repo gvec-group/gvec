@@ -167,7 +167,7 @@ def serialize(value):
             return mapping(value)
         case np.ndarray():
             return array(value)
-        case str() | int() | float() | bool():
+        case str() | bool():
             return value
         case Iterable():
             return iterable(value)
@@ -676,7 +676,6 @@ def write_parameters(
     path: Path | str = "parameter.ini",
     format: Literal["ini", "yaml", "toml"] | None = None,
 ):
-    import tomlkit
     import yaml
 
     path = Path(path)
