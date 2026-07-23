@@ -74,16 +74,17 @@ def test_copy_test_CaseInsensitiveDict():
 
 
 def test_serialize_CaseInsensitiveDict():
-    """Verify CaseInsensitiveDict.serialize converts numpy scalars/0D arrays and iterables."""
+    """Verify serialize() converts numpy scalars/0D arrays and iterables."""
     cid = util.CaseInsensitiveDict(
         a=np.int64(1),
         b=np.array(2),
         c=[np.float64(3.5), np.array(4)],
         nested=util.CaseInsensitiveDict(X=np.array(5)),
         tuple_iter=(1, 2),
+        p=Path("test"),
     )
 
-    serialized = cid.serialize()
+    serialized = util.serialize(cid)
 
     # Top-level must be a plain dict-like mapping
     assert isinstance(serialized, dict)
@@ -104,6 +105,10 @@ def test_serialize_CaseInsensitiveDict():
     # Tuples become lists
     assert isinstance(serialized["tuple_iter"], list)
     assert serialized["tuple_iter"] == [1, 2]
+
+    # Path objects become strings
+    assert isinstance(serialized["p"], str)
+    assert serialized["p"] == "test"
 
 
 def test_stringify_mn():
@@ -129,7 +134,7 @@ def test_stringify_mn():
         assert k in bucket
 
     # After serialization, values should be plain Python scalars
-    serialized = stringified.serialize()
+    serialized = util.serialize(stringified)
     for m, n in [(0, 1), (1, 2)]:
         key = f"({m}, {n:2d})"
         assert isinstance(serialized["X1_b_cos"][key], (int, float))
@@ -207,6 +212,35 @@ def test_read_write_parameters_full(suffix, tmp_path):
 
     assert isinstance(roundtrip, util.CaseInsensitiveDict)
     assert roundtrip == parameters
+
+
+@pytest.mark.parametrize("suffix", ["ini", "toml", "yaml"])
+def test_write_parameters_conversion(suffix, tmp_path):
+    parameters = {
+        "hmap_ncfile": Path("../hmap.nc"),
+        "nfp": np.int64(3),
+        "iota": {
+            "coefs": np.array([0.5, 0.1, 0.01]),
+        },
+        "X1_mn_max": (1, 2),
+        "X2_mn_max": [1, 2],
+    }
+
+    target = tmp_path / f"parameter-converted.{suffix}"
+    util.write_parameters(parameters, target)
+    roundtrip = util.read_parameters(target)
+
+    assert isinstance(roundtrip, util.CaseInsensitiveDict)
+    assert set(roundtrip.keys()) == set(parameters.keys())
+    assert roundtrip["hmap_ncfile"] == str(parameters["hmap_ncfile"])
+    assert roundtrip["nfp"] == int(parameters["nfp"])
+    assert np.allclose(roundtrip["iota"]["coefs"], parameters["iota"]["coefs"])
+    if suffix == "ini":
+        assert roundtrip["X1_mn_max"] == tuple(parameters["X1_mn_max"])
+        assert roundtrip["X2_mn_max"] == tuple(parameters["X2_mn_max"])
+    else:
+        assert roundtrip["X1_mn_max"] == list(parameters["X1_mn_max"])
+        assert roundtrip["X2_mn_max"] == list(parameters["X2_mn_max"])
 
 
 @pytest.mark.parametrize(
