@@ -29,7 +29,6 @@ AUTO_STAGE_IOTA_INIT_MAXITER = 10
 AUTO_STAGE_IOTA_INIT_IOTA_TOL = 1e-3
 AUTO_PICARD_CURRENT_IOTA_TOL = 1e-5
 AUTO_PICARD_CURRENT_IOTA_TOL_TARGET = 1e-8  # least-squares fit: limited to single precision!
-AUTO_RAMP_NELEMS_MIN = 2
 AUTO_MINIMIZE_TOL_MIN = 1e-3
 DEFAULT_PICARD_CURRENT_MAXRESTARTS = 50
 DIAGNOSTICS_NPOINTS = 256 + 1
@@ -224,9 +223,8 @@ class Run:
             self.stages = self.parameters["stages"]
             del self.parameters["stages"]
         else:
-            ramp_elems = state is None  # only ramp radial elements if not restarting
             self.parameters, self.stages = auto_generate_stages(
-                self.parameters, self.curr_constraint, ramp_elems
+                self.parameters, self.curr_constraint
             )
             self.logger.info(f"... generated {len(self.stages)} stages.")
 
@@ -679,6 +677,21 @@ class Run:
             self._set_params_for_stage(stage)
             self.knots_per_sgrid_element = IOTA_KNOTS_PER_ELEMENT_MIN
 
+            M1, N1 = self._state_parameters["X1_mn_max"]
+            M2, N2 = self._state_parameters["X2_mn_max"]
+            Ml, Nl = self._state_parameters["LA_mn_max"]
+            K = self._state_parameters["sgrid"]["nelems"]
+            if (M1 == M2 == Ml) and (N1 == N2 == Nl):
+                hM, hN, hK = compute_hfactor(M1, N1, K)
+                self.logger.info(f"h-factors: pol={hM:.2e}, tor={hN:.2e}, rad={hK:.2e}")
+            else:
+                hM1, hN1, hK1 = compute_hfactor(M1, N1, K)
+                hM2, hN2, _ = compute_hfactor(M2, N2, K)
+                hMl, hNl, _ = compute_hfactor(Ml, Nl, K)
+                self.logger.info(
+                    f"h-factors: pol(X1)={hM1:.2e}, pol(X2)={hM2:.2e}, pol(LA)={hMl:.2e}, tor(X1)={hN1:.2e}, tor(X2)={hN2:.2e}, tor(LA)={hNl:.2e}, rad={hK1:.2e}"
+                )
+
             # run the stage
             if self.curr_constraint:
                 if self._state_parameters["picard_current"] == "auto":
@@ -1072,22 +1085,14 @@ class Run:
         return fig
 
 
-def auto_generate_stages(parameters: cidict, Itor: bool, ramp_nelems: bool = True):
+def auto_generate_stages(parameters: cidict, Itor: bool):
     target_minimize_tol = parameters.get("minimize_tol", DEFAULT_MINIMIZE_TOL)
-    try:
-        target_sgrid_nelems = parameters["sgrid"]["nelems"]
-    except KeyError:
-        raise gvec.errors.MissingParameterError("Missing mandatory parameter 'sgrid.nelems'.")
-    if target_sgrid_nelems <= AUTO_RAMP_NELEMS_MIN:
-        ramp_nelems = False
     stages = []
 
     if Itor:
         parameters["picard_current"] = dict(
             iota_tol=AUTO_PICARD_CURRENT_IOTA_TOL,
         )
-    if ramp_nelems:
-        parameters["sgrid"]["nelems"] = AUTO_RAMP_NELEMS_MIN
 
     # initial stage
     stages.append(cidict(maxIter=0, init_LA=parameters.get("init_LA", True)))
@@ -1128,24 +1133,6 @@ def auto_generate_stages(parameters: cidict, Itor: bool, ramp_nelems: bool = Tru
         )
     # final minimize_tol
     stages.append(cidict())
-
-    # ramp up sgrid.nelems
-    if ramp_nelems:
-        sgrid_nelems_seq = (
-            2 ** np.arange(np.log2(AUTO_RAMP_NELEMS_MIN), np.log2(target_sgrid_nelems))
-        ).astype(int)
-        for sgrid_nelems in sgrid_nelems_seq:
-            stages.append(
-                cidict(
-                    sgrid=cidict(nelems=sgrid_nelems),
-                )
-            )
-        # final sgrid.nelems
-        stages.append(
-            cidict(
-                sgrid=cidict(nelems=target_sgrid_nelems),
-            )
-        )
 
     # set iota_tol in final stage
     if Itor:
@@ -1234,6 +1221,13 @@ def _evaluate_extrapolate_in_rho2(state, *Qs, rho, theta, zeta):
         if "rad" in ev[q].dims:
             ev[q].loc[dict(rho=0.0)] = on_axis[q]
     return ev
+
+
+def compute_hfactor(M, N, K):
+    hM = 2 * np.pi / (2 * M + 1)
+    hN = 2 * np.pi / (2 * N + 1)
+    hK = 1.0 / K
+    return hM, hN, hK
 
 
 def fortran_run(
