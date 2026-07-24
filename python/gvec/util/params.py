@@ -686,6 +686,8 @@ def format_toml(parameters: CaseInsensitiveDict):
                     value = parameters[key]
                     if isinstance(value, CaseInsensitiveDict):
                         value = value.serialize()
+                    elif isinstance(value, Path):
+                        value = str(value)
                     doc[key] = value
             doc.add(nl())
 
