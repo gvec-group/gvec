@@ -495,13 +495,13 @@ def load_quasr(
         If configuration is a string or Path, specifies the boundary file format.
         Either a netCDF file containing boundary data or a SIMSOPT JSON file of the boundary (e.g. QUASR configuration).
     tol : float, optional
-        _description_, by default 1e-8
+        Tolerance for determining minimal necessary (M, N) for the output Fourier modes of X1,X2, by default 1e-8
     nt : int, optional
-        _description_, by default 81
+        Number of theta points, by default 81
     nz : int, optional
-        _description_, by default 81
+        Number of zeta points, by default 81
     quiet : bool, optional
-        _description_, by default True
+        Supressed logging, by default True
     verbose : int, optional
         verbosity level: 1 for info, 2 for debug, by default 0
     name : str, optional
@@ -537,7 +537,7 @@ def load_quasr(
         logging_setup()
         logger = logging.getLogger(__name__)
     if quiet:
-        logging.disable()
+        logger.disabled = True
     elif verbose >= 2:
         logger.setLevel(logging.DEBUG)
     elif verbose == 1:
