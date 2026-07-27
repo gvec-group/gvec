@@ -1116,8 +1116,8 @@ def auto_generate_stages(parameters: cidict, Itor: bool):
     if Itor:
         stages[0]["picard_current"] = "off"
 
-    # iota initialization stage
     if Itor:
+        # iota initialization stage
         stages.append(
             cidict(
                 minimize_tol=AUTO_MINIMIZE_TOL_MIN,
@@ -1129,24 +1129,26 @@ def auto_generate_stages(parameters: cidict, Itor: bool):
             )
         )
 
-    # ramp up minimize_tol
-    minimize_tol_seq = 10 ** np.arange(
-        np.log10(AUTO_MINIMIZE_TOL_MIN), np.log10(target_minimize_tol), -1
-    )
-    for minimize_tol in minimize_tol_seq:
+        # ramp up minimize_tol
+        minimize_tol_seq = 10 ** np.arange(
+            np.log10(AUTO_MINIMIZE_TOL_MIN), np.log10(target_minimize_tol), -1
+        )
+        for minimize_tol in minimize_tol_seq:
+            stages.append(
+                cidict(
+                    minimize_tol=minimize_tol,
+                )
+            )
+        # final minimize_tol & final iota_tol
         stages.append(
             cidict(
-                minimize_tol=minimize_tol,
+                picard_current=cidict(
+                    iota_tol=AUTO_PICARD_CURRENT_IOTA_TOL_TARGET,
+                )
             )
         )
-    # final minimize_tol
-    stages.append(cidict())
-
-    # set iota_tol in final stage
-    if Itor:
-        stages[-1]["picard_current"] = cidict(
-            iota_tol=AUTO_PICARD_CURRENT_IOTA_TOL_TARGET,
-        )
+    else:
+        stages.append(cidict())
     return parameters, stages
 
 
