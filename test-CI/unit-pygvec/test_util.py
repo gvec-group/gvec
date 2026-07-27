@@ -73,37 +73,81 @@ def test_copy_test_CaseInsensitiveDict():
     recursive_is_not(cid_copy, cid)
 
 
-def test_serialize_CaseInsensitiveDict():
-    """Verify CaseInsensitiveDict.serialize converts numpy scalars/0D arrays and iterables."""
+def test_serialize():
+    """Verify serialize() converts numpy scalars/0D arrays and iterables."""
     cid = util.CaseInsensitiveDict(
         a=np.int64(1),
         b=np.array(2),
         c=[np.float64(3.5), np.array(4)],
         nested=util.CaseInsensitiveDict(X=np.array(5)),
         tuple_iter=(1, 2),
+        p=Path("test"),
+        l=True,
+        s="foo",
+        f=np.float64(3.14),
     )
 
-    serialized = cid.serialize()
+    serialized = util.serialize(cid)
 
     # Top-level must be a plain dict-like mapping
-    assert isinstance(serialized, dict)
+    assert type(serialized) is dict
 
     # Numeric conversions
-    assert serialized["a"] == 1 and isinstance(serialized["a"], int)
-    assert serialized["b"] == 2 and isinstance(serialized["b"], int)
+    assert serialized["a"] == 1 and type(serialized["a"]) is int
+    assert serialized["b"] == 2 and type(serialized["b"]) is int
+    assert serialized["f"] == 3.14 and type(serialized["f"]) is float
 
     # Iterable and 0D conversions
-    assert isinstance(serialized["c"], list)
+    assert type(serialized["c"]) is list
     assert serialized["c"][0] == 3.5
     assert serialized["c"][1] == 4
 
     # Nested mapping becomes plain dict-like structure
-    assert isinstance(serialized["nested"], dict)
+    assert type(serialized["nested"]) is dict
     assert serialized["nested"]["X"] == 5
 
     # Tuples become lists
-    assert isinstance(serialized["tuple_iter"], list)
+    assert type(serialized["tuple_iter"]) is list
     assert serialized["tuple_iter"] == [1, 2]
+
+    # Path objects become strings
+    assert type(serialized["p"]) is str
+    assert serialized["p"] == "test"
+
+    # Boolean and string values remain unchanged
+    assert serialized["l"] is True
+    assert serialized["s"] == "foo"
+
+
+def test_recursive_CaseInsensitiveDict():
+    """Verify recursive() converts nested dicts to CaseInsensitiveDict."""
+    nested_dict = {
+        "A": 1,
+        "b": {"C": 2, "d": {"E": 3}},
+        "f": [4, 5],
+        "ar": np.array([6, 0.5]),
+        "l": True,
+    }
+
+    cid = util.CaseInsensitiveDict.recursive(nested_dict)
+
+    # Top-level must be a CaseInsensitiveDict
+    assert isinstance(cid, util.CaseInsensitiveDict)
+
+    # Nested dicts must also be CaseInsensitiveDict
+    assert isinstance(cid["b"], util.CaseInsensitiveDict)
+    assert isinstance(cid["b"]["d"], util.CaseInsensitiveDict)
+
+    # Values should remain unchanged
+    assert cid["A"] == 1
+    assert cid["b"]["C"] == 2
+    assert cid["b"]["d"]["E"] == 3
+    assert cid["f"] == [4, 5]
+    assert cid["l"] is True
+
+    # but arrays are converted to lists
+    assert isinstance(cid["ar"], list)
+    assert cid["ar"] == [6, 0.5]
 
 
 def test_stringify_mn():
@@ -129,7 +173,7 @@ def test_stringify_mn():
         assert k in bucket
 
     # After serialization, values should be plain Python scalars
-    serialized = stringified.serialize()
+    serialized = util.serialize(stringified)
     for m, n in [(0, 1), (1, 2)]:
         key = f"({m}, {n:2d})"
         assert isinstance(serialized["X1_b_cos"][key], (int, float))
@@ -207,6 +251,37 @@ def test_read_write_parameters_full(suffix, tmp_path):
 
     assert isinstance(roundtrip, util.CaseInsensitiveDict)
     assert roundtrip == parameters
+
+
+@pytest.mark.parametrize("suffix", ["ini", "toml", "yaml"])
+def test_write_parameters_conversion(suffix, tmp_path):
+    parameters = {
+        "hmap_ncfile": Path("../hmap.nc"),
+        "nfp": np.int64(3),
+        "iota": {
+            "coefs": np.array([0.5, 0.1, 0.01]),
+        },
+        "X1_mn_max": (1, 2),
+        "X2_mn_max": [1, 2],
+        "init_average_axis": True,
+    }
+
+    target = tmp_path / f"parameter-converted.{suffix}"
+    util.write_parameters(parameters, target)
+    roundtrip = util.read_parameters(target)
+
+    assert isinstance(roundtrip, util.CaseInsensitiveDict)
+    assert set(roundtrip.keys()) == set(parameters.keys())
+    assert roundtrip["hmap_ncfile"] == str(parameters["hmap_ncfile"])
+    assert roundtrip["nfp"] == int(parameters["nfp"])
+    assert np.allclose(roundtrip["iota"]["coefs"], parameters["iota"]["coefs"])
+    assert roundtrip["init_average_axis"] is parameters["init_average_axis"]
+    if suffix == "ini":
+        assert roundtrip["X1_mn_max"] == tuple(parameters["X1_mn_max"])
+        assert roundtrip["X2_mn_max"] == tuple(parameters["X2_mn_max"])
+    else:
+        assert roundtrip["X1_mn_max"] == list(parameters["X1_mn_max"])
+        assert roundtrip["X2_mn_max"] == list(parameters["X2_mn_max"])
 
 
 @pytest.mark.parametrize(

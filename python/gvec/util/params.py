@@ -3,9 +3,11 @@
 import re
 import shutil
 from collections.abc import Iterable, Mapping, MutableMapping
+from numbers import Integral, Real
 from copy import deepcopy
 from pathlib import Path
 from typing import Literal
+import warnings
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -54,6 +56,16 @@ class CaseInsensitiveDict(MutableMapping):
         self._data = {}
         self.update(data, **kwargs)
 
+    @classmethod
+    def recursive(cls, data):
+        """Recursively convert a mapping to a CaseInsensitiveDict. Also converts iterables to lists."""
+        if isinstance(data, Mapping):
+            return cls({k: cls.recursive(v) for k, v in data.items()})
+        elif isinstance(data, Iterable) and not isinstance(data, str):
+            return [cls.recursive(v) for v in data]
+        else:
+            return data
+
     @staticmethod
     def _idx(key):
         return key.lower() if isinstance(key, str) else key
@@ -98,21 +110,16 @@ class CaseInsensitiveDict(MutableMapping):
         return dict(self.lower_items()) == dict(other.lower_items())
 
     def serialize(self):
-        """Recursively serialize this object, converting Mappings to dicts and Iterables to lists."""
+        """Recursively serialize this object, converting Mappings to dicts and Iterables to lists.
 
-        def _serialize(value):
-            if isinstance(value, Mapping):
-                return {k: _serialize(v) for k, v in value.items()}
-            elif isinstance(value, np.ndarray) and value.ndim == 0:
-                return value.item()
-            elif isinstance(value, Iterable) and not isinstance(value, str):
-                return [_serialize(v) for v in value]
-            elif isinstance(value, np.number):
-                return value.item()
-            else:
-                return value
+        Deprecated: Use the standalone ``serialize`` function instead.
+        """
+        warnings.warn(
+            "CaseInsensitiveDict.serialize has been replaced with a standalone serialize",
+            DeprecationWarning,
+        )
 
-        return _serialize(self)
+        return serialize(self)
 
     def __repr__(self):
         return f"{self.__class__.__name__}{dict(self.items())}"
@@ -135,6 +142,49 @@ class CaseInsensitiveDict(MutableMapping):
             return NotImplemented
         self.update(other)
         return self
+
+
+def serialize(value):
+    """Recursively serialize a value.
+
+    Will try to convert to (dict, list, str, int, float, bool)."""
+
+    def mapping(v):
+        return {key: serialize(value) for key, value in v.items()}
+
+    def array(v):
+        return v.tolist()
+
+    def iterable(v):
+        return [serialize(value) for value in v]
+
+    def scalar(v):
+        return v.item()
+
+    # first try known types
+    match value:
+        case Mapping():
+            return mapping(value)
+        case np.ndarray():
+            return array(value)
+        case str() | bool():
+            return value
+        case Iterable():
+            return iterable(value)
+        case np.number():
+            return scalar(value)
+        case Integral():
+            return int(value)
+        case Real():
+            return float(value)
+
+    # try duck typing
+    for converter in [mapping, array, iterable, scalar, float, str]:
+        try:
+            return converter(value)
+        except (TypeError, AttributeError):
+            continue
+    raise TypeError(f"Cannot serialize value of type {type(value)}: {value}")
 
 
 def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
@@ -626,7 +676,6 @@ def write_parameters(
     path: Path | str = "parameter.ini",
     format: Literal["ini", "yaml", "toml"] | None = None,
 ):
-    import tomlkit
     import yaml
 
     path = Path(path)
@@ -640,9 +689,8 @@ def write_parameters(
     elif format == "yaml":
         outputs = stringify_mn_parameters(parameters)
         with open(path, "w") as file:
-            yaml.safe_dump(
-                outputs.serialize(), file, sort_keys=False
-            )  # ToDo: specify style/flow?
+            # ToDo: specify style/flow?
+            yaml.safe_dump(serialize(outputs), file, sort_keys=False)
     elif format == "toml":
         with open(path, "w") as file:
             doc = format_toml(parameters)
@@ -667,16 +715,20 @@ def format_toml(parameters: CaseInsensitiveDict):
         with ``doc.as_string()``.
     """
     from tomlkit import document, comment, nl, array, table, aot, key as toml_key
+    from tomlkit.exceptions import ConvertError
     from gvec._version import __version__
-
-    if isinstance(parameters, CaseInsensitiveDict):
-        parameters = parameters.serialize()
 
     def add_params(doc, keys, parameters):
         if any(key in parameters for key in keys):
             for key in keys:
                 if key in parameters:
-                    doc[key] = parameters[key]
+                    value = parameters[key]
+                    if isinstance(value, CaseInsensitiveDict):
+                        value = serialize(value)
+                    try:
+                        doc[key] = value
+                    except ConvertError as e:
+                        raise TypeError(f"Could not convert '{key}': '{value}' for TOML") from e
             doc.add(nl())
 
     def add_section(doc, section_name):
@@ -684,7 +736,8 @@ def format_toml(parameters: CaseInsensitiveDict):
         doc.add(comment(f"--- {section_name} --- #"))
         doc.add(nl())
 
-    parameters = stringify_mn_parameters(parameters)
+    parameters: dict = serialize(parameters)
+    parameters: CaseInsensitiveDict = stringify_mn_parameters(parameters)
 
     doc = document()
     doc.add(comment("GVEC parameter file"))
@@ -740,16 +793,16 @@ def format_toml(parameters: CaseInsensitiveDict):
     add_params(doc, OTHER_PARAMS, parameters)
 
     if "sgrid" in parameters:
-        doc["sgrid"] = parameters["sgrid"].serialize()
+        doc["sgrid"] = serialize(parameters["sgrid"])
 
     if "picard_current" in parameters and isinstance(parameters["picard_current"], Mapping):
-        doc["picard_current"] = parameters["picard_current"].serialize()
+        doc["picard_current"] = serialize(parameters["picard_current"])
 
     add_section(doc, "Profiles")
     for key in ["pres", "I_tor", "iota"]:
         if key in parameters:
             doc[key] = table()
-            for subkey, subvalue in parameters[key].serialize().items():
+            for subkey, subvalue in serialize(parameters[key]).items():
                 if isinstance(subvalue, list):
                     if len(subvalue) <= 8:
                         doc[key][subkey] = subvalue
@@ -768,7 +821,7 @@ def format_toml(parameters: CaseInsensitiveDict):
         doc["stages"] = aot()
         for stage in parameters["stages"]:
             flat = table()
-            for key, value in stage.serialize().items():
+            for key, value in serialize(stage).items():
                 if isinstance(value, Mapping):
                     for subkey, subvalue in value.items():
                         flat.append(toml_key([key, subkey]), subvalue)

@@ -78,7 +78,6 @@ parser.add_argument(
     action="count",
     help="plot diagnostics (-pp for additional plots)",
 )
-
 parser.add_argument(
     "-k",
     "--keep",
@@ -129,8 +128,9 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
     run_with_stages = gvec.run(
         parameters,
         restart,
-        quiet=args.quiet,
         redirect_gvec_stdout=args.verbose < 3,
+        quiet=args.quiet,
+        parameter_format=args.param_type if args.param_type != "ini" else "toml",
         keep_intermediates=keep_intermediates,
         loglevel=loglevel,
     )

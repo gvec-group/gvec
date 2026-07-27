@@ -159,6 +159,8 @@ mathjax3_config = {
             "Tw": r"\textrm{Tw}",
             "Lk": r"\textrm{Lk}",
             "bm": [r"\mathbf{#1}", 1],
+            "Itor": r"I_{\text{tor}}",
+            "Ipol": r"I_{\text{pol}}",
         },
     },
 }
