@@ -677,20 +677,7 @@ class Run:
             self._set_params_for_stage(stage)
             self.knots_per_sgrid_element = IOTA_KNOTS_PER_ELEMENT_MIN
 
-            M1, N1 = self._state_parameters["X1_mn_max"]
-            M2, N2 = self._state_parameters["X2_mn_max"]
-            Ml, Nl = self._state_parameters["LA_mn_max"]
-            K = self._state_parameters["sgrid"]["nelems"]
-            if (M1 == M2 == Ml) and (N1 == N2 == Nl):
-                hM, hN, hK = compute_hfactor(M1, N1, K)
-                self.logger.info(f"h-factors: pol={hM:.2e}, tor={hN:.2e}, rad={hK:.2e}")
-            else:
-                hM1, hN1, hK1 = compute_hfactor(M1, N1, K)
-                hM2, hN2, _ = compute_hfactor(M2, N2, K)
-                hMl, hNl, _ = compute_hfactor(Ml, Nl, K)
-                self.logger.info(
-                    f"h-factors: pol(X1)={hM1:.2e}, pol(X2)={hM2:.2e}, pol(LA)={hMl:.2e}, tor(X1)={hN1:.2e}, tor(X2)={hN2:.2e}, tor(LA)={hNl:.2e}, rad={hK1:.2e}"
-                )
+            self._log_hfactors()
 
             # run the stage
             if self.curr_constraint:
@@ -775,6 +762,27 @@ class Run:
 
         diagnostics = xr.merge([self.diagnostics_run, self.diagnostics_minimizer])
         return (self.state, diagnostics)
+
+    def _log_hfactors(self):
+        try:
+            M1, N1 = self._state_parameters["X1_mn_max"]
+            M2, N2 = self._state_parameters["X2_mn_max"]
+            Ml, Nl = self._state_parameters["LA_mn_max"]
+            K = self._state_parameters["sgrid"]["nelems"]
+            if (M1 == M2 == Ml) and (N1 == N2 == Nl):
+                hM, hN, hK = compute_hfactor(M1, N1, K)
+                self.logger.info(f"h-factors: pol={hM:.2e}, tor={hN:.2e}, rad={hK:.2e}")
+            else:
+                hM1, hN1, hK1 = compute_hfactor(M1, N1, K)
+                hM2, hN2, _ = compute_hfactor(M2, N2, K)
+                hMl, hNl, _ = compute_hfactor(Ml, Nl, K)
+                self.logger.info(
+                    f"h-factors: pol(X1)={hM1:.2e}, pol(X2)={hM2:.2e}, pol(LA)={hMl:.2e}, tor(X1)={hN1:.2e}, tor(X2)={hN2:.2e}, tor(LA)={hNl:.2e}, rad={hK1:.2e}"
+                )
+        except (KeyError, TypeError, ValueError):
+            self.logger.debug(
+                "Could not compute h-factors due to missing or invalid parameters."
+            )
 
     def _run_stage_target_iota(
         self,
