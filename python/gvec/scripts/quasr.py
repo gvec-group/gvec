@@ -74,6 +74,8 @@ from gvec.util import logging_setup, chdir, read_parameters, write_parameters
 from gvec import gframe, run, State
 from gvec.coils import Coil, CoilSet, trace_fieldlines, intersection_planes_from_state
 
+logger = logging.getLogger(__name__)
+
 # === Argument Parser === #
 
 parser = argparse.ArgumentParser(
@@ -473,8 +475,6 @@ def load_quasr(
     tol: float = 1e-8,
     nt: int = 81,
     nz: int = 81,
-    quiet: bool = True,
-    verbose: int = 0,
     name: str = None,
     save_boundary: bool = True,
     cutoff: int = -1,
@@ -482,7 +482,6 @@ def load_quasr(
     clean: int = 0,
     stellsym: bool = False,
     boundary_coefficients: bool = False,
-    logger: logging.Logger | None = None,
     which_surface: int = -1,
 ):
     """Load a QUASR configuration and convert it to a G-Frame and boundary for use with GVEC.
@@ -520,8 +519,6 @@ def load_quasr(
         If set, imposes stellarator symmetry for the input surface. Use this with great care! By default False
     boundary_coefficients : bool, optional
         Write the boundary data as fourier coefficients in the parameter file instead of points in the netCDF file.
-    logger : Logger | None, optional
-        If None a new logger will be created.
     which_surface : int, optional
         Which surface to select as the equilibrium boundary from the quasr-jason file.
         Deafault is the last one, i.e. `which_surface=-1`.
@@ -533,16 +530,6 @@ def load_quasr(
     dict_out : dict
         Dictionary containing the G-frame data.
     """
-    if logger is None:
-        logging_setup()
-        logger = logging.getLogger(__name__)
-    if quiet:
-        logger.disabled = True
-    elif verbose >= 2:
-        logger.setLevel(logging.DEBUG)
-    elif verbose == 1:
-        logger.setLevel(logging.INFO)
-
     if isinstance(configuration, int):
         filetype = "json"
         logger.info("Downloading QUASR configuration")
@@ -592,7 +579,6 @@ def load_quasr(
         impose_stell_symmetry=stellsym,
         boundary_coefficients=boundary_coefficients,
         cutoff_gframe=cutoff,
-        logger=logger,
     )
 
     return parameters_out, gframe_out
@@ -609,7 +595,6 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
     check_args(parser, args)
 
     logging_setup()
-    logger = logging.getLogger(__name__)
     if args.quiet:
         logging.disable()
     elif args.verbose >= 2:
@@ -639,8 +624,6 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         tol=args.tol,
         nt=args.nt,
         nz=args.nz,
-        quiet=args.quiet,
-        verbose=args.verbose,
         name=name,
         save_boundary=args.save_xyz,
         cutoff=args.cutoff,
@@ -648,7 +631,6 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         clean=args.clean,
         stellsym=args.stellsym,
         boundary_coefficients=args.boundary_coefficients,
-        logger=logger,
     )
 
 

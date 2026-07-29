@@ -13,8 +13,10 @@ import numpy as np
 import xarray as xr
 from scipy.optimize import root_scalar
 
-from gvec.util import logging_setup, write_parameters, linking_number, compute_FD
+from gvec.util import write_parameters, linking_number, logging_setup
 from gvec import fourier
+
+logger = logging.getLogger(__name__)
 
 
 def check_field_periodicity(xyz: np.ndarray, nfp: int, atol=1e-12):
@@ -728,7 +730,6 @@ def construct_gframe_from_surface(
     atol_field_periodicity: float = 1e-12,
     boundary_coefficients: bool = False,
     writeFiles: bool = True,
-    logger: logging.Logger | None = None,
 ):
     """
     Construct a G-Frame from a surface given by its cartesian points.
@@ -766,8 +767,6 @@ def construct_gframe_from_surface(
         Write the boundary data as fourier coefficients in the parameter file instead of pointing to the netCDF file.
     writeFiles : bool, optional
         If True, write the GVEC parameters to file and the G-frame data to netcdf file.
-    logger : logging.Logger, optional
-        Logger for logging messages. If None, a new logger is created.
 
     Returns
     -------
@@ -776,9 +775,8 @@ def construct_gframe_from_surface(
     dict_out : dict
         Dictionary containing the G-frame data.
     """
-    if logger is None:
-        logging_setup()
-        logger = logging.getLogger(__name__)
+
+    logging_setup()
 
     if not (xyz_in.shape[0] // nfp) * nfp == xyz_in.shape[0]:
         raise ValueError(
