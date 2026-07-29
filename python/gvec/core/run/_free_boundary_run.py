@@ -46,7 +46,7 @@ DEFAULT_XTOL = 1e-8
 DEFAULT_DIGITS_BIEST = 8
 DEFAULT_FB_TOLERANCE = 1e-8
 
-logger = logging.getLogger("gvec.free-boundary")
+logger = logging.getLogger("gvec.run.free_boundary")
 
 
 class FreeBoundaryRun(AbstractRun):
@@ -56,13 +56,14 @@ class FreeBoundaryRun(AbstractRun):
         coil_set: CoilSet | Coil,
         state: Path | State | None = None,
         redirect_gvec_stdout: bool = True,
-        quiet: bool = True,
+        quiet: bool = False,
         parameter_format: Literal["toml", "yaml"] = "toml",
+        save_fb_updates: bool = False,
     ):
         params["FreeBoundary"] = True
         super().__init__(params, state, redirect_gvec_stdout, quiet, parameter_format)
         self.coil_set = coil_set
-
+        self.save_fb_updates = save_fb_updates
         self.iters_used = 0
         self._resolved_force_ratio = 1.0
 
@@ -298,7 +299,7 @@ class FreeBoundaryRun(AbstractRun):
             "track_boundary_fields", False
         )
 
-        # starting tolerance fore the ramping
+        # starting tolerance for the ramping
         ramp_force_tol_start = self._state_parameters["free_boundary"].get(
             "ramp_force_tol_start", DEFAULT_FORCE_TOL_START
         )
@@ -346,15 +347,15 @@ class FreeBoundaryRun(AbstractRun):
 
             # find previous state
         if self.state.statefile:
-            self.logger.debug(f"Restart from statefile {self.state.statefile}")
+            logger.debug(f"Restart from statefile {self.state.statefile}")
 
         # prepare the run directory
         self.rundir = self.project_dir / Path(f"stage-{self.nth_stage:1d}")
         if self.rundir.exists():
-            self.logger.debug(f"Removing existing run directory {self.rundir}")
+            logger.debug(f"Removing existing run directory {self.rundir}")
             shutil.rmtree(self.rundir)
         self.rundir.mkdir()
-        self.logger.debug(f"Created run directory {self.rundir}")
+        logger.debug(f"Created run directory {self.rundir}")
 
         write_parameter_file_ini(
             flatten_parameters(self._state_parameters),
@@ -485,13 +486,22 @@ class FreeBoundaryRun(AbstractRun):
                             iota_target=iota_tol,
                             minimize_tol=minimize_tol,
                             maxUpdates=self._state_parameters["picard_current"].get(
-                                "maxRestarts", 30
+                                "maxRestarts", DEFAULT_PICARD_CURRENT_MAXRESTARTS
                             ),
                             target=self._state_parameters["picard_current"].get(
                                 "target", "auto"
                             ),
+                            I_tor=self.I_tor_target if self.curr_constraint else None,
+                            reset_LA=self._state_parameters["picard_current"].get(
+                                "reset_LA", None
+                            ),
+                            n_iota_rhos=self._state_parameters["picard_current"].get(
+                                "nPoints", DEFAULT_N_IOTA_RHOS
+                            ),
                         )
 
+                        if self.save_fb_updates:
+                            self.state.save()
                         # NOTE: always use self consistent I_tor
                         self.I_tor_boundary = (
                             self.state.evaluate("I_tor", rho=1.0).squeeze()["I_tor"].item()

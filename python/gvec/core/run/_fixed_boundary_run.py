@@ -27,7 +27,7 @@ class FixedBoundaryRun(AbstractRun):
         params: Mapping,
         state: Path | State | None = None,
         redirect_gvec_stdout: bool = True,
-        quiet: bool = True,
+        quiet: bool = False,
         parameter_format: Literal["toml", "yaml"] = "toml",
     ):
         """

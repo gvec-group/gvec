@@ -128,18 +128,23 @@ def _minimize_single_current_constraint(
     delta_iota = np.inf
     delta_iota_over_run = []
     iters_per_run = []
+    if "logfinaliter" in kwargs_minimize:
+        logfinaliter = kwargs_minimize["logfinaliter"]
+        del kwargs_minimize["logfinaliter"]
+    else:
+        logfinaliter = False
 
     while (rms_iota > iota_tol) and (iters_used < maxIter):
         if nth_update + 1 > maxUpdates:
             logger.warning("Maximum number of iota updates reached reached!")
             break
         self._minimize(
-            logfinaliter=False,
+            logfinaliter=logfinaliter,
             maxIter=min(maxIter - iters_used, maxIter_per_update),
             minimize_tol=minimize_tol,
             **kwargs_minimize,
         )
-        new_iota, new_rho2, rms_iota, delta_iota = self._get_new_iota()
+        new_iota, new_rho2, rms_iota, delta_iota = _get_new_iota(self)
 
         # only reset LA at the start
         if iters_used > 0:

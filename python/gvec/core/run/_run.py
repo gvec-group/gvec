@@ -22,7 +22,7 @@ def run(
     redirect_gvec_stdout: bool = True,
     quiet: bool = False,
     parameter_format: Literal["toml", "yaml"] = "toml",
-    keep_intermediates: Literal["all", "stages"] | None = None,
+    keep_intermediates: Literal["all", "stages", "all"] | None = None,
     loglevel: Literal["WARNING", "INFO", "DEBUG"] | None = None,
 ):
     """Run GVEC with the provided parameters.
@@ -42,7 +42,7 @@ def run(
         Whether to suppress all output. The default is False.
     parameter_format : Literal["toml", "yaml"], optional
         Format of the parameter file automatically generated if `picard_current="auto"`, by default "toml"
-    keep_intermediates : Literal["all", "stages"] | None, optional
+    keep_intermediates : Literal["all", "stages", "all"] | None, optional
         Whether to keep intermediate results of GVEC. With `"all"`, all intermediate results are kept. With `"stages"`,
         only the final restarts from each stage are kept. With `None`, all intermediate results are deleted. The default is None.
     loglevel : Literal["WARNING", "INFO", "DEBUG"] | None, optional
@@ -116,6 +116,10 @@ def run(
     with gvec.util.chdir(runpath):
         if do_free_boundary:
             logger.info("Initializing free-boundary run")
+            if keep_intermediates == "all":
+                save_fb_updates = True
+            else:
+                save_fb_updates = False
             run_instance = FreeBoundaryRun(
                 params=params,
                 coil_set=coil_set,
@@ -123,6 +127,7 @@ def run(
                 redirect_gvec_stdout=redirect_gvec_stdout,
                 quiet=quiet,
                 parameter_format=parameter_format,
+                save_fb_updates=save_fb_updates,
             )
         else:
             logger.info("Initializing fixed-boundary run")
