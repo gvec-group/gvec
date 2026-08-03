@@ -730,6 +730,7 @@ def construct_gframe_from_surface(
     atol_field_periodicity: float = 1e-12,
     boundary_coefficients: bool = False,
     writeFiles: bool = True,
+    loglevel: Literal["WARNING", "INFO", "DEBUG"] | None = None,
 ):
     """
     Construct a G-Frame from a surface given by its cartesian points.
@@ -767,6 +768,8 @@ def construct_gframe_from_surface(
         Write the boundary data as fourier coefficients in the parameter file instead of pointing to the netCDF file.
     writeFiles : bool, optional
         If True, write the GVEC parameters to file and the G-frame data to netcdf file.
+    loglevel : Literal["WARNING", "INFO", "DEBUG"] | None, optional
+        Set the loglevel for the gvec logger.
 
     Returns
     -------
@@ -777,6 +780,8 @@ def construct_gframe_from_surface(
     """
 
     logging_setup()
+    if loglevel is not None:
+        logger.setLevel(loglevel)
 
     if not (xyz_in.shape[0] // nfp) * nfp == xyz_in.shape[0]:
         raise ValueError(
