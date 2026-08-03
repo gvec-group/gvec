@@ -33,6 +33,7 @@ from .geometry import (
 )
 from .params import (
     CaseInsensitiveDict,
+    serialize,
     adapt_parameter_file,
     bspl2gvec,  # should probably be moved
     flatten_parameters,

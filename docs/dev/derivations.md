@@ -236,6 +236,58 @@ where we find $E_\text{eff}$ from the value of $\tilde{C}$ using the Newton-Raph
 
 $\Rightarrow$ `V`, `A_surface`, `L_axis`, `r_minor`, `r_major`, `aspect_ratio`, `elongation`
 
+## Toroidal current profile
+
+$$
+\Itor(\rho) := \int_{\partial\zeta(\rho)} \dd{\vec{x}_\zeta} \cdot \vec{J}
+$$
+
+where $\dd{\vec{x}_\zeta}$ is the surface normal vector
+
+$$
+\dd{\vec{x}}_\zeta = \dd{\rho}\dd{\vartheta} \pdv{\vec{x}}{\rho} \times \pdv{\vec{x}}{\vartheta}. \\
+$$
+
+Then
+
+$$
+\begin{align}
+\Itor(\rho) &= \int_0^{\rho} \dd{\rho} \int_0^{2\pi} \dd{\vartheta} \pdv{\vec{x}}{\rho} \times \pdv{\vec{x}}{\vartheta} \cdot \vec{J} \\
+\Itor(\rho) &= \int_0^{\rho} \dd{\rho} \int_0^{2\pi} \dd{\vartheta} \Jac \vec{e}^\zeta \cdot \vec{J} \\
+\Itor(\rho) &= \int_0^{\rho} \dd{\rho} \int_0^{2\pi} \dd{\vartheta} \Jac J^\zeta \\
+\Itor(\rho) &= \int_0^{\rho} \dd{\rho} \int_0^{2\pi} \dd{\vartheta} \Jac \frac{1}{\mu_0 \Jac} \qty(\pdv{B_\vartheta}{\rho} - \pdv{B_\rho}{\vartheta}) \\
+\Itor(\rho) &= \frac{1}{\mu_0} \eval{\int_0^{2\pi} \dd{\vartheta} B_\vartheta}_{\rho=0}^\rho - \frac{1}{\mu_0} \cancel{\eval{\int_0^{\rho} \dd{\rho} B_\rho}_{\vartheta=0}^{2\pi}} \\
+\Itor(\rho) &= \frac{1}{2\pi\mu_0} \eval{\int_0^{2\pi} \dd{\vartheta} \int_0^{2\pi} \dd{\zeta} B_\vartheta}_{\rho=0}^\rho \\
+\Itor(\rho) &= \frac{1}{2\pi\mu_0} \langle B_\vartheta \rangle (\rho).
+\end{align}
+$$
+
+## Poloidal current profile
+
+$$
+\Ipol(\rho) := \int_{\partial\theta(\rho)} \dd{\vec{x}_\theta} \cdot \vec{J}
+$$
+
+where $\dd{\vec{x}_\theta}$ is the surface normal vector
+
+$$
+\dd{\vec{x}}_\theta = \dd{\rho}\dd{\vartheta} \pdv{\vec{x}}{\rho} \times \pdv{\vec{x}}{\vartheta}.
+$$
+
+Then
+
+$$
+\begin{align}
+\Ipol(\rho) &= \int_0^{\rho} \dd{\rho} \int_0^{2\pi} \dd{\zeta} \pdv{\vec{x}}{\zeta} \times \pdv{\vec{x}}{\rho} \cdot \vec{J} \\
+\Ipol(\rho) &= \int_0^{\rho} \dd{\rho} \int_0^{2\pi} \dd{\zeta} \Jac \vec{e}^\vartheta \cdot \vec{J} \\
+\Ipol(\rho) &= \int_0^{\rho} \dd{\rho} \int_0^{2\pi} \dd{\zeta} \Jac J^\vartheta \\
+\Ipol(\rho) &= \int_0^{\rho} \dd{\rho} \int_0^{2\pi} \dd{\zeta} \Jac \frac{1}{\mu_0 \Jac} \qty(\pdv{B_\rho}{\zeta} - \pdv{B_\zeta}{\rho}) \\
+\Ipol(\rho) &= \frac{1}{\mu_0} \cancel{\eval{\int_0^\rho \dd{\rho} B_\rho}_{\zeta=0}^{2\pi}} - \frac{1}{\mu_0} \eval{\int_0^{2\pi} \dd{\zeta} B_\zeta}_{\rho=0}^\rho \\
+\Ipol(\rho) &= - \frac{1}{2\pi\mu_0} \eval{\int_0^{2\pi} \dd{\vartheta} \int_0^{2\pi} \dd{\zeta} B_\zeta}_{\rho=0}^\rho \\
+\Ipol(\rho) &= \frac{1}{2\pi\mu_0} \qty( \langle B_\zeta \rangle (\rho=0) - \langle B_\zeta \rangle (\rho) ).
+\end{align}
+$$
+
 ## Vacuum magnetic well depth
 
 We define the *vacuum magnetic well depth* as
@@ -263,12 +315,12 @@ where a positive value of $D_\text{Merc}$ indicates stability and
 $$
 \begin{align}
 D_\text{M,Shear} &= \frac{1}{16\pi^2} \pqty{\dv{\iota}{\Phi}}^2 \\
-D_\text{M,Curr} &= -\frac{s_G}{\pqty{2\pi}^4} \dv{\iota}{\Phi} \int\dd S \frac{\vec{\Xi} \cdot \vec{B}}{\abs{\grad\Phi}^3} \\
-D_\text{M,Well} &= \frac{\mu_0}{\pqty{2\pi}^6} \dv{p}{\Phi} \pqty{s_\Phi \dv[2]{V}{\Phi} - \mu_0 \dv{p}{\Phi} \int dS \frac{1}{\modB^2 \abs{\grad\Phi}}}\int\dd S \frac{\modB^2}{\abs{\grad\Phi}^3} \\
+D_\text{M,Curr} &= -\frac{s_G}{\pqty{2\pi}^4} \dv{\iota}{\Phi} \int\dd{S} \frac{\vec{\Xi} \cdot \vec{B}}{\abs{\grad\Phi}^3} \\
+D_\text{M,Well} &= \frac{\mu_0}{\pqty{2\pi}^6} \dv{p}{\Phi} \pqty{s_\Phi \dv[2]{V}{\Phi} - \mu_0 \dv{p}{\Phi} \int dS \frac{1}{\modB^2 \abs{\grad\Phi}}}\int\dd{S} \frac{\modB^2}{\abs{\grad\Phi}^3} \\
 D_\text{M,Geod} &= \frac{1}{\pqty{2\pi}^6} \bqty{
-    \pqty{\int\dd S \frac{\mu_0 \vec{J}\cdot\vec{B}}{\abs{\grad\Phi}^3}}^2
-   -\pqty{\int\dd S \frac{\modB^2}{\abs{\grad\Phi}^3}}
-    \pqty{\int\dd S \frac{\pqty{\mu_0 \vec{J}\cdot\vec{B}}^2}{\modB^2 \abs{\grad\Phi}^3}}
+    \pqty{\int\dd{S} \frac{\mu_0 \vec{J}\cdot\vec{B}}{\abs{\grad\Phi}^3}}^2
+   -\pqty{\int\dd{S} \frac{\modB^2}{\abs{\grad\Phi}^3}}
+    \pqty{\int\dd{S} \frac{\pqty{\mu_0 \vec{J}\cdot\vec{B}}^2}{\modB^2 \abs{\grad\Phi}^3}}
 } \\
 \end{align}
 $$
@@ -279,7 +331,7 @@ $$
 \begin{align}
 s_G &= \text{sgn}{\langle B_\zeta \rangle} \\
 s_\Phi &= \text{sgn}{\Phi} \\
-\dd S &= \abs{\grad\rho} \abs{\Jac} \dd\theta \dd\zeta = \abs{\vec{e}_\theta \times \vec{e}_\zeta} \dd\theta \dd\zeta\\
+\dd{S} &= \abs{\grad\rho} \abs{\Jac} \dd{\theta} \dd{\zeta} = \abs{\vec{e}_\theta \times \vec{e}_\zeta} \dd{\theta} \dd{\zeta} \\
 \vec{\Xi} &= \mu_0 \vec{J} - \dv{\aqty{B_\theta}}{\Phi} \vec{B} \\
 \frac{\vec{\Xi} \cdot \vec{B}}{\abs{\grad\Phi}^3} &= \frac{\mu_0 \vec{J}\cdot\vec{B}}{\abs{\grad\Phi}^3} - \dv{\aqty{B_\theta}}{\Phi} \frac{\modB^2}{\abs{\grad\Phi}^3} \\
 \grad\Phi &= \dv{\Phi}{\rho} \grad\rho \\
