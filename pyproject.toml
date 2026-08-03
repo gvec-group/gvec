@@ -64,6 +64,7 @@ Issues = "https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/issues"
 
 [project.optional-dependencies]
 dev = ["pytest"]
+free_boundary = ["fbtools @ git+https://gitlab.mpcdf.mpg.de/nmpp-mhd-group/fhindenlang/fbtools.git"]
 examples = ["jupyter", "ipywidgets", "ipympl", "simsopt", "nbformat", "plotly<6.0"]
 
 [project.scripts]
