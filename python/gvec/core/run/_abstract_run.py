@@ -120,9 +120,11 @@ class AbstractRun(ABC):
 
         if "stages" in self.parameters:
             self.stages = self.parameters["stages"]
+            self._has_initial_stage = False
             del self.parameters["stages"]
         else:
             # initial stage
+            self._has_initial_stage = True
             self.stages = [cidict()]
             self.stages[0]["maxIter"] = 0
             self.stages[0]["init_LA"] = self.parameters.get("init_LA", True)

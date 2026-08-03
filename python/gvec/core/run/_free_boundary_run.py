@@ -69,7 +69,8 @@ class FreeBoundaryRun(AbstractRun):
 
         self.m_max, self.n_max = self.state.get_mn_max()
 
-        self.stages[0]["free_boundary"] = {"updates": 0}
+        if self._has_initial_stage:
+            self.stages[0]["free_boundary"] = {"updates": 0}
 
     def _allocate_diagnostics(self, track_boundary_fields: bool):
         """Setup the diagnostics dataset."""
@@ -185,10 +186,8 @@ class FreeBoundaryRun(AbstractRun):
         self.track_boundary_fields = track_boundary_fields
         self.diagnostics_stage[f"stage_{self.nth_stage}"] = diagnostics
 
-    def _update_force_ratio(self, iteration):
-        force_balance_ds = self.diagnostics_stage[f"stage_{self.nth_stage}"].dataset.isel(
-            iteration=iteration
-        )
+    def _update_force_ratio(self, diag_aux, iteration):
+        force_balance_ds = diag_aux.dataset.isel(iteration=iteration)
         force_balance_ds["N_FP"] = self.state.nfp
         fourier_force_balance = ev2ft(force_balance_ds[["N_FP", "force_balance"]])
         cut_fb = fourier_force_balance.where(
@@ -203,7 +202,6 @@ class FreeBoundaryRun(AbstractRun):
             cut_fb.force_balance_mnc**2
         ).sum().item()
         self._resolved_force_ratio = cut_force / full_force
-        self.diagnostics_stage[f"stage_{self.nth_stage}"] = force_balance_ds
 
     def _update_diagnostics(
         self,
@@ -253,7 +251,7 @@ class FreeBoundaryRun(AbstractRun):
 
         diag_aux.dt[iteration] = dt
         self.free_boundary_target = free_boundary_target.item()
-        self._update_force_ratio(iteration)
+        self._update_force_ratio(diag_aux, iteration)
         diag_aux.resolved_force_ratio[iteration] = self._resolved_force_ratio
 
         diag_aux.boundary_forces[:, iteration] = self.state._get_boundary_forces()[2]
@@ -375,6 +373,7 @@ class FreeBoundaryRun(AbstractRun):
             iota_tol = self._state_parameters["picard_current"].get(
                 "iota_tol", AUTO_IOTA_TARGET
             )
+            self.m_max, self.n_max = self.state.get_mn_max()
 
             self.state.minimize(
                 iota_target=iota_tol,
@@ -394,9 +393,12 @@ class FreeBoundaryRun(AbstractRun):
             self.iters_used = self.state.get_iterations()
 
             # NOTE: always use self-consistent I_tor values
-            self.I_tor_boundary = (
-                self.state.evaluate("I_tor", rho=1.0).squeeze()["I_tor"].item()
-            )
+            if self.curr_constraint:
+                self.I_tor_boundary = self.I_tor_target(1.0)
+            else:
+                self.I_tor_boundary = (
+                    self.state.evaluate("I_tor", rho=1.0).squeeze()["I_tor"].item()
+                )
 
             # Call to BIEST
             (B2, B_plas_ext, B_coils, B_ext_2) = _get_B2_fp(
@@ -503,9 +505,12 @@ class FreeBoundaryRun(AbstractRun):
                         if self.save_fb_updates:
                             self.state.save()
                         # NOTE: always use self consistent I_tor
-                        self.I_tor_boundary = (
-                            self.state.evaluate("I_tor", rho=1.0).squeeze()["I_tor"].item()
-                        )
+                        if self.curr_constraint:
+                            self.I_tor_boundary = self.I_tor_target(1.0)
+                        else:
+                            self.I_tor_boundary = (
+                                self.state.evaluate("I_tor", rho=1.0).squeeze()["I_tor"].item()
+                            )
 
                         # Call to BIEST
                         (B2, B_plas_ext, B_coils, B_ext_2) = _get_B2_fp(
@@ -566,7 +571,8 @@ class FreeBoundaryRun(AbstractRun):
                 and self.free_boundary_target > free_boundary_tolerance
             ):
                 fb_aux = (
-                    self.diagnostics_stage.force_balance.isel(iteration=i)
+                    self.diagnostics_stage[f"stage_{self.nth_stage}"]
+                    .force_balance.isel(iteration=i - 1)
                     .squeeze()
                     .transpose("pol", "tor")
                 )
