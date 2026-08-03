@@ -25,6 +25,7 @@ quantities
 /tutorials/notebooks/052_gframe
 /tutorials/notebooks/060_coils
 /tutorials/notebooks/061_coils
+/tutorials/notebooks/070_free_boundary
 ```
 
 ```{toctree}
