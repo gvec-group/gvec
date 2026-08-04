@@ -12,6 +12,7 @@ These functions are registered with `compute.QUANTITIES` using the `@register` f
 """
 
 import logging
+import warnings
 
 import xarray as xr
 import numpy as np
@@ -1738,25 +1739,38 @@ def iota_avg2(ds: xr.Dataset):
     integration=("theta", "zeta"),
     attrs=dict(
         long_name="factor to the toroidal current contribution to the rotational transform",
-        description="iota = iota_0 + iota_curr, iota_curr = I_tor * iota_curr_0",
+        description="iota = iota_geom + iota_curr, iota_curr = I_tor * iota_curr_bar",
+        symbol=r"\bar{\iota}_\text{curr}",
+    ),
+)
+def iota_curr_bar(ds: xr.Dataset):
+    Gamma_t = fluxsurface_integral(ds.g_tt / ds.Jac)
+    ds["iota_curr_bar"] = 2 * np.pi * ds.mu0 / ds.dPhi_dr / Gamma_t
+
+
+@register(
+    requirements=("iota_curr_bar",),
+    attrs=dict(
+        long_name="factor to the toroidal current contribution to the rotational transform",
+        description="iota = iota_geom + iota_curr, iota_curr = I_tor * iota_curr_bar, DEPRECATED: use iota_curr_bar instead",
         symbol=r"\iota_{\text{curr},0}",
     ),
 )
 def iota_curr_0(ds: xr.Dataset):
-    Gamma_t = fluxsurface_integral(ds.g_tt / ds.Jac)
-    ds["iota_curr_0"] = 2 * np.pi * ds.mu0 / ds.dPhi_dr / Gamma_t
+    warnings.warn("iota_curr_0 is deprecated, use iota_curr_bar instead", DeprecationWarning)
+    ds["iota_curr_0"] = ds.iota_curr_bar
 
 
 @register(
-    requirements=("I_tor", "iota_curr_0"),
+    requirements=("I_tor", "iota_curr_bar"),
     attrs=dict(
         long_name="toroidal current contribution to the rotational transform",
-        description="iota = iota_0 + iota_curr, iota_curr = I_tor * iota_curr_0",
+        description="iota = iota_geom + iota_curr, iota_curr = I_tor * iota_curr_bar",
         symbol=r"\iota_\text{curr}",
     ),
 )
 def iota_curr(ds: xr.Dataset):
-    ds["iota_curr"] = ds.I_tor * ds.iota_curr_0
+    ds["iota_curr"] = ds.I_tor * ds.iota_curr_bar
     # = 2 * np.pi * ds.mu0 * ds.dI_tor_dr / (ds.dPhi_drr * Gamma_t + ds.dPhi_dr * dGamma_t_dr)
     # = 2 * np.pi * ds.mu0 * ds.dI_tor_drr / (ds.dPhi_drr * dGamma_t_dr + ds.dPhi_dr * dGamma_t_drr)
     # = 2 * np.pi * ds.mu0 * ds.dI_tor_drr / (ds.dPhi_drr * dGamma_t_dr)
@@ -1770,16 +1784,29 @@ def iota_curr(ds: xr.Dataset):
     integration=("theta", "zeta"),
     attrs=dict(
         long_name="geometric contribution to the rotational transform",
-        description="iota = iota_0 + iota_curr",
-        symbol=r"\iota_0",
+        description="iota = iota_geom + iota_curr",
+        symbol=r"\iota_\text{geom}",
     ),
 )
-def iota_0(ds: xr.Dataset):
-    ds["iota_0"] = (
+def iota_geom(ds: xr.Dataset):
+    ds["iota_geom"] = (
         fluxsurface_integral(ds.g_tt / ds.Jac * ds.dLA_dz)
         - fluxsurface_integral(ds.g_tz / ds.Jac)
         - fluxsurface_integral(ds.g_tz / ds.Jac * ds.dLA_dt)
     ) / fluxsurface_integral(ds.g_tt / ds.Jac)
+
+
+@register(
+    requirements=("iota_geom",),
+    attrs=dict(
+        long_name="geometric contribution to the rotational transform",
+        description="iota = iota_geom + iota_curr, DEPRECATED: use iota_geom instead",
+        symbol=r"\iota_\text{geom}",
+    ),
+)
+def iota_0(ds: xr.Dataset):
+    warnings.warn("iota_0 is deprecated, use iota_geom instead", DeprecationWarning)
+    ds["iota_0"] = ds.iota_geom
 
 
 @register(

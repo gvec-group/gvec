@@ -401,7 +401,7 @@ class Run:
             sgrid = self.state.get_radial_gridpoints()
             sgrid[0] = 0.0
             sgrid[-1] = 1.0
-            Qs = ["iota", "iota_0", "iota_curr_0", "I_tor"]
+            Qs = ["iota", "iota_geom", "iota_curr_bar", "I_tor"]
             while True:
                 knots = _linspace_sgrid(sgrid, self.knots_per_sgrid_element)
                 knots = _add_knot_multiplicity(knots, IOTA_BSPLINE_DEGREE)
@@ -411,7 +411,7 @@ class Run:
                 ev = _evaluate_extrapolate_in_rho2(
                     self.state, *Qs, rho=rho, theta="int", zeta="int"
                 )[Qs]
-                iota_target = ev.iota_0 + self.I_tor(rho**2) * ev.iota_curr_0
+                iota_target = ev.iota_geom + self.I_tor(rho**2) * ev.iota_curr_bar
 
                 # least-squares fit
                 bspline = scipy.interpolate.make_lsq_spline(
@@ -464,7 +464,7 @@ class Run:
         rho = np.linspace(0, 1, DIAGNOSTICS_NPOINTS)
         Qs = ["F_r_avg"]
         if self.curr_constraint:
-            Qs += ["iota", "iota_curr_0", "iota_0", "I_tor"]
+            Qs += ["iota", "iota_curr_bar", "iota_geom", "I_tor"]
         ev = self.state.evaluate(*Qs, rho=rho, theta="int", zeta="int")[Qs]
 
         if self.curr_constraint and self._state_parameters["picard_current"] != "off":

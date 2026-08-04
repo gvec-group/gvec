@@ -151,7 +151,7 @@ $$
   \iota(\rho) = \frac{2\pi\mu_0}{\Phi'(\rho)\left\langle\Gamma_\vartheta|_{\rho}\right\rangle}I_{\text{tor}}(\rho)+\frac{1}{\left\langle\Gamma_\vartheta|_{\rho}\right\rangle}\left\langle\left.\left(\Gamma_\vartheta\frac{\partial\lambda}{\partial\zeta}-\Gamma_\zeta\left(1+\frac{\partial\lambda}{\partial\vartheta}\right)\right)\right|_{\rho}\right\rangle
 $$
 
-Here, we can identify two contributions to the rotational transform; one independent of $I_{\text{tor}}$ which we refer to as $\iota_0$ and one depending on $I_{\text{tor}}$ referred to here as $\iota_{\text{curr}}$:
+Here, we can identify two contributions to the rotational transform; one independent of $I_{\text{tor}}$ which we refer to as $\iota_\text{geom}$ and one depending on $I_{\text{tor}}$ referred to here as $\iota_{\text{curr}}$:
 
 $$
 \begin{align*}
@@ -160,7 +160,7 @@ $$
 \end{align*}
 $$
 
-When prescribing a toroidal current profile $I_{\text{tor}}(\rho)$ in GVEC, the code will start with an initial guess for the $\iota$ profile and do a Picard iteration to find the $\iota$ profile that yields the desired toroidal current profile. Each Picard iteration corresponds to an energy minimization with a fixed $\iota(\rho)$, starting from the solution of the previous Picard iteration. We prescribe the $\iota$ profile as the target $\iota_T=\iota_0+\iota_{\text{curr}}$, using the given current profile and the previous GVEC solution for the terms $\Gamma_\vartheta,\Gamma_\zeta,\lambda$. After each Picard iteration, we can check for the difference $\Delta\iota$ between the target and $\iota(\rho)$ computed from the GVEC solution only. Finally, for convergence, one has to check that both $\Delta\iota$ and the MHD equilibrium forces are below the desired tolerance. $\Delta\iota$ is calculated from a set of $N$ evaluations at different radial positions $\rho_i \in [0,1]$:
+When prescribing a toroidal current profile $I_{\text{tor}}(\rho)$ in GVEC, the code will start with an initial guess for the $\iota$ profile and do a Picard iteration to find the $\iota$ profile that yields the desired toroidal current profile. Each Picard iteration corresponds to an energy minimization with a fixed $\iota(\rho)$, starting from the solution of the previous Picard iteration. We prescribe the $\iota$ profile as the target $\iota_T=\iota_\text{geom}+\iota_{\text{curr}}$, using the given current profile and the previous GVEC solution for the terms $\Gamma_\vartheta,\Gamma_\zeta,\lambda$. After each Picard iteration, we can check for the difference $\Delta\iota$ between the target and $\iota(\rho)$ computed from the GVEC solution only. Finally, for convergence, one has to check that both $\Delta\iota$ and the MHD equilibrium forces are below the desired tolerance. $\Delta\iota$ is calculated from a set of $N$ evaluations at different radial positions $\rho_i \in [0,1]$:
 
 $$
 \Delta\iota := \sqrt{\frac{1}{N}\sum_i^N\left(\iota_T\left(\rho_i\right)-\iota\left(\rho_i\right)\right)²}.
@@ -170,7 +170,7 @@ The general approach is then:
 1. Prescribe $I_{\text{tor}}(\rho)$ and an initial guess for $\iota$ (the default initial guess is $\iota(\rho)=0$)
 2. Minimize energy with fixed $\iota(\rho)$ until the force tolerance is reached or the maximum number of iterations for this minimization is reached.
 3. Calculate $\Delta\iota$
-4. if $\Delta\iota$ is below the tolerance for $\iota$, finish; else, update $\iota(\rho) = \iota_0(\rho)+\iota_{\text{curr}}(\rho)$ using $I_{\text{tor}}(\rho)$ and continue.
+4. if $\Delta\iota$ is below the tolerance for $\iota$, finish; else, update $\iota(\rho) = \iota_\text{geom}(\rho)+\iota_{\text{curr}}(\rho)$ using $I_{\text{tor}}(\rho)$ and continue.
 5. Repeat from 2.
 
 #### The default approach
