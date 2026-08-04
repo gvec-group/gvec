@@ -245,8 +245,10 @@ $$
 where $\dd{\vec{x}_\zeta}$ is the surface normal vector
 
 $$
-\dd{\vec{x}}_\zeta = \dd{\rho}\dd{\vartheta} \pdv{\vec{x}}{\rho} \times \pdv{\vec{x}}{\vartheta}. \\
+\dd{\vec{x}}_\zeta = \dd{\rho}\dd{\vartheta} \pdv{\vec{x}}{\rho} \times \pdv{\vec{x}}{\vartheta}
 $$
+
+and $\partial\zeta(\rho)$ is a surface of constant $\zeta$ delimited by a contour of constant $\rho$.
 
 Then
 
@@ -265,14 +267,16 @@ $$
 ## Poloidal current profile
 
 $$
-\Ipol(\rho) := \int_{\partial\theta(\rho)} \dd{\vec{x}_\theta} \cdot \vec{J}
+\Ipol(\rho) := \int_{\partial\vartheta(\rho)} \dd{\vec{x}_\vartheta} \cdot \vec{J}
 $$
 
-where $\dd{\vec{x}_\theta}$ is the surface normal vector
+where $\dd{\vec{x}_\vartheta}$ is the surface normal vector
 
 $$
-\dd{\vec{x}}_\theta = \dd{\rho}\dd{\vartheta} \pdv{\vec{x}}{\rho} \times \pdv{\vec{x}}{\vartheta}.
+\dd{\vec{x}}_\vartheta = \dd{\rho}\dd{\vartheta} \pdv{\vec{x}}{\rho} \times \pdv{\vec{x}}{\vartheta}
 $$
+
+and $\partial\vartheta(\rho)$ is a surface of constant $\vartheta$, delimited by a $\rho=\rho$ and $\rho=0$ contour.
 
 Then
 
@@ -284,9 +288,127 @@ $$
 \Ipol(\rho) &= \int_0^{\rho} \dd{\rho} \int_0^{2\pi} \dd{\zeta} \Jac \frac{1}{\mu_0 \Jac} \qty(\pdv{B_\rho}{\zeta} - \pdv{B_\zeta}{\rho}) \\
 \Ipol(\rho) &= \frac{1}{\mu_0} \cancel{\eval{\int_0^\rho \dd{\rho} B_\rho}_{\zeta=0}^{2\pi}} - \frac{1}{\mu_0} \eval{\int_0^{2\pi} \dd{\zeta} B_\zeta}_{\rho=0}^\rho \\
 \Ipol(\rho) &= - \frac{1}{2\pi\mu_0} \eval{\int_0^{2\pi} \dd{\vartheta} \int_0^{2\pi} \dd{\zeta} B_\zeta}_{\rho=0}^\rho \\
-\Ipol(\rho) &= \frac{1}{2\pi\mu_0} \qty( \langle B_\zeta \rangle (\rho=0) - \langle B_\zeta \rangle (\rho) ).
+\Ipol(\rho) &= \frac{1}{2\pi\mu_0} \qty( \langle B_\zeta \rangle (0) - \langle B_\zeta \rangle (\rho) ).
 \end{align}
 $$
+
+### Exterior poloidal current
+
+The poloidal current can also intuitively be defined differently, with the $\partial\vartheta(\rho)$ surface being a simply connected surface delimited by a $\rho$ contour. With this definition, the poloidal current profile integrates all current densities *outside* of the flux surface labelled with $\rho$. It therefore also includes the currents in poloidally or helically closed coils:
+
+$$
+\begin{align}
+\tIpol(\rho) &= \frac{1}{2\pi\mu_0} \langle B_\zeta \rangle (\rho).
+\end{align}
+$$
+
+This quantitiy is also often denoted with $F$, especially in Tokamak literature.
+
+## Susceptance matrix & rotational transform
+
+The *specific susceptance matrix* is (usually) defined as
+
+$$
+\mu_0 \mqty(\Itor \\ \tIpol) = \mqty(S_{11} & S_{12} \\ S_{21} & S_{22}) \mqty(\dv{\hat\chi}{V} \\ \dv{\hat\Phi}{V})
+$$
+
+where
+
+$$
+\begin{align}
+\mu_0 \Itor &= \oint_{C_\vartheta} \dd{\vec{\ell}} \cdot \vec{B} = \langle B_\vartheta \rangle \\
+\mu_0 \tIpol &= \oint_{C_\zeta} \dd{\vec{\ell}} \cdot \vec{B} = \langle B_\vartheta \rangle \\
+\hat\Phi &= \int_{\partial\zeta} \dd{\vec{n}} \cdot \vec{B} = 2\pi\Phi \\
+\hat\chi &= \int_{\partial\vartheta} \dd{\vec{n}} \cdot \vec{B} = 2\pi\chi \\
+V(\rho) &= \int_0^\rho \dd{\tilde\rho} \llangle \Jac \rrangle \\
+\dv{V}{d\rho} &= \llangle \Jac \rrangle.
+\end{align}
+$$
+
+---
+
+To obtain $S_{ij}$ we note that
+
+$$
+\begin{align}
+\mu_0 \Itor &= \frac{1}{2\pi} \llangle B_\vartheta \rrangle \\
+\mu_0 \Itor &= \frac{1}{2\pi} \llangle \gtt B^\vartheta + \gtz B^\zeta \rrangle \\
+\mu_0 \Itor &= \frac{1}{2\pi} \llangle \frac{\gtt}{\Jac} \qty(\dv{\chi}{\rho} - \dv{\Phi}{\rho}\pdv{\lambda}{\zeta}) + \frac{\gtz}{\Jac} \dv{\Phi}{\rho} \qty(1 + \pdv{\lambda}{\vartheta}) \rrangle \\
+\mu_0 \Itor &= \frac{1}{2\pi} \llangle \frac{\gtt}{\Jac} \rrangle \dv{\chi}{\rho} + \frac{1}{2\pi} \llangle -\frac{\gtt}{\Jac} \pdv{\lambda}{\zeta} + \frac{\gtz}{\Jac} \qty(1 + \pdv{\lambda}{\vartheta}) \rrangle \dv{\Phi}{\rho} \\
+\mu_0 \Itor &= \underbrace{\frac{1}{4\pi^2} \llangle \frac{\gtt}{\Jac} \rrangle \dv{V}{\rho}}_{S_{11}} \dv{\hat\chi}{V} + \underbrace{\frac{1}{4\pi^2} \llangle -\frac{\gtt}{\Jac} \pdv{\lambda}{\zeta} + \frac{\gtz}{\Jac} \qty(1 + \pdv{\lambda}{\vartheta}) \rrangle \dv{V}{\rho}}_{S_{12}} \dv{\hat\Phi}{V} \\
+\end{align}
+$$
+
+and
+
+$$
+\begin{align}
+\mu_0 \Ipol &= \frac{1}{2\pi} \llangle B_\zeta \rrangle \\
+\mu_0 \Ipol &= \frac{1}{2\pi} \llangle \gtz B^\vartheta + \gzz B^\zeta \rrangle \\
+\mu_0 \Ipol &= \frac{1}{2\pi} \llangle \frac{\gtz}{\Jac} \qty(\dv{\chi}{\rho} - \dv{\Phi}{\rho}\pdv{\lambda}{\zeta}) + \frac{\gzz}{\Jac} \dv{\Phi}{\rho} \qty(1 + \pdv{\lambda}{\vartheta}) \rrangle \\
+\mu_0 \Ipol &= \frac{1}{2\pi} \llangle \frac{\gtz}{\Jac} \rrangle \dv{\chi}{\rho} + \frac{1}{2\pi} \llangle -\frac{\gtz}{\Jac} \pdv{\lambda}{\zeta} + \frac{\gzz}{\Jac} \qty(1 + \pdv{\lambda}{\vartheta}) \rrangle \dv{\Phi}{\rho} \\
+\mu_0 \Ipol &= \underbrace{\frac{1}{4\pi^2} \llangle \frac{\gtz}{\Jac} \rrangle \dv{V}{\rho}}_{S_{21}} \dv{\hat\chi}{V} + \underbrace{\frac{1}{4\pi^2} \llangle -\frac{\gtz}{\Jac} \pdv{\lambda}{\zeta} + \frac{\gzz}{\Jac} \qty(1 + \pdv{\lambda}{\vartheta}) \rrangle \dv{V}{\rho}}_{S_{22}} \dv{\hat\Phi}{V} \\
+\end{align}
+$$
+
+therefore
+
+$$
+\begin{align}
+S_{11} &= \frac{\langle \Jac \rangle}{4\pi^2} \llangle \frac{\gtt}{\Jac} \rrangle \\
+S_{12} &= \frac{\langle \Jac \rangle}{4\pi^2} \llangle \frac{\gtz}{\Jac} \qty(1 + \pdv{\lambda}{\vartheta}) - \frac{\gtt}{\Jac} \pdv{\lambda}{\zeta} \rrangle \\
+S_{21} &= \frac{\langle \Jac \rangle}{4\pi^2} \llangle \frac{\gtz}{\Jac} \rrangle \\
+S_{22} &= \frac{\langle \Jac \rangle}{4\pi^2} \llangle \frac{\gzz}{\Jac} \qty(1 + \pdv{\lambda}{\vartheta}) - \frac{\gtz}{\Jac} \pdv{\lambda}{\zeta} \rrangle.
+\end{align}
+$$
+
+**References:**
+* G Bateman (1973) Nucl. Fusion 13 227, [DOI:10.1088/0029-5515/13/2/012](https://doi.org/10.1088/0029-5515/13/2/012)
+* P I Strand et al (2001), Phys. Plasmas 8, 2782–2792, [DOI:10.1063/1.1366618](https://doi.org/10.1063/1.1366618)
+* S Lazerson et al (2017), arXiv:1705.00517 \[physics.plasm-ph\], [DOI:10.48550/arXiv.1705.00517](https://doi.org/10.48550/arXiv.1705.00517)
+* F Solfronk et al (2026), Plasma Phys. Control. Fusion 68 045012, [DOI:10.1088/1361-6587/ae56b3](https://doi.org/10.1088/1361-6587/ae56b3)
+
+**Notes:**
+
+```{warning}
+Bateman (1973) notes that the susceptance matrix is symmetric and positive definite. This also very logically follows from the definition if straight fieldline coordinates are used. This derivation however yields a non-symmetric susceptance matrix!
+
+The definition of $S_{ij}$ however is independent of the choice of angular coordiantes.
+```
+
+* In literature, the symbols $I=\Itor$, $F=\tIpol$ and $\Psi=\hat\chi$ are often used.
+* The additional factor of $2\pi$ for the fluxes is dependent on whether one refers to the integral magnetic flux or the component of the vector potential. (GVEC follows the latter definition)
+* Bateman (1973) calls this quantitiy the *specific inductance matrix* $\Lambda_{ij}$, but noted that "should rigorously be called the specific susceptance matrix"
+* Bateman (1973) initially keeps the radial coordinate arbitrary
+* Bateman (1973) uses a different order of indices, i.e. $\Lambda_{11}$ refers to the susceptance between the poloidal current and the toroidal magnetic flux, while the later papers use $S_{11}$ to refer to the susceptance between the toroidal current and the poloidal magnetic flux.
+* Lazerson et al (2017) has swapped the formulas for $S_{21}$ and $S_{22}$, compared to this derivation and Strand et al (2001). This is most likely a simple mistake.
+
+### Decomposition of the rotational transform
+
+We can rearrange to obtain
+
+$$
+\begin{align}
+\mu_0 \Itor &= S_{11} \dv{\hat\chi}{V} + S_{12} \dv{\hat\Phi}{V} \\
+\iota &= \underbrace{\frac{\mu_0 \Itor \dv{V}{\rho}}{2\pi S_{11} \dv{\Phi}{\rho}}}_{\iotacurr} \underbrace{- \frac{S_{12}}{S_{11}}}_{\iotageom},
+\end{align}
+$$
+
+where $\iotacurr=\iotacurrz\Itor$ and $\iotageom$ are used when [prescribing the toroidal current profile](/user/stages.md#prescribing-a-toroidal-current-profile).
+
+Explicitly, they become
+
+$$
+\begin{align}
+\iotageom &= \frac{
+    \llangle \frac{\gtt}{\Jac} \pdv{\lambda}{\zeta} - \frac{\gtz}{\Jac} \qty(1 + \pdv{\lambda}{\vartheta}) \rrangle
+}{
+    \llangle \frac{\gtt}{\Jac} \rrangle
+} \\
+\iotacurrz &= \frac{2\pi\mu_0}{\dv{\Phi}{\rho} \llangle \frac{\gtt}{\Jac} \rrangle}.
+\end{align}
+$$
+
 
 ## Vacuum magnetic well depth
 
