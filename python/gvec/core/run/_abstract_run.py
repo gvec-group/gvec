@@ -14,13 +14,14 @@ import xarray as xr
 
 import gvec
 from gvec.core.state import State
-from gvec.util import CaseInsensitiveDict as cidict
+from gvec.util import CaseInsensitiveDict as cidict, compute_hfactor
 
 
 DEFAULT_MINIMIZE_TOL = 1e-6  # different to default `minimize_tol` in fortran
 DEFAULT_TOTALITER = 10**5  # different to default `maxIter` in fortran
-AUTO_IOTA_TARGET = 1e-10
-DEFAULT_PICARD_CURRENT_MAXRESTARTS = 30
+AUTO_PICARD_CURRENT_IOTA_TOL_TARGET = 1e-8  # least-squares fit: limited to single precision!
+DEFAULT_PICARD_CURRENT_MAXRESTARTS = 50
+DIAGNOSTICS_NPOINTS = 256 + 1
 
 
 class AbstractRun(ABC):
@@ -60,6 +61,7 @@ class AbstractRun(ABC):
             raise ValueError(
                 f"Neither valid 'params' nor a valid 'state' are provided! params: {params}, state: {state}"
             )
+        self.parameters = cidict.recursive(self.parameters)
 
         # params: user provided parameters
         # self.parameters: global/fallback parameters
@@ -185,12 +187,12 @@ class AbstractRun(ABC):
 
         # load I_tor profile (and set initial iota if not provided)
         if self.curr_constraint:
-            self._set_I_tor_target(self.parameters)
+            self._set_I_tor(self.parameters)
             self.iota_rms = None
             if "iota" not in self.parameters:
                 self.parameters["iota"] = cidict({"type": "polynomial", "coefs": [0.0]})
         else:
-            self.I_tor_target = None
+            self.I_tor = None
 
         # account for the change in relative path of restart, hmap, etc. files
         for key, value in self.parameters.items():
@@ -228,7 +230,7 @@ class AbstractRun(ABC):
             project_dir / parameters_stages_name,
         )
 
-    def _set_I_tor_target(self, params: Mapping):
+    def _set_I_tor(self, params: Mapping):
         """Evaluate and set the target toroidal current profile at linearly spaced positions in rho.
 
         Raises
@@ -236,20 +238,15 @@ class AbstractRun(ABC):
         gvec.errors.InvalidParameterError
             If an unknown profile type is provided.
         """
-
         match params["I_tor"].get("type", "polynomial"):
             case "polynomial":
-                coefs = np.array(params["I_tor"]["coefs"][::-1])
-                self.logger.debug(f"polynomial coefs: {coefs}")
+                coefs = np.array(params["I_tor"]["coefs"])
                 coefs *= params["I_tor"].get("scale", 1.0)
-                self.I_tor_target = np.poly1d(coefs)
-                if (
-                    abs(coefs[-1]) > 1e-8
-                ):  # poly1d is reverse to GVEC, e.g. coefs is ordered x²+x+1
+                self.I_tor = np.polynomial.Polynomial(coefs)
+                if abs(coefs[0]) > 1e-8:
                     raise gvec.errors.InvalidParameterError(
-                        f"Toroidal current profile not zero at magnetic axis!  I_tor(rho=0): {coefs[-1]}"
+                        f"Toroidal current profile not zero at magnetic axis!  I_tor(rho=0): {coefs[0]}"
                     )
-
             case "bspline":
                 from scipy.interpolate import BSpline
 
@@ -257,28 +254,24 @@ class AbstractRun(ABC):
                 coefs *= params["I_tor"].get("scale", 1.0)
                 knots = np.array(params["I_tor"]["knots"], dtype=float)
                 deg = np.sum(knots == knots[0]) - 1
-                I_tor_bspl = BSpline(knots, coefs, deg)
-                self.I_tor_target = I_tor_bspl
-                if abs(I_tor_bspl(0.0)) > 1e-8:
+                self.I_tor = BSpline(knots, coefs, deg)
+                if abs(self.I_tor(0.0)) > 1e-8:
                     raise gvec.errors.InvalidParameterError(
-                        f"Toroidal current profile not zero at magnetic axis! I_tor(rho=0): {I_tor_bspl(0.0)}"
+                        f"Toroidal current profile not zero at magnetic axis! I_tor(rho=0): {self.I_tor(0.0)}"
                     )
-
             case "interpolation":
-                from scipy.interpolate import make_splrep
+                from scipy.interpolate import make_interp_spline
 
                 y_vals = np.array(params["I_tor"]["vals"], dtype=float)
                 rho2_vals = np.array(params["I_tor"]["rho2"], dtype=float)
                 if min(np.sqrt(rho2_vals)) > 1e-4:
                     rho2_vals = np.append([0], rho2_vals)
                     y_vals = np.append([0], y_vals)
-                I_tor_bspl = make_splrep(rho2_vals, y_vals)
-                self.I_tor_target = I_tor_bspl
-                if abs(I_tor_bspl(0.0)) > 1e-8:
+                self.I_tor = make_interp_spline(rho2_vals, y_vals)
+                if abs(self.I_tor(0.0)) > 1e-8:
                     raise gvec.errors.InvalidParameterError(
-                        f"Toroidal current profile not zero at magnetic axis! I_tor(rho=0): {I_tor_bspl(0.0)}"
+                        f"Toroidal current profile not zero at magnetic axis! I_tor(rho=0): {self.I_tor(0.0)}"
                     )
-
             case _:
                 raise gvec.errors.InvalidParameterError(
                     f"Unknown Itor type: {params['I_tor']['type']}"
@@ -340,7 +333,7 @@ class AbstractRun(ABC):
                 self._state_parameters[key] = value
 
         if set_I_tor:
-            self._set_I_tor_target(self._state_parameters)
+            self._set_I_tor(self._state_parameters)
 
     def run(
         self,
@@ -385,6 +378,7 @@ class AbstractRun(ABC):
 
             self._reset_params_to_original()
             self._set_params_for_stage(stage)
+            self._log_hfactors()
 
             # run the stage
             self._minimize_stage()
@@ -477,6 +471,27 @@ class AbstractRun(ABC):
             self.logger.info(progressstr)
         elif not self.quiet:
             print(progressstr, end="\r")
+
+    def _log_hfactors(self):
+        try:
+            M1, N1 = self._state_parameters["X1_mn_max"]
+            M2, N2 = self._state_parameters["X2_mn_max"]
+            Ml, Nl = self._state_parameters["LA_mn_max"]
+            K = self._state_parameters["sgrid"]["nelems"]
+            if (M1 == M2 == Ml) and (N1 == N2 == Nl):
+                hM, hN, hK = compute_hfactor(M1, N1, K)
+                self.logger.info(f"h-factors: pol={hM:.2e}, tor={hN:.2e}, rad={hK:.2e}")
+            else:
+                hM1, hN1, hK1 = compute_hfactor(M1, N1, K)
+                hM2, hN2, _ = compute_hfactor(M2, N2, K)
+                hMl, hNl, _ = compute_hfactor(Ml, Nl, K)
+                self.logger.info(
+                    f"h-factors: pol(X1)={hM1:.2e}, pol(X2)={hM2:.2e}, pol(LA)={hMl:.2e}, tor(X1)={hN1:.2e}, tor(X2)={hN2:.2e}, tor(LA)={hNl:.2e}, rad={hK1:.2e}"
+                )
+        except (KeyError, TypeError, ValueError):
+            self.logger.debug(
+                "Could not compute h-factors due to missing or invalid parameters."
+            )
 
     @abstractmethod
     def _run_single_minimization(self):

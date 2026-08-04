@@ -4,8 +4,10 @@
 
 # === Imports === #
 import numpy as np
+import scipy
 from gvec.util import write_parameters, CaseInsensitiveDict, chdir
 from ._binding import with_binding
+from ._evaluate import _evaluate_extrapolate_in_rho2
 from typing import Literal, Callable
 from gvec.core.compute import fluxsurface_integral
 
@@ -17,7 +19,16 @@ from scipy.constants import mu_0
 
 logger = logging.getLogger("gvec.run")
 
-DEFAULT_N_IOTA_RHOS = 101
+AUTO_STAGE_IOTA_INIT_MAXITER = 10
+AUTO_STAGE_IOTA_INIT_IOTA_TOL = 1e-3
+AUTO_PICARD_CURRENT_IOTA_TOL = 1e-5
+AUTO_MINIMIZE_TOL_MIN = 1e-3
+IOTA_BSPLINE_DEGREE = 5
+IOTA_SAMPLING_FACTOR = 4
+IOTA_KNOTS_PER_ELEMENT_MIN = 2
+IOTA_KNOTS_PER_ELEMENT_MAX = 256
+IOTA_COEFS_MAX = 768  # at 20 characters per coefficient: 15360 characters + overhead < 2^14
+IOTA_MIN_RHO = 1e-2  # ignore near-axis region for Δiota & Δfit, TODO: fix accuracy problems
 
 
 @with_binding
@@ -35,9 +46,9 @@ def save_statefile(self):
 
 
 @with_binding
-def update_iota_for_current_constraint(self, rho2, iota, reset_LA):
+def update_iota_for_current_constraint(self, knots, coefs, reset_LA):
     logger.debug("Updating iota")
-    _state.update_iota_for_current_constraint(rho2, iota, reset_LA)
+    _state.update_iota_for_current_constraint(knots, coefs, reset_LA)
 
 
 @with_binding
@@ -56,7 +67,7 @@ def save(self):
     )
 
 
-def _get_new_iota(self):
+def _get_new_iota_old(self):
     """Calculate a new iota profile. Extracted from gvec-run, to be used for current constraint
 
     Returns
@@ -88,6 +99,63 @@ def _get_new_iota(self):
     delta_iota = ev.iota - iota_values
     rms_iota = np.sqrt((delta_iota**2).mean(dim="rad")).item()
     return (iota_values, ev.rho**2, rms_iota, delta_iota)
+
+
+def _get_new_iota(self, iota_tol: float):
+    sgrid = self.get_radial_gridpoints()
+    sgrid[0] = 0.0
+    sgrid[-1] = 1.0
+    Qs = ["iota", "iota_0", "iota_curr_0", "I_tor"]
+    while True:
+        knots = _linspace_sgrid(sgrid, self.knots_per_sgrid_element)
+        knots = _add_knot_multiplicity(knots, IOTA_BSPLINE_DEGREE)
+        rho = _linspace_sgrid(sgrid, IOTA_SAMPLING_FACTOR * self.knots_per_sgrid_element)
+        ev = _evaluate_extrapolate_in_rho2(self, *Qs, rho=rho, theta="int", zeta="int")[Qs]
+        iota_target = ev.iota_0 + self.I_tor(rho**2) * ev.iota_curr_0
+
+        # least-squares fit
+        bspline = scipy.interpolate.make_lsq_spline(
+            rho**2, iota_target, knots**2, k=IOTA_BSPLINE_DEGREE
+        )
+        # enforce boundary conditions
+        bspline.c[0] = iota_target[0]
+        bspline.c[-1] = iota_target[-1]
+
+        # check fit error
+        delta_iota_fit = iota_target - bspline(rho**2)
+        # ignore near-axis region as we CURRENTLY have accuracy problems there!!!
+        delta_iota_fit = delta_iota_fit.sel(rho=slice(IOTA_MIN_RHO, None))
+        rms_iota_fit = np.sqrt((delta_iota_fit**2).mean().item())
+        if rms_iota_fit < iota_tol:
+            break
+        if self.knots_per_sgrid_element >= IOTA_KNOTS_PER_ELEMENT_MAX:
+            logger.warning(
+                f"Could not fit iota profile up to target tolerance {iota_tol} "
+                f"with {self.knots_per_sgrid_element} knots per sgrid element. "
+                f"Current fit error: {rms_iota_fit}"
+            )
+            break
+        if bspline.c.size * 2 > IOTA_COEFS_MAX:
+            logger.warning(
+                f"Could not fit iota profile up to target tolerance {iota_tol} "
+                f"with {bspline.c.size} coefficients (max is {IOTA_COEFS_MAX}). "
+                f"Current fit error: {rms_iota_fit}"
+            )
+            break
+        logger.debug(
+            f"Increasing knots per sgrid element {self.knots_per_sgrid_element} "
+            f"-> {self.knots_per_sgrid_element * 2} to fit iota profile with tolerance {iota_tol}. "
+            f"Current fit error: {rms_iota_fit}"
+        )
+        self.knots_per_sgrid_element *= 2
+    delta_iota = ev.iota - bspline(rho**2)
+
+    # ignore near-axis region as we CURRENTLY have accuracy problems there!!!
+    delta_iota = delta_iota.sel(rho=slice(IOTA_MIN_RHO, None))
+    rms_iota = np.sqrt((delta_iota**2).mean().item())
+    delta_Itor = ev.I_tor - self.I_tor(rho**2)
+    delta_I_tor_max = np.abs(delta_Itor).max().item()
+    return (bspline, rms_iota, delta_iota, delta_I_tor_max, rms_iota_fit)
 
 
 def _minimize_single_current_constraint(
@@ -126,7 +194,9 @@ def _minimize_single_current_constraint(
     self.reset_descent()
     iters_used = 0
     delta_iota = np.inf
-    delta_iota_over_run = []
+    rms_iota_over_run = []
+    delta_I_tor_max_over_run = []
+    rms_iota_fit_over_run = []
     iters_per_run = []
     if "logfinaliter" in kwargs_minimize:
         logfinaliter = kwargs_minimize["logfinaliter"]
@@ -144,26 +214,28 @@ def _minimize_single_current_constraint(
             minimize_tol=minimize_tol,
             **kwargs_minimize,
         )
-        new_iota, new_rho2, rms_iota, delta_iota = _get_new_iota(self)
-
+        (iota_bspl, rms_iota, delta_iota, delta_I_tor_max, rms_iota_fit) = _get_new_iota(
+            self, iota_tol=iota_tol
+        )
+        self.reset_descent()
         # only reset LA at the start
         if iters_used > 0:
             reset_LA = False
-
-        self.update_iota_for_current_constraint(new_rho2, new_iota, reset_LA)
+        self.update_iota_for_current_constraint(iota_bspl.t, iota_bspl.c, reset_LA)
         self._parameter_dict["iota"] = CaseInsensitiveDict(
-            type="interpolation",
-            rho2=new_rho2.data,
-            vals=new_iota.data,
+            type="bspline",
+            coefs=iota_bspl.c,
+            knots=iota_bspl.t,
         )
-        self.iota = new_iota
-
+        self.iota = iota_bspl
         iters = self.get_iterations()
         iters_used = iters - iters_used_start
 
         nth_update += 1
-        delta_iota_over_run.append(rms_iota)
+        rms_iota_over_run.append(rms_iota)
         iters_per_run.append(iters)
+        delta_I_tor_max_over_run.append(delta_I_tor_max)
+        rms_iota_fit_over_run.append(rms_iota_fit)
 
     if rms_iota > iota_tol and maxIter > 0:
         logger.warning(
@@ -175,9 +247,11 @@ def _minimize_single_current_constraint(
     )
     return (
         rms_iota,
-        delta_iota,
-        np.array(delta_iota_over_run),
+        np.abs(delta_iota).max().item(),
+        np.array(rms_iota_over_run),
         np.array(iters_per_run),
+        np.array(delta_I_tor_max_over_run),
+        np.array(rms_iota_fit_over_run),
         nth_update,
     )
 
@@ -207,32 +281,41 @@ def _minimize_current_constraint(
     """
 
     t0 = time.time()
-    self.iota = self._get_new_iota()[0]
     log_minimize_target = np.log10(minimize_tol)
-    log_iota_target = np.log10(iota_target)
     n_stages = max(int(max(-2 - log_minimize_target, log_minimize_target)), 1)
-    minimize_tols = np.logspace(max(-4, log_minimize_target), log_minimize_target, n_stages)
+    minimize_tols = np.logspace(
+        max(np.log10(AUTO_MINIMIZE_TOL_MIN), log_minimize_target), log_minimize_target, n_stages
+    )
+    self.knots_per_sgrid_element = IOTA_KNOTS_PER_ELEMENT_MIN
+
     if n_stages > 1:
-        iota_tols = np.logspace(max(-3, log_iota_target), log_iota_target, n_stages)
+        iota_tols = np.ones(n_stages) * AUTO_PICARD_CURRENT_IOTA_TOL
+        iota_tols[0] = AUTO_STAGE_IOTA_INIT_IOTA_TOL
+        iota_tols[-1] = iota_target
     else:
-        iota_tols = [1e-10]
+        iota_tols = [iota_target]
 
     iota_tol = iota_tols[0]
+
+    self.iota = self._get_new_iota(iota_tol)[0]
 
     iters_used_start = self.get_iterations()
 
     self.nth_update = 0
+
     # target iota only
     if target == "iota" or target == "auto":
         (
             self.rms_iota,
-            self.delta_iota,
-            self.delta_iota_over_run,
+            self.delta_iota_max,
+            self.rms_iota_over_run,
             self.iters_per_run,
+            self.delta_I_tor_max_over_run,
+            self.rms_iota_fit_over_run,
             nth_update,
         ) = self._minimize_single_current_constraint(
             maxIter=maxIter,
-            maxIter_per_update=min(10, maxIter),
+            maxIter_per_update=min(AUTO_STAGE_IOTA_INIT_MAXITER, maxIter),
             iota_tol=iota_tol,
             minimize_tol=minimize_tols[0],
             maxUpdates=maxUpdates,
@@ -240,8 +323,11 @@ def _minimize_current_constraint(
         )
         self.nth_update += nth_update
     else:
-        self.delta_iota_over_run = np.array([])
+        self.rms_iota_over_run = np.array([])
         self.iters_per_run = np.array([])
+        self.delta_I_tor_max_over_run = np.array([])
+        self.rms_iota_fit_over_run = np.array([])
+
     iters_used = self.get_iterations() - iters_used_start
 
     # target iota and forces
@@ -253,11 +339,14 @@ def _minimize_current_constraint(
                 logger.debug(f"iters_used_start:{iters_used_start}")
                 logger.debug(f"iters_used:{iters_used}")
                 logger.debug(f"maxIter:{maxIter - iters_used}")
+                self.knots_per_sgrid_element = IOTA_KNOTS_PER_ELEMENT_MIN
                 (
                     self.rms_iota,
-                    self.delta_iota,
-                    delta_iota_over_run,
+                    self.delta_iota_max,
+                    rms_iota_over_run,
                     iters_per_run,
+                    delta_I_tor_max_over_run,
+                    rms_iota_fit_over_run,
                     nth_update,
                 ) = self._minimize_single_current_constraint(
                     maxIter=maxIter - iters_used,
@@ -269,17 +358,30 @@ def _minimize_current_constraint(
                     **kwargs,
                 )
                 self.nth_update += nth_update
-                self.delta_iota_over_run = np.concat(
-                    [self.delta_iota_over_run, delta_iota_over_run]
-                )
+                self.rms_iota_over_run = np.concat([self.rms_iota_over_run, rms_iota_over_run])
                 self.iters_per_run = np.concat([self.iters_per_run, iters_per_run])
-
+                self.delta_I_tor_max_over_run = np.concat(
+                    [self.delta_I_tor_max_over_run, delta_I_tor_max_over_run]
+                )
+                self.rms_iota_fit_over_run = np.concat(
+                    [self.rms_iota_fit_over_run, rms_iota_fit_over_run]
+                )
                 iters_used = self.get_iterations() - iters_used_start
     t1 = time.time()
 
-    logger.info(
-        f"Terminated current minimization after {t1 - t0:.2}s with Δiota = {self.rms_iota:.3e}, Δiota = {iota_tol:.3e}. Used {iters_used} / {maxIter} iterations."
-    )
+    logger.info(f"Terminated current minimization after {t1 - t0:.2}s.")
+    logger.info(f"  used {iters_used} / {maxIter} iterations,")
+    logger.info(f"  max Δiota: {self.delta_iota_max:.2e},")
+    logger.info(f"  rms Δiota: {self.rms_iota:.2e},")
+    logger.info(f"  iota_tol: {iota_tol:.2e}")
+
+    if maxIter > 0:
+        logger.info(f"  max ΔItor: {self.delta_I_tor_max_over_run[-1]:.2e}")
+        logger.debug(
+            f"  rms Δiota_fit: {self.rms_iota_fit_over_run[-1]:.2e}, "
+            f"  with {self.knots_per_sgrid_element} knots per sgrid element"
+        )
+
     self.save()
 
 
@@ -288,21 +390,15 @@ def minimize(
     iota_target: float,
     maxUpdates: int,
     target: Literal["iota", "iota_and_force", "auto"],
-    I_tor: float | Callable | None = None,
-    n_iota_rhos=DEFAULT_N_IOTA_RHOS,
+    I_tor: Callable | None = None,
     reset_LA: bool = False,
     **kwargs,
 ):
     if I_tor is not None:
         self.current_constraint = True
-        self.rho2_iota = np.linspace(0, 1, n_iota_rhos) ** 2
-        if callable(I_tor):
-            self.I_tor = I_tor(self.rho2_iota)
-        else:
-            self.I_tor = I_tor * np.ones_like(self.rho2_iota)
+        self.I_tor = I_tor
     else:
         self.current_constraint = False
-        self.rho2_iota = None
         self.I_tor = None
 
     if target not in ["iota", "iota_and_force", "auto"]:
@@ -477,3 +573,68 @@ def _free_boundary_update(
 
     self.minimize(logfinaliter=False, maxIter=maxIter, **minimize_kwargs)
     return dt
+
+
+def _linspace_sgrid(sgrid, n_points):
+    """Return a refined radial grid built from a coarse `sgrid` partition.
+
+    The interval between each pair of neighboring grid points is sampled with
+    ``n_points`` uniformly spaced points. The right endpoint of each interval is
+    excluded so that adjacent intervals do not duplicate shared boundaries. A
+    final point at ``1`` is appended to close the grid.
+
+    Parameters
+    ----------
+    sgrid : array_like
+        Monotonically increasing radial grid points in the closed interval ``[0, 1]``.
+    n_points : int
+        Number of equally spaced samples to generate inside each grid interval.
+
+    Returns
+    -------
+    numpy.ndarray
+        One-dimensional array containing the refined grid points in ascending
+        order.
+
+    Notes
+    -----
+    This helper preserves the original cell boundaries from ``sgrid`` while
+    increasing the resolution inside each cell. It is primarily used to sample
+    and fit radial profiles on a finer mesh than the staging grid.
+    """
+    return np.concatenate(
+        [
+            np.linspace(left, right, n_points, endpoint=False)
+            for left, right in zip(sgrid[:-1], sgrid[1:])
+        ]
+        + [np.ones(1)]
+    )
+
+
+def _add_knot_multiplicity(knots, degree):
+    """Pad a knot vector with boundary multiplicity for B-spline fitting.
+
+    The input knot vector is assumed to contain only the interior knots. This
+    helper prepends and appends ``degree`` copies of ``0`` and ``1`` so that
+    the resulting knot vector has the clamped boundary multiplicity required
+    by B-Splines.
+
+    Parameters
+    ----------
+    knots : array_like
+        Knot locations without multiplicity, in the closed interval ``[0, 1]``.
+    degree : int
+        B-spline degree. The same value is used as the multiplicity of both
+        boundary knots.
+
+    Returns
+    -------
+    numpy.ndarray
+        Knot vector with repeated boundary knots added at both ends.
+
+    Notes
+    -----
+    The returned knot vector is suitable for clamped least-squares spline fits
+    where the end conditions are controlled by boundary knot repetition.
+    """
+    return np.concatenate([np.zeros(degree)] + [knots] + [np.ones(degree)])

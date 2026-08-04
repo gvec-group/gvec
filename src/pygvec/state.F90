@@ -232,37 +232,18 @@ END SUBROUTINE save_statefile
 !!
 !! Used for current constraint with free-boundary. Updates iota_profile, chi_profile and chiPrime_GP
 !===================================================================================================================================
-SUBROUTINE update_iota_for_current_constraint(rho2, vals, reset_LA)
+SUBROUTINE update_iota_for_current_constraint(knots, coefs, reset_LA)
   USE MODgvec_cubic_spline   , ONLY: interpolate_cubic_spline
   USE MODgvec_MHD3D_evalFunc , ONLY: chiPrime_GP
   USE MODgvec_MHD3D_Vars     , ONLY: iota_profile, chi_profile, X1_base, Phi_edge, init_LA
   USE MODgvec_MHD3D          , ONLY: Init_LA_from_Solution
   USE MODgvec_rProfile_bspl  , ONLY: t_rProfile_bspl
 
-  REAL(wp), INTENT(IN) :: rho2(:) !! interpolation points
-  REAL(wp), INTENT(IN) :: vals(:) !! profile values at the interpolation points
+  REAL(wp), INTENT(IN) :: knots(:) !! interpolation points
+  REAL(wp), INTENT(IN) :: coefs(:) !! profile values at the interpolation points
   LOGICAL,  INTENT(IN) :: reset_LA !! whether to set LA to zero
 
-  REAL(wp), ALLOCATABLE :: knots(:), coefs(:)
-  INTEGER :: n_rho2, n_vals, iGP, nGP
-
-  n_rho2 = SIZE(rho2)
-  n_vals =  SIZE(vals)
-
-  IF(ABS(rho2(1)).GT.1.0d-12) CALL abort(__STAMP__,&
-    "First rho2 position must be =0 for interpolation of iota profile!",&
-      TypeInfo="InvalidParameterError")
-  IF(ABS(rho2(n_rho2)-1.0_wp).GT.1.0d-12) CALL abort(__STAMP__,&
-    "Last rho2 position must be =1 for interpolation of iota profile!",&
-      TypeInfo="InvalidParameterError")
-  IF (n_vals .NE. n_rho2) THEN
-    CALL abort(__STAMP__,&
-    'Size of iota_rho2 and iota_vals must be equal!',&
-      TypeInfo="InvalidParameterError")
-  END IF
-
-  ! HACK: hardcode not-a-knot BC vals
-  CALL interpolate_cubic_spline(rho2, vals, coefs, knots, (/0,0/))
+  INTEGER :: iGP, nGP
 
   SDEALLOCATE(iota_profile)
   SDEALLOCATE(chi_profile)

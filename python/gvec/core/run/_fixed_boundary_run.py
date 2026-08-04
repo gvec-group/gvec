@@ -12,12 +12,13 @@ import xarray as xr
 from pandas import read_csv
 
 import gvec
-from gvec.core.state import State, DEFAULT_N_IOTA_RHOS
+from gvec.core.state import State
 from ._abstract_run import (
     AbstractRun,
     DEFAULT_MINIMIZE_TOL,
-    AUTO_IOTA_TARGET,
+    AUTO_PICARD_CURRENT_IOTA_TOL_TARGET,
     DEFAULT_PICARD_CURRENT_MAXRESTARTS,
+    DIAGNOSTICS_NPOINTS,
 )
 
 
@@ -83,15 +84,12 @@ class FixedBoundaryRun(AbstractRun):
                 stdout_path=Path("stdout.txt") if self.redirect_gvec_stdout else None,
             )
             iota_tol = self._state_parameters["picard_current"].get(
-                "iota_tol", AUTO_IOTA_TARGET
+                "iota_tol", AUTO_PICARD_CURRENT_IOTA_TOL_TARGET
             )
             minimize_target = self._state_parameters.get("minimize_tol", DEFAULT_MINIMIZE_TOL)
             self.state.minimize(
-                I_tor=self.I_tor_target if self.curr_constraint else None,
+                I_tor=self.I_tor if self.curr_constraint else None,
                 reset_LA=self._state_parameters["picard_current"].get("reset_LA", None),
-                n_iota_rhos=self._state_parameters["picard_current"].get(
-                    "nPoints", DEFAULT_N_IOTA_RHOS
-                ),
                 iota_target=iota_tol,
                 minimize_tol=minimize_target,
                 maxIter=self._state_parameters["maxIter"],
@@ -127,35 +125,10 @@ class FixedBoundaryRun(AbstractRun):
                     else ""
                 )
             )
-        if self.state.rho2_iota is not None:
-            self.rho = np.sqrt(self.state.rho2_iota)
-        else:
-            self.rho = np.linspace(0, 1, 101)
-
-        if self.curr_constraint:
-            rho_eval = np.concatenate(
-                [[np.sqrt(1e-8), np.sqrt(2e-8), np.sqrt(3e-8)], self.rho[1:]]
-            )
-        else:
-            rho_eval = self.rho
+        rho_eval = np.linspace(0, 1, DIAGNOSTICS_NPOINTS)
 
         ev = self.state.evaluate(*quantities, rho=rho_eval)
         ev = ev[quantities]
-
-        if self.curr_constraint:
-            # extrapolate ev dataset, from evaluations at s=1e-8,2e-8,3e-8 to s=0, quadratically. Only keep s=0 in dataset.
-            r1 = ev.isel(rad=0)
-            r2 = ev.isel(rad=1)
-            r3 = ev.isel(rad=2)
-            ev = ev.isel(rad=slice(2, None))
-
-            # workaround to modify xarray coordinate & index (with pandas >=3.0)
-            rho = ev.rho.data.copy()
-            rho[0] = 0.0
-            ev = ev.assign_coords(rho=("rad", rho)).set_xindex("rho")
-
-            for var in ev.data_vars:
-                ev[var].data[0] = 3 * (r1[var].data - r2[var].data) + r3[var].data
 
         logfiles = sorted(self.rundir.glob("logMinimizer_*"))
         if logfiles:
@@ -189,11 +162,15 @@ class FixedBoundaryRun(AbstractRun):
                 diag_stage["iota"] = ev.iota
                 diag_stage["I_tor"] = ev.I_tor
                 diag_stage["n_updates"] = self.state.nth_update
-                diag_stage["iota_delta"] = self.state.delta_iota
-                diag_stage["I_tor_delta"] = ev.I_tor - self.state.I_tor
+                diag_stage["iota_delta"] = ev.iota - self.state.iota(rho_eval**2)
+                diag_stage["I_tor_delta"] = ev.I_tor - self.state.I_tor(rho_eval**2)
+                diag_stage["rms_iota"] = self.state.rms_iota
+                diag_stage["rms_iota_fit"] = self.state.rms_iota_fit_over_run[-1]
+                diag_stage["max_Itor"] = self.state.delta_I_tor_max_over_run[-1]
+                diag_stage["iota_dofs"] = self.state.iota.c.size
                 diag_stage.reindex(iteration=self.state.iters_per_run, fill_value=np.nan)
                 diag_stage["iota_delta_picard"] = xr.DataArray(
-                    data=self.state.delta_iota_over_run,
+                    data=self.state.rms_iota_over_run,
                     dims=["picard_iteration"],
                     coords={"picard_iteration": self.state.iters_per_run + iteration_offset},
                 )

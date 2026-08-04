@@ -16,13 +16,14 @@ from pathlib import Path
 # GVEC
 import gvec
 from gvec.coils import CoilSet, Coil
-from gvec.core.state import State, DEFAULT_N_IOTA_RHOS
+from gvec.core.state import State
 from ._abstract_run import (
     AbstractRun,
     DEFAULT_MINIMIZE_TOL,
     DEFAULT_TOTALITER,
-    AUTO_IOTA_TARGET,
+    AUTO_PICARD_CURRENT_IOTA_TOL_TARGET,
     DEFAULT_PICARD_CURRENT_MAXRESTARTS,
+    DIAGNOSTICS_NPOINTS,
 )
 from gvec.util import write_parameter_file_ini, flatten_parameters, chdir
 from gvec.core.compute import ev2ft
@@ -177,9 +178,9 @@ class FreeBoundaryRun(AbstractRun):
         if self.curr_constraint:
             diagnostics["iota"] = (
                 ("rho_iota", "iteration"),
-                np.full(shape=(len(self.state.rho2_iota), fb_updates), fill_value=np.nan),
+                np.full(shape=(DIAGNOSTICS_NPOINTS, fb_updates), fill_value=np.nan),
             )
-            diagnostics["rho_iota"] = np.sqrt(self.state.rho2_iota)
+            diagnostics["rho_iota"] = np.linspace(0, 1, DIAGNOSTICS_NPOINTS)
 
         if self.diagnostics_stage is None:
             self.diagnostics_stage = xr.DataTree()
@@ -371,7 +372,7 @@ class FreeBoundaryRun(AbstractRun):
                 init_for_minimization=True,
             )
             iota_tol = self._state_parameters["picard_current"].get(
-                "iota_tol", AUTO_IOTA_TARGET
+                "iota_tol", AUTO_PICARD_CURRENT_IOTA_TOL_TARGET
             )
             self.m_max, self.n_max = self.state.get_mn_max()
 
@@ -383,18 +384,15 @@ class FreeBoundaryRun(AbstractRun):
                     "maxRestarts", DEFAULT_PICARD_CURRENT_MAXRESTARTS
                 ),
                 target=self._state_parameters["picard_current"].get("target", "auto"),
-                I_tor=self.I_tor_target if self.curr_constraint else None,
+                I_tor=self.I_tor if self.curr_constraint else None,
                 reset_LA=self._state_parameters["picard_current"].get("reset_LA", None),
-                n_iota_rhos=self._state_parameters["picard_current"].get(
-                    "nPoints", DEFAULT_N_IOTA_RHOS
-                ),
             )
             self._allocate_diagnostics(track_boundary_fields)
             self.iters_used = self.state.get_iterations()
 
             # NOTE: always use self-consistent I_tor values
             if self.curr_constraint:
-                self.I_tor_boundary = self.I_tor_target(1.0)
+                self.I_tor_boundary = self.I_tor(1.0)
             else:
                 self.I_tor_boundary = (
                     self.state.evaluate("I_tor", rho=1.0).squeeze()["I_tor"].item()
@@ -493,12 +491,9 @@ class FreeBoundaryRun(AbstractRun):
                             target=self._state_parameters["picard_current"].get(
                                 "target", "auto"
                             ),
-                            I_tor=self.I_tor_target if self.curr_constraint else None,
+                            I_tor=self.I_tor if self.curr_constraint else None,
                             reset_LA=self._state_parameters["picard_current"].get(
                                 "reset_LA", None
-                            ),
-                            n_iota_rhos=self._state_parameters["picard_current"].get(
-                                "nPoints", DEFAULT_N_IOTA_RHOS
                             ),
                         )
 
@@ -506,7 +501,7 @@ class FreeBoundaryRun(AbstractRun):
                             self.state.save()
                         # NOTE: always use self consistent I_tor
                         if self.curr_constraint:
-                            self.I_tor_boundary = self.I_tor_target(1.0)
+                            self.I_tor_boundary = self.I_tor(1.0)
                         else:
                             self.I_tor_boundary = (
                                 self.state.evaluate("I_tor", rho=1.0).squeeze()["I_tor"].item()
@@ -535,7 +530,12 @@ class FreeBoundaryRun(AbstractRun):
                             ).I_tor.item()
                         else:
                             self.diagnostics_stage[f"stage_{self.nth_stage}"].iota[:, i] = (
-                                self.state.iota.data
+                                self.state.iota(
+                                    self.diagnostics_stage[f"stage_{self.nth_stage}"][
+                                        "rho_iota"
+                                    ]
+                                    ** 2
+                                ).data
                             )
 
                     logger.info(

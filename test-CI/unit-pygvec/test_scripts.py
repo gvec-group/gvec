@@ -236,8 +236,8 @@ def test_I_tor_types(ptype):
     assert Path(f"{ProjectName}_State_final.dat").exists()
     assert Path(f"parameter_{ProjectName}_final.ini").exists()
 
-    rho = run.diagnostics_run.rho
-    diagnostics = run.diagnostics_run.isel(run=-1)
+    rho = run.diagnostics_stage[f"stage_{run.nth_stage}"].rho
+    diagnostics = run.diagnostics_stage[f"stage_{run.nth_stage}"]
 
     np.testing.assert_allclose(I_tor_tp(rho**2), run.I_tor(rho**2))
     np.testing.assert_allclose(I_tor_tp(rho**2), diagnostics.I_tor, atol=1e-2)

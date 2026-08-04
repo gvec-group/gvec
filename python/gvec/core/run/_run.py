@@ -59,6 +59,8 @@ def run(
     logger = logging.getLogger("gvec.run")
     if loglevel is not None:
         logger.setLevel(loglevel)
+    else:
+        logger.setLevel("WARNING")
 
     # rundirectory setup
     if runpath is None:

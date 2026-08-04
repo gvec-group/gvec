@@ -9,6 +9,7 @@ from .util import (
     logging_setup,
     version_info,
     compute_FD,
+    compute_hfactor,
 )
 from .geometry import (
     axis_from_boundary,  # Needs docstrings
