@@ -1734,6 +1734,54 @@ def iota_avg2(ds: xr.Dataset):
 
 
 @register(
+    requirements=("dV_dr", "g_tt", "Jac"),
+    attrs=dict(
+        long_name="susceptance of the toroidal current with respect to the poloidal flux",
+        symbol=r"S_{11}",
+    ),
+)
+def susceptance_11(ds: xr.Dataset):
+    s11 = ds.g_tt / ds.Jac
+    ds["susceptance_11"] = ds.dV_dr / (4 * np.pi**2) * fluxsurface_integral(s11)
+
+
+@register(
+    requirements=("dV_dr", "g_tt", "g_tz", "Jac", "dLA_dt", "dLA_dz"),
+    attrs=dict(
+        long_name="susceptance of the toroidal current with respect to the toroidal flux",
+        symbol=r"S_{12}",
+    ),
+)
+def susceptance_12(ds: xr.Dataset):
+    s12 = ds.g_tz / ds.Jac * (1 + ds.dLA_dt) - ds.g_tt / ds.Jac * ds.dLA_dz
+    ds["susceptance_12"] = ds.dV_dr / (4 * np.pi**2) * fluxsurface_integral(s12)
+
+
+@register(
+    requirements=("dV_dr", "g_tz", "Jac"),
+    attrs=dict(
+        long_name="susceptance of the poloidal current with respect to the poloidal flux",
+        symbol=r"S_{21}",
+    ),
+)
+def susceptance_21(ds: xr.Dataset):
+    s21 = ds.g_tz / ds.Jac
+    ds["susceptance_21"] = ds.dV_dr / (4 * np.pi**2) * fluxsurface_integral(s21)
+
+
+@register(
+    requirements=("dV_dr", "g_tz", "g_zz", "Jac", "dLA_dt", "dLA_dz"),
+    attrs=dict(
+        long_name="susceptance of the poloidal current with respect to the toroidal flux",
+        symbol=r"S_{22}",
+    ),
+)
+def susceptance_22(ds: xr.Dataset):
+    s22 = ds.g_zz / ds.Jac * (1 + ds.dLA_dt) - ds.g_tz / ds.Jac * ds.dLA_dz
+    ds["susceptance_22"] = ds.dV_dr / (4 * np.pi**2) * fluxsurface_integral(s22)
+
+
+@register(
     requirements=("mu0", "dPhi_dr", "Jac", "g_tt"),
     integration=("theta", "zeta"),
     attrs=dict(
