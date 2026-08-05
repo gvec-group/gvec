@@ -217,11 +217,11 @@ def _minimize_single_current_constraint(
         (iota_bspl, rms_iota, delta_iota, delta_I_tor_max, rms_iota_fit) = _get_new_iota(
             self, iota_tol=iota_tol
         )
-        self.reset_descent()
         # only reset LA at the start
         if iters_used > 0:
             reset_LA = False
         self.update_iota_for_current_constraint(iota_bspl.t, iota_bspl.c, reset_LA)
+        self.reset_descent()
         self._parameter_dict["iota"] = CaseInsensitiveDict(
             type="bspline",
             coefs=iota_bspl.c,
