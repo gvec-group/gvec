@@ -386,6 +386,7 @@ class FreeBoundaryRun(AbstractRun):
                 target=self._state_parameters["picard_current"].get("target", "auto"),
                 I_tor=self.I_tor if self.curr_constraint else None,
                 reset_LA=self._state_parameters["picard_current"].get("reset_LA", None),
+                save_intermediate=self.save_intermediate,
             )
             self._allocate_diagnostics(track_boundary_fields)
             self.iters_used = self.state.get_iterations()

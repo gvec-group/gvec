@@ -367,6 +367,10 @@ class AbstractRun(ABC):
             raise gvec.errors.InvalidParameterError(
                 f"""'keep_intermediates' has to be either None, "stages" or "all" but is {keep_intermediates}"""
             )
+        if keep_intermediates == "all":
+            self.save_intermediate = True
+        else:
+            self.save_intermediate = False
 
         start_time = time.time()
         for s, stage in enumerate(self.stages):

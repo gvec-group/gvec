@@ -166,6 +166,7 @@ def _minimize_single_current_constraint(
     minimize_tol: float | None,
     maxUpdates: int,
     reset_LA: bool,
+    save_intermediate: bool,
     **kwargs_minimize,
 ):
     """Single current optimization stage.
@@ -236,6 +237,8 @@ def _minimize_single_current_constraint(
         iters_per_run.append(iters)
         delta_I_tor_max_over_run.append(delta_I_tor_max)
         rms_iota_fit_over_run.append(rms_iota_fit)
+        if save_intermediate:
+            self.save()
 
     if rms_iota > iota_tol and maxIter > 0:
         logger.warning(
@@ -264,6 +267,7 @@ def _minimize_current_constraint(
     maxUpdates: int,
     reset_LA: bool,
     target: Literal["iota", "iota_and_force", "auto"],
+    save_intermediate: bool,
     **kwargs,
 ):
     """Fixed-boundary run with prescribed current profile.
@@ -320,6 +324,8 @@ def _minimize_current_constraint(
             minimize_tol=minimize_tols[0],
             maxUpdates=maxUpdates,
             reset_LA=reset_LA,
+            save_intermediate=save_intermediate,
+            **kwargs,
         )
         self.nth_update += nth_update
     else:
@@ -355,6 +361,7 @@ def _minimize_current_constraint(
                     minimize_tol=minimize_tol,
                     maxUpdates=maxUpdates,
                     reset_LA=reset_LA,
+                    save_intermediate=save_intermediate,
                     **kwargs,
                 )
                 self.nth_update += nth_update
@@ -392,6 +399,7 @@ def minimize(
     target: Literal["iota", "iota_and_force", "auto"],
     I_tor: Callable | None = None,
     reset_LA: bool = False,
+    save_intermediate: bool = False,
     **kwargs,
 ):
     if I_tor is not None:
@@ -413,6 +421,7 @@ def minimize(
             maxUpdates=maxUpdates,
             reset_LA=reset_LA,
             target=target,
+            save_intermediate=save_intermediate,
             **kwargs,
         )
     else:

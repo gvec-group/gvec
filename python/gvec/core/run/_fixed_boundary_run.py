@@ -96,6 +96,7 @@ class FixedBoundaryRun(AbstractRun):
                 maxUpdates=self._state_parameters["picard_current"].get(
                     "maxRestarts", DEFAULT_PICARD_CURRENT_MAXRESTARTS
                 ),
+                save_intermediate=self.save_intermediate,
                 target=self._state_parameters["picard_current"].get("target", "auto"),
             )
 
