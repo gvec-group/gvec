@@ -246,7 +246,7 @@ class FreeBoundaryRun(AbstractRun):
         diag_aux.Fnorm_X2_b_IP[iteration] = Fnorm[2]
         diag_aux.Fnorm_X2_b_modes[iteration] = Fnorm[3]
         diag_aux.Fnorm_X1_b[iteration] = Fnorm[4]
-        diag_aux.Fnorm_X2_b[iteration] = Fnorm[4]
+        diag_aux.Fnorm_X2_b[iteration] = Fnorm[5]
 
         diag_aux.spectral_width[iteration] = _state.get_spectral_width()
 
@@ -646,6 +646,90 @@ class FreeBoundaryRun(AbstractRun):
             self.max_force = max([forces[force].item() for force in forces])
         else:
             self.max_force = np.inf
+
+    def plot_diagnostics_minimization(self):
+        import matplotlib.pyplot as plt
+
+        fig_fb, axs_fb = plt.subplots(3, 1, figsize=(10, 5), layout="constrained", sharex=True)
+        if self.curr_constraint:
+            fig_iota, ax_iota = plt.subplots()
+        diagnostics = self.diagnostics_stage
+        iteration_offset = 0
+        for ith_stage, stage in enumerate(diagnostics):
+            ds = xr.Dataset(diagnostics[stage]).dropna(dim="iteration")
+            axs_fb[0].semilogy(
+                ds.iteration + iteration_offset,
+                ds.free_boundary_target,
+                color=f"C{ith_stage}",
+                label=stage.replace("_", " "),
+            )
+            axs_fb[1].semilogy(
+                ds.iteration + iteration_offset,
+                ds.Fnorm_X1_b,
+                color=f"C{ith_stage}",
+                label=r"$X^1$ " + stage.replace("_", " "),
+            )
+            axs_fb[1].semilogy(
+                ds.iteration + iteration_offset,
+                ds.Fnorm_X2_b,
+                "--",
+                color=f"C{ith_stage}",
+                label=r"$X^2$ " + stage.replace("_", " "),
+            )
+            axs_fb[2].semilogy(
+                ds.iteration + iteration_offset,
+                ds.resolved_force_ratio,
+                color=f"C{ith_stage}",
+                label=stage.replace("_", " "),
+            )
+            iteration_offset += ds.iteration.max()
+            if self.curr_constraint:
+                max_iter = ds.iteration.max()
+                for iter in ds.iteration:
+                    ds_aux = ds.sel(iteration=iter)
+                    ax_iota.plot(
+                        ds_aux.iota.rho_iota,
+                        ds_aux.iota,
+                        "-.",
+                        color=f"C{ith_stage}",
+                        alpha=min(0.01 + (iter / (5 * max_iter)).item(), 1),
+                    )
+                ax_iota.plot(
+                    ds_aux.iota.rho_iota,
+                    ds_aux.iota,
+                    color=f"C{ith_stage}",
+                    label=r"final $\iota$ " + stage.replace("_", " "),
+                )
+        if self.curr_constraint:
+            ax_iota.set(xlabel=r"$\rho$", ylabel=r"$\iota$")
+            ax_iota.legend()
+        axs_fb[0].set(ylabel="free boundary target")
+        axs_fb[1].set(ylabel=r"$\left\|\hat{\mathbf{F}}_\text{b}\right\|^\text{max}$")
+        axs_fb[2].set(ylabel="resolved force ratio", xlabel="free boundary iteration")
+        for ax in axs_fb:
+            ax.grid("on")
+            ax.legend(ncol=2)
+        out = ((fig_fb, axs_fb),)
+        if self.curr_constraint:
+            out += ((fig_iota, ax_iota),)
+        return out
+
+    def plot_diagnostics_fixed_boundary(self):
+        import matplotlib.pyplot as plt
+
+        dm = self.diagnostics_minimizer
+        fig, axs = plt.subplots(2, 1, tight_layout=True, sharex=True)
+        axs[0].plot(dm.total_iteration, dm.W_MHD)
+        axs[1].semilogy(dm.total_iteration, dm.force_X1, label=r"$X^1$")
+        axs[1].semilogy(dm.total_iteration, dm.force_X2, label=r"$X^2$")
+        axs[1].semilogy(dm.total_iteration, dm.force_LA, label=r"$\lambda$")
+        axs[0].set(ylabel=r"$W_\text{MHD}$")
+        axs[1].set(
+            xlabel="fixed boundary iteration",
+            ylabel=r"$\left\|\hat{\mathbf{F}}_\text{i}\right\|^\text{max}$",
+        )
+        axs[1].legend()
+        return (fig, axs)
 
 
 # ============= BIEST CALLS ===========================
