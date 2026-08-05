@@ -355,7 +355,7 @@
     - pygvec --version
     - end_details pre
     - start_details run "nbconvert"
-    - cp -r docs/tutorials/notebooks  ${CI_PIPELINE_ID}_${BUILDNAME}_notebooks
+    - cp -rL docs/tutorials/notebooks  ${CI_PIPELINE_ID}_${BUILDNAME}_notebooks
     - cd ${CI_PIPELINE_ID}_${BUILDNAME}_notebooks
     - jupyter nbconvert --execute --to html --no-input *.ipynb
     - end_details run
