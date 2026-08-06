@@ -207,11 +207,11 @@ FUNCTION get_xnorm() RESULT(xnorm)
   xnorm = xnorm_fb
 END FUNCTION get_xnorm
 
-SUBROUTINE get_boundary_forces(modes_X1, modes_X2, forces_inout)
+SUBROUTINE get_boundary_forces(forces_inout)
   USE MODgvec_MHD3D_Vars, ONLY: Force_b_X1, Force_b_X2, X1_base, X2_base
-  INTEGER, INTENT(IN) :: modes_X1, modes_X2
-  REAL(wp), INTENT(INOUT) :: forces_inout(3,modes_X1 + modes_X1)
+  REAL(wp), INTENT(INOUT) :: forces_inout(3,X1_base%f%modes + X2_base%f%modes)
 
+  forces_inout = 0.0_wp
   forces_inout(1:2,:X1_base%f%modes) = REAL(X1_base%f%Xmn)
   forces_inout(3,:X1_base%f%modes) = Force_b_X1
 

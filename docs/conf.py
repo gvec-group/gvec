@@ -302,5 +302,5 @@ myst_dmath_allow_labels = True
 myst_heading_anchors = 3
 
 # maximum runtime per notebook cell.
-# increased to 1.5 min for free boundary, default is 30s
-nb_execution_timeout = 90
+# increased to 2 min for free boundary, default is 30s
+nb_execution_timeout = 120
