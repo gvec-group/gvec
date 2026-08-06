@@ -410,12 +410,8 @@ class AbstractRun(ABC):
         )
 
         shutil.copy(self.state.statefile, final_statefile)
-        parameters_final = gvec.util.read_parameters(
-            self.state.statefile.parents[0] / "parameter.ini"
-        )
-        # # make sure that the correct iota is in the final parameter file
-        if self.curr_constraint:
-            parameters_final["iota"] = self.state._parameter_dict["iota"]
+        parameters_final = self.state._parameter_dict
+
         parameters_final["maxIter"] = -1
         for key in parameters_final:
             if key.lower() in [

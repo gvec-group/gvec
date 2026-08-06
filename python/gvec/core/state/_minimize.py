@@ -5,11 +5,13 @@
 # === Imports === #
 import numpy as np
 import scipy
-from gvec.util import write_parameters, CaseInsensitiveDict, chdir
+from gvec.util import write_parameter_file_ini, CaseInsensitiveDict, chdir, flatten_parameters
 from ._binding import with_binding
 from ._evaluate import _evaluate_extrapolate_in_rho2
 from typing import Literal, Callable
 from gvec.core.compute import fluxsurface_integral
+from gvec import __version__
+from datetime import datetime
 
 from gvec.lib import _state
 
@@ -17,7 +19,7 @@ import time
 import logging
 from scipy.constants import mu_0
 
-logger = logging.getLogger("gvec.run")
+logger = logging.getLogger("gvec.state")
 
 AUTO_STAGE_IOTA_INIT_MAXITER = 10
 AUTO_STAGE_IOTA_INIT_IOTA_TOL = 1e-3
@@ -57,13 +59,15 @@ def reset_descent(self):
     _state.reset_descent()
 
 
-def save(self):
+def save(self, header=""):
+    logger.debug("Saving state")
     self.save_statefile()
     iters = self.get_iterations()
     outid = self.get_outputlevel()
-    write_parameters(
-        self._parameter_dict,
+    write_parameter_file_ini(
+        flatten_parameters(self._parameter_dict),
         self._parameter_dict["ProjectName"] + f"_parameters_{outid:04}_{iters:08}.ini",
+        header=header,
     )
 
 
@@ -167,6 +171,8 @@ def _minimize_single_current_constraint(
     maxUpdates: int,
     reset_LA: bool,
     save_intermediate: bool,
+    save_header: str,
+    picard_offset: int,
     **kwargs_minimize,
 ):
     """Single current optimization stage.
@@ -190,7 +196,7 @@ def _minimize_single_current_constraint(
         RMS of the iota update.
     """
     rms_iota = np.inf
-    nth_update = -1
+    nth_update = 0
     iters_used_start = self.get_iterations()
     self.reset_descent()
     iters_used = 0
@@ -206,7 +212,7 @@ def _minimize_single_current_constraint(
         logfinaliter = False
 
     while (rms_iota > iota_tol) and (iters_used < maxIter):
-        if nth_update + 1 > maxUpdates:
+        if nth_update >= maxUpdates:
             logger.warning("Maximum number of iota updates reached reached!")
             break
         self._minimize(
@@ -238,7 +244,11 @@ def _minimize_single_current_constraint(
         delta_I_tor_max_over_run.append(delta_I_tor_max)
         rms_iota_fit_over_run.append(rms_iota_fit)
         if save_intermediate:
-            self.save()
+            self.save(
+                header=save_header + f"!Picard Iteration {nth_update + picard_offset}\n"
+                f"!Created at {datetime.now().isoformat()}\n"
+                f"!pyGVEC v{__version__}\n",
+            )
 
     if rms_iota > iota_tol and maxIter > 0:
         logger.warning(
@@ -268,6 +278,7 @@ def _minimize_current_constraint(
     reset_LA: bool,
     target: Literal["iota", "iota_and_force", "auto"],
     save_intermediate: bool,
+    save_header: str,
     **kwargs,
 ):
     """Fixed-boundary run with prescribed current profile.
@@ -325,6 +336,8 @@ def _minimize_current_constraint(
             maxUpdates=maxUpdates,
             reset_LA=reset_LA,
             save_intermediate=save_intermediate,
+            save_header=save_header,
+            picard_offset=self.nth_update,
             **kwargs,
         )
         self.nth_update += nth_update
@@ -362,6 +375,8 @@ def _minimize_current_constraint(
                     maxUpdates=maxUpdates,
                     reset_LA=reset_LA,
                     save_intermediate=save_intermediate,
+                    save_header=save_header,
+                    picard_offset=self.nth_update,
                     **kwargs,
                 )
                 self.nth_update += nth_update
@@ -389,8 +404,6 @@ def _minimize_current_constraint(
             f"  with {self.knots_per_sgrid_element} knots per sgrid element"
         )
 
-    self.save()
-
 
 def minimize(
     self,
@@ -400,6 +413,7 @@ def minimize(
     I_tor: Callable | None = None,
     reset_LA: bool = False,
     save_intermediate: bool = False,
+    save_header: str = "",
     **kwargs,
 ):
     if I_tor is not None:
@@ -422,6 +436,7 @@ def minimize(
             reset_LA=reset_LA,
             target=target,
             save_intermediate=save_intermediate,
+            save_header=save_header,
             **kwargs,
         )
     else:

@@ -111,7 +111,7 @@ def bind(self, force: bool = False):
                         _state.readstate(statefile)
                 else:
                     logger.debug("Initialize solution without statefile")
-                    _state.initsolution()
+                    _state.initsolution(do_writestate_in=False)
         except:
             logger.debug("Error during binding, attempting cleanup.")
             self.unbind(cleanup=True)

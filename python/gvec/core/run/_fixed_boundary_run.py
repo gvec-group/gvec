@@ -69,7 +69,7 @@ class FixedBoundaryRun(AbstractRun):
 
         gvec.util.write_parameter_file_ini(
             gvec.util.flatten_parameters(self._state_parameters),
-            self.rundir / "parameter.ini",
+            self.rundir / f"parameters_stage_{self.nth_stage:03d}_initial.ini",
             header=f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n"
             f"!Created at {datetime.now().isoformat()}\n"
             f"!pyGVEC v{gvec.__version__}\n",
@@ -78,7 +78,7 @@ class FixedBoundaryRun(AbstractRun):
         with gvec.util.chdir(self.rundir):
             # write parameterfile & run GVEC
             self.state = State(
-                parameterfile="parameter.ini",
+                parameterfile=f"parameters_stage_{self.nth_stage:03d}_initial.ini",
                 statefile=self.state.statefile,
                 init_for_minimization=True,
                 stdout_path=Path("stdout.txt") if self.redirect_gvec_stdout else None,
@@ -87,6 +87,12 @@ class FixedBoundaryRun(AbstractRun):
                 "iota_tol", AUTO_PICARD_CURRENT_IOTA_TOL_TARGET
             )
             minimize_target = self._state_parameters.get("minimize_tol", DEFAULT_MINIMIZE_TOL)
+            if self.save_intermediate:
+                self.state.save(
+                    f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n"
+                    f"!Created at {datetime.now().isoformat()}\n"
+                    f"!pyGVEC v{gvec.__version__}\n",
+                )
             self.state.minimize(
                 I_tor=self.I_tor if self.curr_constraint else None,
                 reset_LA=self._state_parameters["picard_current"].get("reset_LA", None),
@@ -98,12 +104,18 @@ class FixedBoundaryRun(AbstractRun):
                 ),
                 save_intermediate=self.save_intermediate,
                 target=self._state_parameters["picard_current"].get("target", "auto"),
+                save_header=f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n",
             )
-
+            self.state.save(
+                f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n"
+                f"!Created at {datetime.now().isoformat()}\n"
+                f"!pyGVEC v{gvec.__version__}\n",
+            )
         # postprocessing
         statefiles_found = sorted(self.rundir.glob("*State*.dat"))
         if len(statefiles_found) > 0:
-            self.state.statefile = Path(statefiles_found[-1]).absolute()
+            FileNotFoundError(f"Could not find any State files in rundir {self.rundir}")
+        self.state.statefile = Path(statefiles_found[-1]).absolute()
 
         iterations = self.state.get_iterations()
         iteration_offset = self.GVEC_iter_used

@@ -358,7 +358,7 @@ class FreeBoundaryRun(AbstractRun):
 
         write_parameter_file_ini(
             flatten_parameters(self._state_parameters),
-            self.rundir / "parameter.ini",
+            self.rundir / f"parameters_stage_{self.nth_stage:03d}_initial.ini",
             header=f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n"
             f"!Created at {datetime.now().isoformat()}\n"
             f"!pyGVEC v{gvec.__version__}\n",
@@ -366,7 +366,7 @@ class FreeBoundaryRun(AbstractRun):
         with chdir(self.rundir):
             # write parameterfile & run GVEC
             self.state = State(
-                parameterfile="parameter.ini",
+                parameterfile=f"parameters_stage_{self.nth_stage:03d}_initial.ini",
                 statefile=self.state.statefile,
                 stdout_path=Path("stdout.txt") if self.redirect_gvec_stdout else None,
                 init_for_minimization=True,
@@ -375,6 +375,13 @@ class FreeBoundaryRun(AbstractRun):
                 "iota_tol", AUTO_PICARD_CURRENT_IOTA_TOL_TARGET
             )
             self.m_max, self.n_max = self.state.get_mn_max()
+
+            if self.save_intermediate:
+                self.state.save(
+                    f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n"
+                    f"!Created at {datetime.now().isoformat()}\n"
+                    f"!pyGVEC v{gvec.__version__}\n",
+                )
 
             self.state.minimize(
                 iota_target=iota_tol,
@@ -387,6 +394,7 @@ class FreeBoundaryRun(AbstractRun):
                 I_tor=self.I_tor if self.curr_constraint else None,
                 reset_LA=self._state_parameters["picard_current"].get("reset_LA", None),
                 save_intermediate=self.save_intermediate,
+                save_header=f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n",
             )
             self._allocate_diagnostics(track_boundary_fields)
             self.iters_used = self.state.get_iterations()
@@ -413,9 +421,9 @@ class FreeBoundaryRun(AbstractRun):
             self._update_diagnostics(B_ext_2, B_coils, B_plas_ext, 0, dt)
 
             try:  # allow clean abort with KeybordInterrupt
-                for i in range(1, fb_updates):
+                for fb_update in range(1, fb_updates):
                     logger.info(
-                        f"============= free-boundary step {i} / {fb_updates} ============="
+                        f"============= free-boundary step {fb_update} / {fb_updates} ============="
                     )
                     # abort if budget is used up
                     if self.iters_used >= self.totaliter:
@@ -496,10 +504,18 @@ class FreeBoundaryRun(AbstractRun):
                             reset_LA=self._state_parameters["picard_current"].get(
                                 "reset_LA", None
                             ),
+                            save_header=f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n"
+                            + f"!free-boundary step {fb_update}\n",
+                            save_intermediate=self.save_intermediate,
                         )
 
                         if self.save_fb_updates:
-                            self.state.save()
+                            self.state.save(
+                                f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n"
+                                f"!free-boundary step {fb_update}\n"
+                                f"!Created at {datetime.now().isoformat()}\n"
+                                f"!pyGVEC v{gvec.__version__}\n"
+                            )
                         # NOTE: always use self consistent I_tor
                         if self.curr_constraint:
                             self.I_tor_boundary = self.I_tor(1.0)
@@ -519,7 +535,7 @@ class FreeBoundaryRun(AbstractRun):
                             digits=digits_BIEST,
                         )
 
-                        self._update_diagnostics(B_ext_2, B_coils, B_plas_ext, i, dt)
+                        self._update_diagnostics(B_ext_2, B_coils, B_plas_ext, fb_update, dt)
 
                         t_fb_1 = time.time()
                         logger.info(f"Time for free boundary update: {t_fb_1 - t_fb_0:.4}s")
@@ -530,14 +546,12 @@ class FreeBoundaryRun(AbstractRun):
                                 "I_tor", rho=1.0
                             ).I_tor.item()
                         else:
-                            self.diagnostics_stage[f"stage_{self.nth_stage}"].iota[:, i] = (
-                                self.state.iota(
-                                    self.diagnostics_stage[f"stage_{self.nth_stage}"][
-                                        "rho_iota"
-                                    ]
-                                    ** 2
-                                ).data
-                            )
+                            self.diagnostics_stage[f"stage_{self.nth_stage}"].iota[
+                                :, fb_update
+                            ] = self.state.iota(
+                                self.diagnostics_stage[f"stage_{self.nth_stage}"]["rho_iota"]
+                                ** 2
+                            ).data
 
                     logger.info(
                         f"free-boundary - target: {self.free_boundary_target:.3e}, tolerance: {free_boundary_tolerance}, iters: {self.iters_used} / {self.totaliter} "
@@ -563,6 +577,7 @@ class FreeBoundaryRun(AbstractRun):
                             "maxRestarts", 30
                         ),
                         target=self._state_parameters["picard_current"].get("target", "auto"),
+                        save_header=f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n",
                     )
 
             except KeyboardInterrupt:
@@ -573,7 +588,7 @@ class FreeBoundaryRun(AbstractRun):
             ):
                 fb_aux = (
                     self.diagnostics_stage[f"stage_{self.nth_stage}"]
-                    .force_balance.isel(iteration=i - 1)
+                    .force_balance.isel(iteration=fb_update - 1)
                     .squeeze()
                     .transpose("pol", "tor")
                 )
@@ -596,6 +611,13 @@ class FreeBoundaryRun(AbstractRun):
                     f"Free-boundary target not reached! target: {self.free_boundary_target:.3e}, specified tol.: {free_boundary_tolerance:.3e}"
                 )
 
+            self.state.save(
+                f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n"
+                f"!free-boundary step {fb_update}\n"
+                f"!Created at {datetime.now().isoformat()}\n"
+                f"!pyGVEC v{gvec.__version__}\n"
+            )
+
         iterations = self.state.get_iterations()
         iteration_offset = self.GVEC_iter_used
         self.GVEC_iter_used += iterations
@@ -603,7 +625,8 @@ class FreeBoundaryRun(AbstractRun):
         # postprocessing
         statefiles_found = sorted(self.rundir.glob("*State*.dat"))
         if len(statefiles_found) > 0:
-            self.state.statefile = Path(statefiles_found[-1]).absolute()
+            FileNotFoundError(f"Could not find any State files in rundir {self.rundir}")
+        self.state.statefile = Path(statefiles_found[-1]).absolute()
 
         logfiles = sorted(self.rundir.glob("logMinimizer_*"))
         if logfiles:
