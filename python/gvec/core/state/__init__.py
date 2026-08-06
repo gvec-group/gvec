@@ -10,4 +10,4 @@ The `State` class is distributed across multiple files, grouping the methods and
 """
 
 from ._class import State
-from .util import load_state, find_state, find_states
+from .util import load_state, find_state, find_states, load_intermediates

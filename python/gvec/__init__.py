@@ -10,7 +10,7 @@ except ImportError:
 
 # toplevel API
 
-from gvec.core.state import State, load_state, find_state, find_states
+from gvec.core.state import State, load_state, find_state, find_states, load_intermediates
 from gvec.core.compute import (
     compute,
     evaluate,
