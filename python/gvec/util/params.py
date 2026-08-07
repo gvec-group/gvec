@@ -832,8 +832,8 @@ def format_toml(parameters: CaseInsensitiveDict):
                 else:
                     doc[key][subkey] = subvalue
 
-    add_section(doc, "Free Boundary")
     if "free_boundary" in parameters and isinstance(parameters["free_boundary"], Mapping):
+        add_section(doc, "Free Boundary")
         doc["free_boundary"] = parameters["free_boundary"].serialize()
 
     if "stages" in parameters:

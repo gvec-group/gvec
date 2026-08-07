@@ -222,7 +222,7 @@ def get_json_from_quasr(configuration: int, filename: str | Path = None):
     return filename
 
 
-def get_surface_from_json_file(filename: Path | str, which_surface: int):
+def get_surface_from_json_file(filename: Path | str, index: int):
     """Get the boundary surface as a SIMSOPT Surface object from a QUASR JSON file."""
     from simsopt._core import load
 
@@ -500,7 +500,7 @@ def load_quasr(
     nz : int, optional
         Number of zeta points, by default 81
     quiet : bool, optional
-        Supressed logging, by default True
+        Suppressed logging, by default True
     verbose : int, optional
         verbosity level: 1 for info, 2 for debug, by default 0
     name : str, optional
@@ -520,7 +520,7 @@ def load_quasr(
     boundary_coefficients : bool, optional
         Write the boundary data as fourier coefficients in the parameter file instead of points in the netCDF file.
     which_surface : int, optional
-        Which surface to select as the equilibrium boundary from the quasr-jason file.
+        Index of the surface to select as the equilibrium boundary from the quasr-json file.
         Deafault is the last one, i.e. `which_surface=-1`.
 
     Returns
