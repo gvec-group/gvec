@@ -25,7 +25,8 @@ from gvec.core.compute import (
     EvaluationsPEST,
     table_of_quantities,
 )
-from gvec.core.run import run, FixedBoundaryRun
+from gvec.core.run import run, FixedBoundaryRun, FixedBoundaryRun as Run
+from gvec.coils import CoilSet
 
 # submodules
 
