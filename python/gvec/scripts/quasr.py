@@ -227,7 +227,7 @@ def get_surface_from_json_file(filename: Path | str, index: int):
     from simsopt._core import load
 
     surfaces, coils = load(filename)
-    return surfaces[which_surface]
+    return surfaces[index]
 
 
 def get_xyz_from_surface(nt: int, nz: int, surface):
@@ -482,7 +482,7 @@ def load_quasr(
     clean: int = 0,
     stellsym: bool = False,
     boundary_coefficients: bool = False,
-    which_surface: int = -1,
+    surf_index: int = -1,
 ):
     """Load a QUASR configuration and convert it to a G-Frame and boundary for use with GVEC.
 
@@ -519,9 +519,9 @@ def load_quasr(
         If set, imposes stellarator symmetry for the input surface. Use this with great care! By default False
     boundary_coefficients : bool, optional
         Write the boundary data as fourier coefficients in the parameter file instead of points in the netCDF file.
-    which_surface : int, optional
+    surf_index : int, optional
         Index of the surface to select as the equilibrium boundary from the quasr-json file.
-        Deafault is the last one, i.e. `which_surface=-1`.
+        Deafault is the last one, i.e. `surf_index=-1`.
 
     Returns
     -------
@@ -546,7 +546,7 @@ def load_quasr(
     match filetype:
         case "json":
             logger.info("Loading SIMSOPT surface")
-            surface = get_surface_from_json_file(filename, which_surface=which_surface)
+            surface = get_surface_from_json_file(filename, index=surf_index)
             nfp = surface.nfp
             xyz = get_xyz_from_surface(nt, nz, surface)
             name_aux = str(filename.stem)
