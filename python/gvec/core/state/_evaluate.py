@@ -335,19 +335,3 @@ def evaluate_rho2_profile(self, quantity: str, rho2: np.ndarray, deriv: int = 0)
 
     _state.evaluate_rho2_profile(rho2.size, rho2, deriv, quantity, result)
     return result
-
-
-def _evaluate_extrapolate_in_rho2(self, *Qs, rho, theta, zeta):
-    rho_aux = np.sqrt([1e-8, 2e-8, 3e-8])
-    ev_aux = self.evaluate(*Qs, rho=rho_aux, theta=theta, zeta=zeta, extrapolate=False)
-    r1 = ev_aux.isel(rad=0)
-    r2 = ev_aux.isel(rad=1)
-    r3 = ev_aux.isel(rad=2)
-    on_axis = 3 * (r1 - r2) + r3
-    on_axis.rho[...] = 0.0
-
-    ev = self.evaluate(*Qs, rho=rho, theta=theta, zeta=zeta, extrapolate=False)
-    for q in ev.data_vars:
-        if "rad" in ev[q].dims:
-            ev[q].loc[dict(rho=0.0)] = on_axis[q]
-    return ev

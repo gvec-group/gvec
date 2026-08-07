@@ -7,7 +7,6 @@ import numpy as np
 import scipy
 from gvec.util import write_parameter_file_ini, CaseInsensitiveDict, chdir, flatten_parameters
 from ._binding import with_binding
-from ._evaluate import _evaluate_extrapolate_in_rho2
 from typing import Literal, Callable
 from gvec.core.compute import fluxsurface_integral
 from gvec import __version__
@@ -662,3 +661,19 @@ def _add_knot_multiplicity(knots, degree):
     where the end conditions are controlled by boundary knot repetition.
     """
     return np.concatenate([np.zeros(degree)] + [knots] + [np.ones(degree)])
+
+
+def _evaluate_extrapolate_in_rho2(self, *Qs, rho, theta, zeta):
+    rho_aux = np.sqrt([1e-8, 2e-8, 3e-8])
+    ev_aux = self.evaluate(*Qs, rho=rho_aux, theta=theta, zeta=zeta, extrapolate=False)
+    r1 = ev_aux.isel(rad=0)
+    r2 = ev_aux.isel(rad=1)
+    r3 = ev_aux.isel(rad=2)
+    on_axis = 3 * (r1 - r2) + r3
+    on_axis.rho[...] = 0.0
+
+    ev = self.evaluate(*Qs, rho=rho, theta=theta, zeta=zeta, extrapolate=False)
+    for q in ev.data_vars:
+        if "rad" in ev[q].dims:
+            ev[q].loc[dict(rho=0.0)] = on_axis[q]
+    return ev
