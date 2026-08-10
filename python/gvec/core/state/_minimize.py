@@ -42,7 +42,7 @@ def _minimize(self, dt=None, logfinaliter=True, maxIter=None, minimize_tol=None)
 
 @with_binding
 def save_statefile(self):
-    logger.debug(f"Writing state to file '{statefile}'")
+    logger.debug("Writing state to file.")
     _state.save_statefile()
 
 
