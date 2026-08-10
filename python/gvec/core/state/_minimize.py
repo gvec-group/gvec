@@ -42,7 +42,7 @@ def _minimize(self, dt=None, logfinaliter=True, maxIter=None, minimize_tol=None)
 
 @with_binding
 def save_statefile(self):
-    logger.debug("Writing state to file")
+    logger.debug(f"Writing state to file '{statefile}'")
     _state.save_statefile()
 
 
@@ -506,7 +506,7 @@ def _free_boundary_target(self, B_ext_2: np.ndarray):
     """
     ev_gvec = (
         self.evaluate("B", "p", "normal", "Phi_edge", rho=1.0)
-        .sel(rho=1.0)
+        .squeeze()
         .transpose("xyz", "tor", "pol")
     )
     B_gvec_2 = (ev_gvec.B**2).sum(dim="xyz")
