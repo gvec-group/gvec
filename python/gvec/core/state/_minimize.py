@@ -491,46 +491,6 @@ def update_boundary(self, dt: float, reset_minimizer: bool, blend_depth: float =
     return dt
 
 
-def _determine_clockwise_zeta(self):
-    """Rotates a point of the axis with the Rodrigues equation to see if zeta runs clockwise or counter-clockwise.
-
-    Returns
-    -------
-    bool
-        Whether zeta runs clockwise ort not.
-
-    Raises
-    ------
-    ValueError
-        If there is an implementation error that causes this approach to fail.
-    """
-
-    zeta = 2 * np.pi / self.nfp
-    ev = self.evaluate("pos", rho=0.0, theta=0.0, zeta=[0, 2 * np.pi / self.nfp])
-    v0 = ev.pos.isel(pol=0, tor=0, rad=0).data
-    v1 = ev.pos.isel(pol=0, tor=1, rad=0).data
-    k = np.array([0, 0, 1])
-    vrot = (
-        v0 * np.cos(zeta)
-        + np.sin(zeta) * np.cross(k, v0)
-        + (1 - np.cos(zeta)) * np.dot(k, v0) * k
-    )
-    zeta_inv = 2 * np.pi - zeta
-    vrot_inv = (
-        v0 * np.cos(zeta_inv)
-        + np.sin(zeta_inv) * np.cross(k, v0)
-        + (1 - np.cos(zeta_inv)) * np.dot(k, v0) * k
-    )
-
-    if all(abs(vrot - v1) < 1e-12):
-        clockwise_zeta = False
-    elif all(abs(vrot_inv - v1) < 1e-12):
-        clockwise_zeta = True
-    else:
-        raise ValueError("Issue when determining zeta-rotation.")
-    return clockwise_zeta
-
-
 def _free_boundary_target(self, B_ext_2: np.ndarray):
     """Evaluate the free-boundary target function based on the force-balance.
 

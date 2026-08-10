@@ -70,7 +70,6 @@ class State:
             self._parameter_dict = gvec.util.read_parameters(parameterfile)
 
             r_GP, r_w, t_n, t_w, z_n, z_w = self.get_integration_points()
-            self.clockwise_zeta = self._determine_clockwise_zeta()
 
             self.t_n = t_n
             self.z_n = z_n
@@ -159,6 +158,8 @@ class State:
         _get_angle_integration_points,
         _get_X1_n_modes,
         _get_X2_n_modes,
+        clockwise_zeta,
+        winding_nr,
     )
 
     # === Evaluation Methods === #
@@ -199,7 +200,6 @@ class State:
         get_gnorm,
         get_xnorm,
         update_boundary,
-        _determine_clockwise_zeta,
         _free_boundary_target,
         _free_boundary_update,
     )
