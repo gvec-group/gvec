@@ -96,14 +96,14 @@ class FixedBoundaryRun(AbstractRun):
             self.state.minimize(
                 I_tor=self.I_tor if self.curr_constraint else None,
                 reset_LA=self._state_parameters["picard_current"].get("reset_LA", None),
-                iota_target=iota_tol,
+                iota_tol=iota_tol,
                 minimize_tol=minimize_target,
                 maxIter=self._state_parameters["maxIter"],
                 maxUpdates=self._state_parameters["picard_current"].get(
                     "maxRestarts", DEFAULT_PICARD_CURRENT_MAXRESTARTS
                 ),
                 save_intermediate=self.save_intermediate,
-                target=self._state_parameters["picard_current"].get("target", "auto"),
+                picard_target=self._state_parameters["picard_current"].get("target", "auto"),
                 save_header=f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n",
             )
             self.state.save(

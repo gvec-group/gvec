@@ -33,8 +33,27 @@ IOTA_MIN_RHO = 1e-2  # ignore near-axis region for Δiota & Δfit, TODO: fix acc
 
 
 @with_binding
-def _minimize(self, dt=None, logfinaliter=True, maxIter=None, minimize_tol=None):
-    """Minimize the MHD functional for the current state."""
+def _minimize(
+    self,
+    dt: float = None,
+    logfinaliter: bool = True,
+    maxIter: int = None,
+    minimize_tol: float = None,
+):
+    """Interface to FORTRAN fixed boundary minimize. Propagates the  fixed-bondary DOFs.
+    If None is given for any of the  arguments, the FORTRAN allocated variables will be used.
+
+    Parameters
+    ----------
+    dt : float, optional
+        Initial step-size of  the minimizer, by default None
+    logfinaliter : bool, optional
+        Whether or not to log and write the final state after the minimization, by default True
+    maxIter : int, optional
+        Maximum number of iterations used for this minimization call, by default None
+    minimize_tol : float, optional
+        Termination criterion on the norm of the forces X1,X2 and lambda, by default None
+    """
     logger.debug("Minimizing MHD functional.")
     with chdir(self.rundir):
         _state.minimize(dt, logfinaliter, maxIter, minimize_tol)
@@ -47,7 +66,20 @@ def save_statefile(self):
 
 
 @with_binding
-def update_iota_for_current_constraint(self, knots, coefs, reset_LA):
+def update_iota_for_current_constraint(
+    self, knots: np.ndarray, coefs: np.ndarray, reset_LA: bool
+):
+    """update the iota and chi-prime B-spline in FORTRAN.
+
+    Parameters
+    ----------
+    knots : np.ndarray
+        Array of B-spline knots for iota.
+    coefs : np.ndarray
+        Array of B-spline coefficients for iota
+    reset_LA : bool
+        Whether to reset the DOFs for lambda.
+    """
     logger.debug("Updating iota")
     _state.update_iota_for_current_constraint(knots, coefs, reset_LA)
 
@@ -58,7 +90,15 @@ def reset_descent(self):
     _state.reset_descent()
 
 
-def save(self, header=""):
+def save(self, header: str = ""):
+    """Write a parameter and statefile for the current state.
+    The files are numbered according to the outputlevel (=number of restarts) and number of iterations used during this restart.
+
+    Parameters
+    ----------
+    header : str, optional
+        Header string for the parameter file, by default ""
+    """
     logger.debug("Saving state")
     self.save_statefile()
     iters = self.get_iterations()
@@ -70,41 +110,19 @@ def save(self, header=""):
     )
 
 
-def _get_new_iota_old(self):
-    """Calculate a new iota profile. Extracted from gvec-run, to be used for current constraint
+def _get_new_iota(self, iota_tol: float):
+    """Fit an iota B-spline according to iota_geom and iota_curr for the current constraint mode
+
+    Parameters
+    ----------
+    iota_tol : float
+        Fit tolerance
 
     Returns
     -------
-    (xr.DataArray, xr.DataArray, xr.DataArray)
-        new iota values, rho^2 interpolation points, root mean square iota error
+    tuple(scipy.bspl, float, xr.DataArray, float, float)
+        (iota B-spline, root mean squared iota error, maximum difference to target Itor, root mean squared iota fit error)
     """
-    rho_eval = np.concatenate(
-        [[np.sqrt(1e-8), np.sqrt(2e-8), np.sqrt(3e-8)], np.sqrt(self.rho2_iota[1:])]
-    )
-    quantites = ["iota", "iota_curr_0", "iota_0", "I_tor"]
-    ev = self.evaluate(*quantites, rho=rho_eval)
-    ev = ev[quantites]
-    r1 = ev.isel(rad=0)
-    r2 = ev.isel(rad=1)
-    r3 = ev.isel(rad=2)
-    ev = ev.isel(rad=slice(2, None))
-
-    # workaround to modify xarray coordinate & index (with pandas >=3.0)
-    rho = ev.rho.data.copy()
-    rho[0] = 0.0
-    ev = ev.assign_coords(rho=("rad", rho)).set_xindex("rho")
-
-    # extrapolation to axis
-    for var in ev.data_vars:
-        ev[var].data[0] = 3 * (r1[var].data - r2[var].data) + r3[var].data
-
-    iota_values = ev.iota_0 + self.I_tor * ev.iota_curr_0
-    delta_iota = ev.iota - iota_values
-    rms_iota = np.sqrt((delta_iota**2).mean(dim="rad")).item()
-    return (iota_values, ev.rho**2, rms_iota, delta_iota)
-
-
-def _get_new_iota(self, iota_tol: float):
     sgrid = self.get_radial_gridpoints()
     sgrid[0] = 0.0
     sgrid[-1] = 1.0
@@ -174,25 +192,39 @@ def _minimize_single_current_constraint(
     picard_offset: int,
     **kwargs_minimize,
 ):
-    """Single current optimization stage.
+    """Runs a single current-minimization stage (e.g, one minimize tolerance and one iota tolerance)
 
     Parameters
     ----------
     maxIter : int
-        Maximum number of fixed-boundary iterations for this stage.
-    maxIter_per_update : int, optional
-        Maximum number of fixed-boundary iterations per iota update, by default int(1e12).
-    iota_tol : float, optional
-        Tolerance on the RMS of the iota update, by default 1e-10.
-    minimize_tol : float | None, optional
-        Tolerance for the norm of the forces, by default None
-    maxUpdates : int, optional
-        Maximum number of iota updates
+        Maximum number of fixed-boundary iterations
+    maxIter_per_update : int
+        Maximum number of fixed-boundary iterations per Picard iteration.
+    iota_tol : float
+        Tolerance on the iota-discrepancy.
+    minimize_tol : float | None
+        Tolerance on the norm of the forces for X1, X2 and lambda.
+    maxUpdates : int
+        Maximum number of Picard iterations.
+    reset_LA : bool
+        If True, lambda is reset after an iota update.
+    save_intermediate : bool
+        If True, the state after a Picard iteration is saved.
+    save_header : str
+        Header string for the saved parameter files.
+    picard_offset : int
+        Number of performed Picard iterations before this call. Only relevant for parameter file headers.
 
     Returns
     -------
-    float
-        RMS of the iota update.
+    tuple(float, float, np.ndarray, np.ndarray, np.ndarray, np.ndarray, int)
+        (
+        root mean squared iota error,
+        maximum iota error,
+        evolution of the rms_iota error over Picard iterations,
+        evolution of the iota fit error over Picard iterations,
+        number of used Picard iterations,
+        )
     """
     rms_iota = np.inf
     nth_update = 0
@@ -270,7 +302,7 @@ def _minimize_single_current_constraint(
 
 def _minimize_current_constraint(
     self,
-    iota_target: float,
+    iota_tol: float,
     minimize_tol: float,
     maxIter: int,
     maxUpdates: int,
@@ -284,14 +316,25 @@ def _minimize_current_constraint(
 
     Parameters
     ----------
-    iota_target : float
-        Tolerance on the RMS of the iota update.
-    minimize_tol : float
-        Tolerance for the norm of the forces.
-    maxIter : int
-        Maximum number of iterations for the fixed boundary run.
-    maxUpdates : int, optional
-        Maximum number of iota-updates per stage
+    iota_tol : float
+        Tolerance on the iota-discrepancy.
+    minimize_tol : float | None
+        Tolerance on the norm of the forces for X1, X2 and lambda.
+    minimize_tol : float | None
+        Tolerance on the norm of the forces for X1, X2 and lambda.
+    maxUpdates : int
+        Maximum number of Picard iterations.
+    reset_LA : bool
+        If True, lambda is reset after an iota update.
+    target : Literal["iota", "iota_and_force", "auto"]
+        Optimization strategy for the Picard algorithm:
+          "iota" = aggressively optimize for iota regardless of the force tolerance;
+          "iota_and_force" = optimize for both iota and force tolerances;
+          "auto" = start with target "iota" and then switch to target "iota_and_force";
+    save_intermediate : bool
+        If True, the state after a Picard iteration is saved.
+    save_header : str
+        Header string for the saved parameter files.
     """
 
     t0 = time.time()
@@ -305,10 +348,9 @@ def _minimize_current_constraint(
     if n_stages > 1:
         iota_tols = np.ones(n_stages) * AUTO_PICARD_CURRENT_IOTA_TOL
         iota_tols[0] = AUTO_STAGE_IOTA_INIT_IOTA_TOL
-        iota_tols[-1] = iota_target
+        iota_tols[-1] = iota_tol
     else:
-        iota_tols = [iota_target]
-
+        iota_tols = [iota_tol]
     iota_tol = iota_tols[0]
 
     self.iota = self._get_new_iota(iota_tol)[0]
@@ -406,15 +448,42 @@ def _minimize_current_constraint(
 
 def minimize(
     self,
-    iota_target: float,
+    iota_tol: float,
     maxUpdates: int,
-    target: Literal["iota", "iota_and_force", "auto"],
+    picard_target: Literal["iota", "iota_and_force", "auto"],
     I_tor: Callable | None = None,
     reset_LA: bool = False,
     save_intermediate: bool = False,
     save_header: str = "",
     **kwargs,
 ):
+    """Propagate the current states fixed-boundary DOFs.
+
+    Parameters
+    ----------
+    iota_tol : float
+        Tolerance on the iota-discrepancy. Only relevant during current optimization.
+    maxUpdates : int
+        Maximum number of Picard iterations. Only relevant during current optimization
+    target : Literal["iota", "iota_and_force", "auto"]
+        Optimization strategy for the Picard algorithm:
+          "iota" = aggressively optimize for iota regardless of the force tolerance;
+          "iota_and_force" = optimize for both iota and force tolerances;
+          "auto" = start with target "iota" and then switch to target "iota_and_force";
+    I_tor : Callable | None, optional
+        Function to evaluate Itor on rho**2. If None, a fixed iota run is performed.
+    reset_LA : bool, optional
+        If True lambda is reset, by default False
+    save_intermediate : bool
+        If True, the state after a Picard iteration is saved.
+    save_header : str
+        Header string for the saved parameter files.
+
+    Raises
+    ------
+    ValueError
+        If iota_target is unknown.
+    """
     if I_tor is not None:
         self.current_constraint = True
         self.I_tor = I_tor
@@ -422,18 +491,18 @@ def minimize(
         self.current_constraint = False
         self.I_tor = None
 
-    if target not in ["iota", "iota_and_force", "auto"]:
+    if picard_target not in ["iota", "iota_and_force", "auto"]:
         raise ValueError(
-            f"""Unknown picard_current["target"]: {target}! target has to be "iota","iota_and_force" or "auto"."""
+            f"""Unknown picard_current["target"]: {picard_target}! target has to be "iota","iota_and_force" or "auto"."""
         )
 
     if self.current_constraint:
         logger.debug("minimize with current optimization")
         self._minimize_current_constraint(
-            iota_target=iota_target,
+            iota_tol=iota_tol,
             maxUpdates=maxUpdates,
             reset_LA=reset_LA,
-            target=target,
+            target=picard_target,
             save_intermediate=save_intermediate,
             save_header=save_header,
             **kwargs,
@@ -447,13 +516,27 @@ def minimize(
 
 
 @with_binding
-def set_Bext_squared(self, B2):
+def set_Bext_squared(self, B2: np.ndarray):
+    """Update the FORTRAN exterior field array
+
+    Parameters
+    ----------
+    B2 : np.nd.array
+        Squared exterior field  used for free-boundary
+    """
     logger.debug("Updating exterior field")
     _state.set_bext_squared(B2)
 
 
 @with_binding
 def _get_boundary_forces(self):
+    """Extract the forces on the boundary DOFs.
+
+    Returns
+    -------
+    tuple(np.ndarray, np.ndarray, np.ndarray)
+        (poloidal mode numbers, toroidal mode numbers, forces)
+    """
     n_X1 = self._get_X1_n_modes()
     n_X2 = self._get_X2_n_modes()
     forces_out = np.asfortranarray(np.zeros((3, n_X1 + n_X2)))
@@ -542,12 +625,15 @@ def _free_boundary_update(
         Maximum number of iterations for the fixed-boundary minimization.
     B2 : np.ndarray
         External magnetic field, flattened in GVEC order (zeta->theta)
-    tol : float
-        Tolerance on fixed boundary forces.
-    copy_stdout : bool, optional
-        Whether to save stdout to stoudt.txt, by default True
     reset_minimizer: bool, optional
         Whether to reset the free boundary minimizers to their initial states.
+    blend_depth: float
+        How far in rho boundary perturbations are blend into the interior. The default  is 0.6.
+
+    Returns
+    -------
+    float
+        New stepsize
     """
     # set Bext
     self.set_Bext_squared(B2)

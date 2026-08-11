@@ -384,13 +384,13 @@ class FreeBoundaryRun(AbstractRun):
                 )
 
             self.state.minimize(
-                iota_target=iota_tol,
+                iota_tol=iota_tol,
                 minimize_tol=minimize_tol,
                 maxIter=self._state_parameters["maxIter"],
                 maxUpdates=self._state_parameters["picard_current"].get(
                     "maxRestarts", DEFAULT_PICARD_CURRENT_MAXRESTARTS
                 ),
-                target=self._state_parameters["picard_current"].get("target", "auto"),
+                picard_target=self._state_parameters["picard_current"].get("target", "auto"),
                 I_tor=self.I_tor if self.curr_constraint else None,
                 reset_LA=self._state_parameters["picard_current"].get("reset_LA", None),
                 save_intermediate=self.save_intermediate,
@@ -492,12 +492,12 @@ class FreeBoundaryRun(AbstractRun):
                             dt=dt,
                             reset_minimizer=reset_minimizer,
                             blend_depth=blend_depth,
-                            iota_target=iota_tol,
+                            iota_tol=iota_tol,
                             minimize_tol=minimize_tol,
                             maxUpdates=self._state_parameters["picard_current"].get(
                                 "maxRestarts", DEFAULT_PICARD_CURRENT_MAXRESTARTS
                             ),
-                            target=self._state_parameters["picard_current"].get(
+                            picard_target=self._state_parameters["picard_current"].get(
                                 "target", "auto"
                             ),
                             I_tor=self.I_tor if self.curr_constraint else None,
@@ -570,13 +570,15 @@ class FreeBoundaryRun(AbstractRun):
                 logger.info("=================================================================")
                 if self._state_parameters["maxIter"] > 0:
                     self.state.minimize(
-                        iota_target=iota_tol,
+                        iota_tol=iota_tol,
                         minimize_tol=minimize_tol_min,
                         maxIter=self._state_parameters["maxIter"],
                         maxUpdates=self._state_parameters["picard_current"].get(
                             "maxRestarts", 30
                         ),
-                        target=self._state_parameters["picard_current"].get("target", "auto"),
+                        picard_target=self._state_parameters["picard_current"].get(
+                            "target", "auto"
+                        ),
                         save_header=f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n",
                     )
 
