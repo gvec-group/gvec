@@ -468,19 +468,21 @@ class FreeBoundaryRun(AbstractRun):
                         or gtol_reached
                         or force_ratio_limit_reached
                     ):
+                        logger.info("Reached free boundary stopping criterion!")
                         logger.info(
-                            "Reached free boundary stopping criterion!\n"
-                            + f"    free-boundary target: {self.free_boundary_target:.3e}, specified tol.: {free_boundary_tolerance:.3e}.\n"
-                            + f"    xnorm: {xnorm:.2e}, xtol: {xtol:.2e}.\n"
-                            + f"    gnorm: {gnorm:.2e}, gtol: {gtol:.2e}.\n"
-                            + f"    resolved force-balance ratio: {self._resolved_force_ratio:.2e} %, specified limit: {force_ratio_limit:.2e}.\n"
+                            f"free-boundary target: {self.free_boundary_target:.3e}, specified tol.: {free_boundary_tolerance:.3e}."
+                        )
+                        logger.info(f"xnorm: {xnorm:.2e}, xtol: {xtol:.2e}.")
+                        logger.info(f"gnorm: {gnorm:.2e}, gtol: {gtol:.2e}.")
+                        logger.info(
+                            f"resolved force-balance ratio: {self._resolved_force_ratio:.2e}, specified limit: {force_ratio_limit:.2e}."
                         )
                         break
                     else:
+                        logger.info(f"xnorm: {xnorm:.2e}, xtol: {xtol:.2e}.")
+                        logger.info(f"gnorm: {gnorm:.2e}, gtol: {gtol:.2e}.")
                         logger.info(
-                            f"\n    xnorm: {xnorm:.2e}, xtol: {xtol:.2e}.\n"
-                            + f"    gnorm: {gnorm:.2e}, gtol: {gtol:.2e}.\n"
-                            + f"    force ratio {self._resolved_force_ratio:.2}, limit {force_ratio_limit:.2}"
+                            f"force ratio {self._resolved_force_ratio:.2e}, limit {force_ratio_limit:.2e}"
                         )
                         t_fb_0 = time.time()
                         # pushes boundary and does a fixed-b run
@@ -569,6 +571,9 @@ class FreeBoundaryRun(AbstractRun):
                 # ensure that the final result is in fixed-boundary equilibrium with specified tolerance
                 logger.info("=================================================================")
                 if self._state_parameters["maxIter"] > 0:
+                    logger.info(
+                        "Minimizing fixed-boundary equilibrium for the final boundary ..."
+                    )
                     self.state.minimize(
                         iota_tol=iota_tol,
                         minimize_tol=minimize_tol_min,
