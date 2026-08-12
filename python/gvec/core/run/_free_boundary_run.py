@@ -420,6 +420,7 @@ class FreeBoundaryRun(AbstractRun):
 
             self._update_diagnostics(B_ext_2, B_coils, B_plas_ext, 0, dt)
 
+            fb_update = 0
             try:  # allow clean abort with KeybordInterrupt
                 for fb_update in range(1, fb_updates):
                     logger.info(
