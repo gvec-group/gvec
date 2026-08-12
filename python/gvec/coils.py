@@ -17,7 +17,6 @@ from gvec.core.compute import CoordinateSpec
 from gvec.core.state import State
 from gvec.lib import _biotsavart as _BS
 from gvec.util import logging_setup
-from gvec.core.compute import volume_integral
 
 try:
     from joblib import Parallel, delayed, parallel_config
@@ -1018,15 +1017,21 @@ def get_phi_edge_from_coils(state: State, coil_set: CoilSet | Coil):
     float
         Averaged total toroidal flux.
     """
-    ev = state.evaluate("pos", "B", "grad_zeta")
-    # TODO: this loop over rho is to avoid segfaults from the fortran part,
-    # since the array of positions becomes too large (?) for the volume integral otherwise.
-    # Hence the calculation of B_coils is split in the radial direction.
-    Bs = []
-    for r in ev.rho:
-        Bs.append(coil_set.eval_B(ev.pos.sel(rho=r)))
-    B_coils = xr.concat(Bs, dim="rad")
-    Bn = xr.dot(B_coils.B, ev.grad_zeta, dim="xyz")
-    BnJac = Bn * ev.Jac
-    Psi_vol = volume_integral(BnJac) / (np.pi * 2)
-    return Psi_vol.item()
+    # phi = int_C A.dl
+
+    # number of toroidal integration points
+    nz = state.get_integration_points()[4]
+
+    # consider full boundary since it might not be in equilibrium with the coils
+    zeta = np.linspace(0, 2 * np.pi, nz * state.nfp, endpoint=False)
+    ev = state.evaluate("pos", "e_theta", "g_tt", rho=1.0, zeta=zeta).squeeze()
+    ev_coils = coil_set.eval_A(ev.pos)
+    l_norm = ev.e_theta / np.sqrt((ev.e_theta**2).sum(dim="xyz"))
+
+    # dl(i) = sqrt(g_ii) * du^i
+    Adl = xr.dot(ev_coils.A, l_norm, dim="xyz") * np.sqrt(ev.g_tt)
+    delta_zeta = zeta[1] - zeta[0]
+
+    # average toroidaly, integrate poloidaly
+    Psi = delta_zeta * (Adl * Adl.pol_weight).sum(dim=("pol", "tor")) / (2 * np.pi)
+    return Psi.item()
