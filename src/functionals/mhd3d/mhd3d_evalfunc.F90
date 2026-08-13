@@ -871,8 +871,6 @@ SUBROUTINE EvalForce(dofs_in,callEvalAux,JacCheck,F_MHD3D,noBC)
     CALL EvalBoundaryForce(dofs_in,F_b_X1,F_b_X2)
     Force_b_X1 = F_MHD3D%X1(X1_base%s%nBase,:)+F_b_X1(:)
     Force_b_X2 = F_MHD3D%X2(X2_base%s%nBase,:)+F_b_X2(:)
-    ! F_MHD3D%X1(X1_base%s%nBase,:)=F_MHD3D%X1(X1_base%s%nBase,:)+F_b_X1(:)
-    ! F_MHD3D%X2(X2_base%s%nBase,:)=F_MHD3D%X2(X2_base%s%nBase,:)+F_b_X2(:)
   END IF
 
   __PERFON('apply_precond')
