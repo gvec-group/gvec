@@ -105,7 +105,7 @@ END SUBROUTINE BiotSavart_VectorPotential
 !================================================================================================================================!
 !> Evaluate the magnetic field of a set of current loops (coils) discretized via line-segments.
 !================================================================================================================================!
-SUBROUTINE CoilSet_eval_B(n_coils, coil_points_offsets,n_points_per_coil, n_coil_points, coil_points, coil_currents, n_positions, xyz, B )
+SUBROUTINE BiotSavart_CoilSet(n_coils, coil_points_offsets,n_points_per_coil, n_coil_points, coil_points, coil_currents, n_positions, xyz, B )
     USE MODgvec_Globals, ONLY: wp
     ! INPUT VARIABLES -------------------------!
     INTEGER,  INTENT(IN) :: n_coils !! number of coils
@@ -132,6 +132,6 @@ SUBROUTINE CoilSet_eval_B(n_coils, coil_points_offsets,n_points_per_coil, n_coil
         CALL BiotSavart(n_positions,xyz, n_points_per_coil(i), coil_points(:,start_idx:end_idx), coil_currents(i),B_aux)
         B = B + B_aux
     END DO
-END SUBROUTINE CoilSet_eval_B
+END SUBROUTINE BiotSavart_CoilSet
 
 END MODULE MODgvec_BiotSavart

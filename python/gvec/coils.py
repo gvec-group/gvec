@@ -561,7 +561,7 @@ class CoilSet(Coil, Mapping):
 
         n_positions = pos.shape[1]
         B = np.asfortranarray(np.zeros(pos.shape))
-        _BS.coilset_eval_b(
+        _BS.biotsavart_coilset(
             self._n_coils_f,
             self._coil_points_offsets_f,
             self._n_points_per_coil_f,
