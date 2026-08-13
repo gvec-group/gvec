@@ -122,9 +122,14 @@ toq("toq_geometric", Qs_geometric)
 ```
 
 ## Magnetic flux
+```{versionchanged} 1.5
+The contributions to to the rotational transform were renamed: `iota_0` → `iota_geom` and `iota_curr_0` → `iota_curr_bar`.
+The old identifiers are still usable, but will be removed in a future version.
+```
+
 ```{code-cell} ipython3
 :tags: [remove-input]
-Qs_flux = ["Phi_edge", "Phi", "dPhi_dr", "dPhi_drr", "chi", "dchi_dr", "dchi_drr", "iota", "diota_dr", "diota_drr", "iota_avg", "iota_avg2", "shear", "shear_avg", "shear_avg2", "iota_geom", "iota_curr", "iota_curr_bar"]
+Qs_flux = ["Phi_edge", "Phi", "dPhi_dr", "dPhi_drr", "chi", "dchi_dr", "dchi_drr", "iota", "diota_dr", "diota_drr", "iota_avg", "iota_avg2", "shear", "shear_avg", "shear_avg2", "iota_geom", "iota_curr", "iota_curr_bar", "iota_0", "iota_curr_0"]
 toq("toq_flux", Qs_flux)
 ```
 ```{glue:md} toq_flux
