@@ -17,7 +17,7 @@ from pathlib import Path
 import gvec
 from gvec.coils import CoilSet, Coil
 from gvec.core.state import State
-from ._abstract_run import (
+from .abstract import (
     AbstractRun,
     DEFAULT_MINIMIZE_TOL,
     DEFAULT_TOTALITER,

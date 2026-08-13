@@ -10,8 +10,8 @@ from typing import Literal
 import gvec
 from gvec.core.state import State
 from gvec.coils import CoilSet
-from ._fixed_boundary_run import FixedBoundaryRun
-from ._free_boundary_run import FreeBoundaryRun
+from .fixed_boundary import FixedBoundaryRun
+from .free_boundary import FreeBoundaryRun
 
 
 def run(

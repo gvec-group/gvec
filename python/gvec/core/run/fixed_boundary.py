@@ -13,7 +13,7 @@ from pandas import read_csv
 
 import gvec
 from gvec.core.state import State
-from ._abstract_run import (
+from .abstract import (
     AbstractRun,
     DEFAULT_MINIMIZE_TOL,
     AUTO_PICARD_CURRENT_IOTA_TOL_TARGET,
