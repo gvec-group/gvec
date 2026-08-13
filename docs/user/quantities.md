@@ -141,6 +141,27 @@ toq("toq_current", Qs_current)
 :format: myst
 ```
 
+### Susceptance matrix
+```{versionadded} v1.6
+See [the derivation](../dev/derivations.md#susceptance-matrix--rotational-transform) for details.
+```
+
+```{warning}
+The formulas for the entries of the susceptance matrix agree with those found in the literature for VMEC.
+Bateman (1973) however notes that the susceptance matrix should be symmetric, which this is not.
+Further investigation is required.
+See [the derivation](../dev/derivations.md#susceptance-matrix--rotational-transform) for details.
+```
+
+```{code-cell} ipython3
+:tags: [remove-input]
+Qs_susceptance = [f"susceptance_{ij}" for ij in [11, 12, 21, 22]]
+toq("toq_susceptance", Qs_susceptance)
+```
+```{glue:md} toq_susceptance
+:format: myst
+```
+
 ## Pressure
 ```{code-cell} ipython3
 :tags: [remove-input]
@@ -264,7 +285,29 @@ toq("toq_curvature", Qs_curvature)
 ## Others
 ```{code-cell} ipython3
 :tags: [remove-input]
-Qs_others = sorted(set(gvec.core.compute.QUANTITIES.keys()) - set(Qs_solution) - set(Qs_boozer) - set(Qs_metric) - set(Qs_hmap) - set(Qs_flux) - set(Qs_B) - set(Qs_pressure) - set(Qs_curvature) - set(Qs_J) - set(Qs_B_B) - set(Qs_metric_B) - set(Qs_metric_P) - set(Qs_B_P) - set(Qs_B_B) - set(Qs_J_B) - set(Qs_J_P) - set(Qs_derived) - set(Qs_Mercier) - set(Qs_current) - set(Qs_geometric) - set(Qs_force))
+Qs_others = sorted(set(gvec.core.compute.QUANTITIES.keys()) - set(
+  Qs_solution
+  + Qs_boozer
+  + Qs_metric
+  + Qs_metric_B
+  + Qs_metric_P
+  + Qs_hmap
+  + Qs_geometric
+  + Qs_flux
+  + Qs_current
+  + Qs_susceptance
+  + Qs_pressure
+  + Qs_B
+  + Qs_B_B
+  + Qs_B_P
+  + Qs_J
+  + Qs_J_B
+  + Qs_J_P
+  + Qs_force
+  + Qs_derived
+  + Qs_Mercier
+  + Qs_curvature
+))
 toq("toq_others", Qs_others)
 ```
 ```{glue:md} toq_others
