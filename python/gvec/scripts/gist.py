@@ -260,7 +260,7 @@ def compute_gist_quantities(ev, state, flip):
     q0 = 1 / iota
     shat = -rho / iota * diota_dr
     betahat = p * mu0 / Bref**2
-    phat = -(a**4) * rho * mu0 / (2 * Phi_edge * np.abs(Phi_edge)) * dp_dr
+    phat = -(a**4) * mu0 / (2 * Phi_edge * np.abs(Phi_edge)) * dp_dr
 
     params = dict(
         s0=rho**2,  # radial position in normalized toroidal flux

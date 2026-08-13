@@ -3,7 +3,14 @@ import pytest
 try:
     import numpy as np
     from typing import Literal
-    from gvec.coils import Coil, CoilSet, trace_fieldlines
+    from gvec.coils import (
+        Coil,
+        CoilSet,
+        trace_fieldlines,
+        intersection_planes_from_state,
+        IntersectionPlane,
+    )
+    from gvec import State
     import tempfile
     from scipy.constants import mu_0
     from scipy.special import ellipk, ellipe
@@ -11,6 +18,11 @@ try:
     rng = np.random.default_rng(0)
 except ImportError:
     pass
+
+
+@pytest.fixture(scope="session", params=["w7x", "axisNB_N2-12"])
+def testcase(request):
+    return request.param
 
 
 @pytest.fixture
@@ -329,3 +341,15 @@ def test_fieldlines(circular_coil_set):
         assert "xyz" in ds
         for i in range(len(surface_normals)):
             assert f"event_{i}" in ds
+
+
+def test_intersection_planes_from_state(testfiles):
+    state = State(*testfiles)
+
+    planes = intersection_planes_from_state(state, zetas=5)
+    assert len(planes) == 5
+    assert set([type(p) for p in planes]) == {IntersectionPlane}
+
+    planes = intersection_planes_from_state(state, zetas=[0.0, 1.0])
+    assert len(planes) == 2
+    assert set([type(p) for p in planes]) == {IntersectionPlane}

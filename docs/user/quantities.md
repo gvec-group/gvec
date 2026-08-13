@@ -124,7 +124,7 @@ toq("toq_geometric", Qs_geometric)
 ## Magnetic flux
 ```{code-cell} ipython3
 :tags: [remove-input]
-Qs_flux = ["Phi_edge", "Phi", "dPhi_dr", "dPhi_drr", "chi", "dchi_dr", "dchi_drr", "iota", "diota_dr", "diota_drr", "iota_avg", "iota_avg2", "shear", "shear_avg", "shear_avg2", "iota_0", "iota_curr", "iota_curr_0"]
+Qs_flux = ["Phi_edge", "Phi", "dPhi_dr", "dPhi_drr", "chi", "dchi_dr", "dchi_drr", "iota", "diota_dr", "diota_drr", "iota_avg", "iota_avg2", "shear", "shear_avg", "shear_avg2", "iota_geom", "iota_curr", "iota_curr_bar"]
 toq("toq_flux", Qs_flux)
 ```
 ```{glue:md} toq_flux

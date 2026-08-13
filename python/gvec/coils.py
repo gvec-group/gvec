@@ -640,7 +640,7 @@ def intersection_planes_from_state(
         e_q3 = e_q3[:, 0]
         surf_normal_length = np.sqrt(np.dot(e_q3, e_q3))
         if surf_normal_length <= 1e-12:  # RZ case
-            major_radius = state.evaluate("major_radius", zeta=zeta).major_radius.data
+            major_radius = state.evaluate("r_major", zeta=zeta).r_major.data
             e_q1, e_q2, e_q3 = state.evaluate_hmap_only(X1=major_radius, X2=0, zeta=zeta)[1:]
             e_q3 = e_q3[:, 0]
             surf_normal_length = np.sqrt(np.dot(e_q3, e_q3))
