@@ -95,7 +95,7 @@ class FixedBoundaryRun(AbstractRun):
                 )
             self.state.minimize(
                 I_tor=self.I_tor if self.curr_constraint else None,
-                reset_LA=self._state_parameters["picard_current"].get("reset_LA", None),
+                reset_LA=self._state_parameters["picard_current"].get("reset_LA", False),
                 iota_tol=iota_tol,
                 minimize_tol=minimize_target,
                 maxIter=self._state_parameters["maxIter"],

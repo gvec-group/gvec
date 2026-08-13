@@ -35,26 +35,39 @@ IOTA_MIN_RHO = 1e-2  # ignore near-axis region for Δiota & Δfit, TODO: fix acc
 @with_binding
 def _minimize(
     self,
-    dt: float = None,
+    dt: float | None = None,
     logfinaliter: bool = True,
-    maxIter: int = None,
-    minimize_tol: float = None,
+    maxIter: int | None = None,
+    minimize_tol: float | None = None,
 ):
     """Interface to FORTRAN fixed boundary minimize. Propagates the  fixed-bondary DOFs.
     If None is given for any of the  arguments, the FORTRAN allocated variables will be used.
 
     Parameters
     ----------
-    dt : float, optional
+    dt : float | None, optional
         Initial step-size of  the minimizer, by default None
     logfinaliter : bool, optional
         Whether or not to log and write the final state after the minimization, by default True
-    maxIter : int, optional
+    maxIter : int | None, optional
         Maximum number of iterations used for this minimization call, by default None
-    minimize_tol : float, optional
+    minimize_tol : float | None, optional
         Termination criterion on the norm of the forces X1,X2 and lambda, by default None
     """
     logger.debug("Minimizing MHD functional.")
+
+    if dt is not None and not isinstance(dt, float):
+        raise TypeError(f"Specified step-size  dt is not float or None but {type(dt)}")
+
+    if not isinstance(logfinaliter, bool):
+        raise TypeError(f"Specified logfinaliter is not bool but {type(logfinaliter)}")
+
+    if maxIter is not None and not isinstance(maxIter, int):
+        raise TypeError(f"Specified maxIter is not int or None but {type(maxIter)}")
+
+    if minimize_tol is not None and not isinstance(minimize_tol, float):
+        raise TypeError(f"Specified minimize_tol is not float or None but {type(minimize_tol)}")
+
     with chdir(self.rundir):
         _state.minimize(dt, logfinaliter, maxIter, minimize_tol)
 
@@ -81,6 +94,22 @@ def update_iota_for_current_constraint(
         Whether to reset the DOFs for lambda.
     """
     logger.debug("Updating iota")
+
+    if not isinstance(knots, np.ndarray) and not np.issubdtype(knots.dtype, np.floating):
+        raise TypeError("Specified knots are not a numpy array of type float.")
+
+    if knots.ndim != 1:
+        raise ValueError(f"Specified knots.ndim is not 1 but {knots.ndim}.")
+
+    if not isinstance(coefs, np.ndarray) and not np.issubdtype(coefs.dtype, np.floating):
+        raise TypeError("Specified coefs are not a numpy array of type float.")
+
+    if coefs.ndim != 1:
+        raise ValueError(f"Specified coefs.ndim is not 1 but {coefs.ndim}.")
+
+    if not isinstance(reset_LA, bool):
+        raise TypeError(f"Specified reset_LA is not bool but {type(reset_LA)}")
+
     _state.update_iota_for_current_constraint(knots, coefs, reset_LA)
 
 
@@ -525,6 +554,13 @@ def set_Bext_squared(self, B2: np.ndarray):
         Squared exterior field  used for free-boundary
     """
     logger.debug("Updating exterior field")
+
+    if not isinstance(B2, np.ndarray) and not np.issubdtype(B2.dtype, np.floating):
+        raise TypeError("Specified B2 is not a numpy array of type float.")
+
+    if B2.ndim != 1:
+        raise ValueError(f"Specified B2.ndim is not 1 but {B2.ndim}.")
+
     _state.set_bext_squared(B2)
 
 

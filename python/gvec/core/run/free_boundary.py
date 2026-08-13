@@ -392,7 +392,7 @@ class FreeBoundaryRun(AbstractRun):
                 ),
                 picard_target=self._state_parameters["picard_current"].get("target", "auto"),
                 I_tor=self.I_tor if self.curr_constraint else None,
-                reset_LA=self._state_parameters["picard_current"].get("reset_LA", None),
+                reset_LA=self._state_parameters["picard_current"].get("reset_LA", False),
                 save_intermediate=self.save_intermediate,
                 save_header=f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n",
             )
@@ -505,7 +505,7 @@ class FreeBoundaryRun(AbstractRun):
                             ),
                             I_tor=self.I_tor if self.curr_constraint else None,
                             reset_LA=self._state_parameters["picard_current"].get(
-                                "reset_LA", None
+                                "reset_LA", False
                             ),
                             save_header=f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n"
                             + f"!free-boundary step {fb_update}\n",
