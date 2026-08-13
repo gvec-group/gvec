@@ -13,6 +13,10 @@ MODULE MODgvec_free_b_minimizer_SR1
   PUBLIC
 
   TYPE, EXTENDS(c_free_b_minimizer) :: t_free_b_minimizer_SR1
+    ! Symmetric-rank-1 method is a quasi newton method similar to BFGS but does not guarantee a positive definite matrix
+    ! It might skip updates of the Hessian to retain stability
+    ! Has 3 hyper parameters:
+    ! the initial step-size, the maximum allowed step size, the number of pure gradient descents steps done before SR1 kicks in
 
     REAL(wp), ALLOCATABLE :: s_k(:) ! last update
     REAL(wp), ALLOCATABLE :: y_k(:) ! difference of gradients

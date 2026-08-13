@@ -498,12 +498,12 @@ SUBROUTINE InitFreeBoundary(sf)
   USE MODgvec_MHD3D_Vars, ONLY: Precond_b_X1, Precond_b_X2
   USE MODgvec_MHD3D_Vars, ONLY: mode_scale_X1, mode_scale_X2, gnorm_fb, xnorm_fb
   USE MODgvec_free_b_minimizer_GD, ONLY: t_free_b_minimizer_GD
-  USE MODgvec_free_b_minimizer_moment_GD, ONLY: t_free_b_minimizer_moment_GD
-  USE MODgvec_free_b_minimizer_acc_GD, ONLY: t_free_b_minimizer_acc_GD
+  USE MODgvec_free_b_minimizer_mGD, ONLY: t_free_b_minimizer_mGD
+  USE MODgvec_free_b_minimizer_aGD, ONLY: t_free_b_minimizer_aGD
   USE MODgvec_free_b_minimizer_ADAM, ONLY: t_free_b_minimizer_ADAM
   USE MODgvec_free_b_minimizer_LBFGS, ONLY: t_free_b_minimizer_LBFGS
   USE MODgvec_free_b_minimizer_BFGS, ONLY: t_free_b_minimizer_BFGS
-  USE MODgvec_free_b_minimizer_damped_BFGS, ONLY: t_free_b_minimizer_damped_BFGS
+  USE MODgvec_free_b_minimizer_dBFGS, ONLY: t_free_b_minimizer_dBFGS
   USE MODgvec_free_b_minimizer_SR1, ONLY: t_free_b_minimizer_SR1
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -546,9 +546,9 @@ SUBROUTINE InitFreeBoundary(sf)
       free_b_minimizer = t_free_b_minimizer_ADAM(modes_X1 + modes_X2, beta1, beta2)
     CASE("mGD")
       beta1 = GETREAL("free_boundary_beta_moment_GD", Proposal=0.9)
-      free_b_minimizer = t_free_b_minimizer_moment_GD(modes_X1 + modes_X2, beta1)
+      free_b_minimizer = t_free_b_minimizer_mGD(modes_X1 + modes_X2, beta1)
     CASE("aGD")
-      free_b_minimizer = t_free_b_minimizer_acc_GD(modes_X1 + modes_X2)
+      free_b_minimizer = t_free_b_minimizer_aGD(modes_X1 + modes_X2)
     CASE("BFGS")
       IF (precond_boundary) THEN
         WRITE(UNIT_stdOut,'(A)') "WARNING: precond_boundary is set to True for BFGS! Turning of additional preconditioning."
@@ -566,7 +566,7 @@ SUBROUTINE InitFreeBoundary(sf)
       n_grad_steps = GETINT("free_boundary_n_grad_steps", Proposal=0)
       max_dt = GETREAL("free_boundary_max_dt", Proposal=0.1_wp)
       M = GETREAL("free_boundary_M_BFGS", Proposal=0.001_wp)
-      free_b_minimizer = t_free_b_minimizer_damped_BFGS(modes_X1 + modes_X2, n_grad_steps=n_grad_steps, max_dt=max_dt,M=M)
+      free_b_minimizer = t_free_b_minimizer_dBFGS(modes_X1 + modes_X2, n_grad_steps=n_grad_steps, max_dt=max_dt,M=M)
     CASE("SR1")
       IF (precond_boundary) THEN
         WRITE(UNIT_stdOut,'(A)') "WARNING: precond_boundary is set to True for SR1! Turning of additional preconditioning."

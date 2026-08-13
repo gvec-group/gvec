@@ -13,6 +13,11 @@ MODULE MODgvec_free_b_minimizer_BFGS
   PUBLIC
 
   TYPE, EXTENDS(c_free_b_minimizer) :: t_free_b_minimizer_BFGS
+    ! Broyden-Fletcher-Goldfarb-Shanno (BFGS) algorithm is a quasi Newton method that iteratively builds an approximation of the inverse Hessian H_k.
+    ! Typically one would perform line-search to find a valid step-size. We do not do this since we cannot evaluate the action.
+    ! Thus, we opt to use the adaptive BFGS from Yu et al., which estimates the step size from the Hessian B_k.
+    ! Has 3 hyper parameters:
+    ! the initial step-size, the maximum allowed step size, the number of pure gradient descents steps done before BFGS kicks in
 
     REAL(wp), ALLOCATABLE :: s_k(:) ! last update
     REAL(wp), ALLOCATABLE :: y_k(:) ! difference of gradients

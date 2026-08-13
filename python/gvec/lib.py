@@ -27,3 +27,5 @@ t_rProfile_poly = _lib.Modgvec_Rprofile_Poly.t_rProfile_poly
 t_rProfile_bspl = _lib.Modgvec_Rprofile_Bspl.t_rProfile_bspl
 
 t_fBase = _lib.Modgvec_Fbase.t_fBase
+
+MAXLEN = _globals.maxlen

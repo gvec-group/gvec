@@ -12,7 +12,7 @@ from pathlib import Path
 
 import xarray as xr
 
-from gvec.lib import t_sfl_boozer, _globals
+from gvec.lib import t_sfl_boozer, MAXLEN
 import gvec.util
 
 from . import _binding
@@ -47,7 +47,6 @@ class State:
         else:
             self._stdout = stdout_path
 
-        MAXLEN = _globals.maxlen
         with open(parameterfile, "r") as f:
             content = f.readlines()
             if any([len(line) > MAXLEN for line in content]):

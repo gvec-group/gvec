@@ -13,6 +13,10 @@ MODULE MODgvec_free_b_minimizer_ADAM
   PUBLIC
 
   TYPE, EXTENDS(c_free_b_minimizer) :: t_free_b_minimizer_ADAM
+    ! Adaptive Moment Estimation (ADAM) algorithm uses a momentum term (consider past gradients) and adaptive learning rates (step sizes).
+    ! It is controlled by 3 hyper parameters:
+    ! the initial step-size (often called alpha, here dt), beta1 (decay rate momentum) and beta2 (decay rate velocity)
+
     REAL(wp), ALLOCATABLE :: velocity(:)
     REAL(wp), ALLOCATABLE :: momentum(:)
 

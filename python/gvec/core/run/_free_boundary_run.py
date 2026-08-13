@@ -689,6 +689,11 @@ class FreeBoundaryRun(AbstractRun):
         iteration_offset = 0
         for ith_stage, stage in enumerate(diagnostics):
             ds = xr.Dataset(diagnostics[stage]).dropna(dim="iteration")
+
+            # skip the setup stage with zero free boundary iterations.
+            if len(ds.iteration) == 0:
+                continue
+
             axs_fb[0].semilogy(
                 ds.iteration + iteration_offset,
                 ds.free_boundary_target,

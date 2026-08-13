@@ -4,7 +4,7 @@
 !===================================================================================================================================
 #include "defines.FPP"
 
-MODULE MODgvec_free_b_minimizer_damped_BFGS
+MODULE MODgvec_free_b_minimizer_dBFGS
   ! MODULES
   USE MODgvec_Globals ,ONLY: wp
   USE MODgvec_free_b_minimizer_base, ONLY: c_free_b_minimizer
@@ -12,7 +12,10 @@ MODULE MODgvec_free_b_minimizer_damped_BFGS
 
   PUBLIC
 
-  TYPE, EXTENDS(c_free_b_minimizer) :: t_free_b_minimizer_damped_BFGS
+  TYPE, EXTENDS(c_free_b_minimizer) :: t_free_b_minimizer_dBFGS
+    ! Extension of BFGS that modifies the update rule for the Hessian so that B_(k+1) is positive definite.
+    ! Has 3 hyper parameters:
+    ! the initial step-size, the maximum allowed step size, the number of pure gradient descents steps done before BFGS kicks in
 
     REAL(wp), ALLOCATABLE :: s_k(:) ! last update
     REAL(wp), ALLOCATABLE :: y_k(:) ! difference of gradients
@@ -25,19 +28,19 @@ MODULE MODgvec_free_b_minimizer_damped_BFGS
     REAL(wp) :: M ! stepsize controll parameter / self-concordance
 
     CONTAINS
-    PROCEDURE :: get_update => damped_BFGS_get_update
-    PROCEDURE :: reset      => damped_BFGS_reset
-    FINAL     :: damped_BFGS_free
+    PROCEDURE :: get_update => dBFGS_get_update
+    PROCEDURE :: reset      => dBFGS_reset
+    FINAL     :: dBFGS_free
 
-  END TYPE t_free_b_minimizer_damped_BFGS
+  END TYPE t_free_b_minimizer_dBFGS
 
-  INTERFACE t_free_b_minimizer_damped_BFGS
-      MODULE PROCEDURE damped_BFGS_new
-  END INTERFACE t_free_b_minimizer_damped_BFGS
+  INTERFACE t_free_b_minimizer_dBFGS
+      MODULE PROCEDURE dBFGS_new
+  END INTERFACE t_free_b_minimizer_dBFGS
 
   CONTAINS
 
-  FUNCTION damped_BFGS_new(n_dofs, dt, n_grad_steps, max_dt, M) RESULT(sf)
+  FUNCTION dBFGS_new(n_dofs, dt, n_grad_steps, max_dt, M) RESULT(sf)
     ! INPUT VARIABLES -------------------------!
     INTEGER, INTENT(IN)            :: n_dofs  ! number of degrees of freedom
     REAL(wp), INTENT(IN), OPTIONAL :: dt ! initial / default time step
@@ -46,7 +49,7 @@ MODULE MODgvec_free_b_minimizer_damped_BFGS
     REAL(wp), INTENT(IN), OPTIONAL  :: M
 
     ! OUTPUT VARIABLES -------------------------!
-    TYPE(t_free_b_minimizer_damped_BFGS) :: sf
+    TYPE(t_free_b_minimizer_dBFGS) :: sf
     ! LOCAL VARIABLES -------------------------!
     INTEGER :: i
     ! CODE --------------------------------------------------------------------------------------------------------------------------!
@@ -97,11 +100,11 @@ MODULE MODgvec_free_b_minimizer_damped_BFGS
     END DO
 
     sf%n_updates = 0
-  END FUNCTION damped_BFGS_new
+  END FUNCTION dBFGS_new
 
-  SUBROUTINE damped_BFGS_reset(sf)
+  SUBROUTINE dBFGS_reset(sf)
     ! INPUT VARIABLES -------------------------!
-    CLASS(t_free_b_minimizer_damped_BFGS), INTENT(INOUT) :: sf
+    CLASS(t_free_b_minimizer_dBFGS), INTENT(INOUT) :: sf
     ! LOCAL VARIABLES
     INTEGER :: i
     ! CODE --------------------------------------------------------------------------------------------------------------------------!
@@ -115,7 +118,7 @@ MODULE MODgvec_free_b_minimizer_damped_BFGS
         sf%H_k(i,i) = 1.0_wp
     END DO
     sf%n_updates = 0
-  END SUBROUTINE damped_BFGS_reset
+  END SUBROUTINE dBFGS_reset
 
   FUNCTION OUTER_PRODUCT(A,B) result(AB)
     REAL(wp), INTENT(IN) :: A(:),B(:)
@@ -128,10 +131,10 @@ MODULE MODgvec_free_b_minimizer_damped_BFGS
         SPREAD(source = B, dim = 1, ncopies = nA)
   END FUNCTION OUTER_PRODUCT
 
-  FUNCTION damped_BFGS_get_update(sf, force_in) RESULT(push_out)
+  FUNCTION dBFGS_get_update(sf, force_in) RESULT(push_out)
     USE MODgvec_MHD3D_Vars, ONLY: Precond_b_X1, Precond_b_X2, X1_base, X2_base
     ! INPUT VARIABLES -------------------------!
-    CLASS(t_free_b_minimizer_damped_BFGS), INTENT(INOUT) :: sf
+    CLASS(t_free_b_minimizer_dBFGS), INTENT(INOUT) :: sf
     REAL(wp)                      , INTENT(IN) :: force_in(sf%n_dofs)
     ! OUTPUT VARIABLES -------------------------!
     REAL(wp) :: push_out(sf%n_dofs)
@@ -185,15 +188,15 @@ MODULE MODgvec_free_b_minimizer_damped_BFGS
     ! update after adapting dt outside
     sf%s_k = p_k
     sf%n_updates = sf%n_updates+1
-  END FUNCTION damped_BFGS_get_update
+  END FUNCTION dBFGS_get_update
 
   !===================================================================================================================================
   !> finalize the type gradient descent
   !!
   !===================================================================================================================================
-  SUBROUTINE damped_BFGS_free(sf)
+  SUBROUTINE dBFGS_free(sf)
     ! INPUT VARIABLES -------------------------!
-    TYPE(t_free_b_minimizer_damped_BFGS), INTENT(INOUT)  :: sf !! self
+    TYPE(t_free_b_minimizer_dBFGS), INTENT(INOUT)  :: sf !! self
     ! CODE --------------------------------------------------------------------------------------------------------------------------!
     SDEALLOCATE(sf%s_k)
     SDEALLOCATE(sf%y_k)
@@ -201,6 +204,6 @@ MODULE MODgvec_free_b_minimizer_damped_BFGS
     SDEALLOCATE(sf%gradf_old)
     SDEALLOCATE(sf%H_k)
     SDEALLOCATE(sf%B_k)
-  END SUBROUTINE damped_BFGS_free
+  END SUBROUTINE dBFGS_free
 
-END MODULE MODgvec_free_b_minimizer_damped_BFGS
+END MODULE MODgvec_free_b_minimizer_dBFGS

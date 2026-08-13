@@ -13,6 +13,8 @@ MODULE MODgvec_free_b_minimizer_GD
   PUBLIC
 
   TYPE, EXTENDS(c_free_b_minimizer) :: t_free_b_minimizer_GD
+    ! Basic gradient descent for a fixed given step size
+    ! One hyper-parameter, the step size
 
     CONTAINS
     PROCEDURE :: get_update => GD_get_update

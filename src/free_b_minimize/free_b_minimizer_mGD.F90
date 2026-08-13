@@ -4,7 +4,7 @@
 !===================================================================================================================================
 #include "defines.FPP"
 
-MODULE MODgvec_free_b_minimizer_acc_GD
+MODULE MODgvec_free_b_minimizer_mGD
   ! MODULES
   USE MODgvec_Globals ,ONLY: wp
   USE MODgvec_free_b_minimizer_base, ONLY: c_free_b_minimizer
@@ -12,110 +12,83 @@ MODULE MODgvec_free_b_minimizer_acc_GD
 
   PUBLIC
 
-  TYPE, EXTENDS(c_free_b_minimizer) :: t_free_b_minimizer_acc_GD
+  TYPE, EXTENDS(c_free_b_minimizer) :: t_free_b_minimizer_mGD
+    ! momentum gradient descent also includes some history of the gradients via a momentum term.
+    ! Has 2 hyper parameters:
+    ! step size dt, and momentum weighting factor beta.
+    ! lower betas discard older gradients faster.
+
     REAL(wp), ALLOCATABLE :: velocity(:) ! velocity -> gradient average
-    REAL(wp)              :: force_hist ! force from the previous update |F_{n-1}|^2
-    ! damping parameters
-    INTEGER               :: n_tau_hist
-    REAL(wp)              :: tau_bar ! tau_bar = 0.5*<tau_hist>
-    REAL(wp), ALLOCATABLE :: tau_hist(:) ! history of last 10 tau_hat=min(|ln(|F|_n^2)| / force_hist, 0.15), initialized to 0.15
-
+    REAL(wp)              :: beta ! decay rate
     CONTAINS
-    PROCEDURE :: get_update => acc_GD_get_update
-    PROCEDURE :: reset      => acc_GD_reset
-    FINAL     :: acc_GD_free
+    PROCEDURE :: get_update => mGD_get_update
+    PROCEDURE :: reset      => mGD_reset
+    FINAL     :: mGD_free
 
-  END TYPE t_free_b_minimizer_acc_GD
+  END TYPE t_free_b_minimizer_mGD
 
-  INTERFACE t_free_b_minimizer_acc_GD
-      MODULE PROCEDURE acc_GD_new
-  END INTERFACE t_free_b_minimizer_acc_GD
+  INTERFACE t_free_b_minimizer_mGD
+      MODULE PROCEDURE mGD_new
+  END INTERFACE t_free_b_minimizer_mGD
 
   CONTAINS
 
-  FUNCTION acc_GD_new(n_dofs, dt, n_tau_hist) RESULT(sf)
+  FUNCTION mGD_new(n_dofs, beta, dt) RESULT(sf)
     ! INPUT VARIABLES -------------------------!
     INTEGER, INTENT(IN)            :: n_dofs  ! number of degrees of freedom
+    REAL(wp), INTENT(IN)           :: beta
     REAL(wp), INTENT(IN), OPTIONAL :: dt ! initial / default time step
-    INTEGER, INTENT(IN) , OPTIONAL :: n_tau_hist  ! number of remembered tau_hat
 
     ! OUTPUT VARIABLES -------------------------!
-    TYPE(t_free_b_minimizer_acc_GD) :: sf
+    TYPE(t_free_b_minimizer_mGD) :: sf
     ! LOCAL VARIABLES -------------------------!
     ! CODE --------------------------------------------------------------------------------------------------------------------------!
     sf%n_dofs = n_dofs
+    sf%beta  = beta
     IF (PRESENT(dt)) THEN
         sf%dt_initial = dt
     ELSE
         sf%dt_initial = 1e-3_wp
     END IF
-
-    sf%max_dt = sf%dt
-
-    IF (PRESENT(n_tau_hist)) THEN
-        sf%n_tau_hist = n_tau_hist
-    ELSE
-        sf%n_tau_hist = 10
-    END IF
-
     sf%dt =  sf%dt_initial
 
     ALLOCATE(sf%velocity(sf%n_dofs))
-    ALLOCATE(sf%tau_hist(sf%n_tau_hist))
-
-    sf%force_hist = 1e-8_wp
     sf%velocity = 0.0_wp
-    sf%tau_bar = 0.15_wp
-    sf%tau_hist = 0.15_wp
     sf%n_updates = 0
-  END FUNCTION acc_GD_new
+  END FUNCTION mGD_new
 
-  SUBROUTINE acc_GD_reset(sf)
+  SUBROUTINE mGD_reset(sf)
     ! INPUT VARIABLES -------------------------!
     ! OUTPUT VARIABLES -------------------------!
-    CLASS(t_free_b_minimizer_acc_GD), INTENT(INOUT) :: sf
+    CLASS(t_free_b_minimizer_mGD), INTENT(INOUT) :: sf
     ! LOCAL VARIABLES -------------------------!
     ! CODE --------------------------------------------------------------------------------------------------------------------------!
     sf%dt = sf%dt_initial
-    sf%force_hist = 1e-8_wp
     sf%velocity = 0.0_wp
-    sf%tau_bar = 0.15_wp
-    sf%tau_hist = 0.15_wp
     sf%n_updates = 0
-  END SUBROUTINE acc_GD_reset
+  END SUBROUTINE mGD_reset
 
-  FUNCTION acc_GD_get_update(sf, force_in) RESULT(push_out)
+  FUNCTION mGD_get_update(sf, force_in) RESULT(push_out)
     ! INPUT VARIABLES -------------------------!
-    CLASS(t_free_b_minimizer_acc_GD), INTENT(INOUT) :: sf
+    CLASS(t_free_b_minimizer_mGD), INTENT(INOUT) :: sf
     REAL(wp)                           , INTENT(IN) :: force_in(sf%n_dofs)
     ! OUTPUT VARIABLES -------------------------!
     REAL(wp) :: push_out(sf%n_dofs)
-    ! LOCAL VARIABLES
-    REAL(wp) :: force_norm
     ! CODE --------------------------------------------------------------------------------------------------------------------------!
-    force_norm = SUM(force_in**2)
-
-    sf%tau_hist(1:sf%n_tau_hist-1) = sf%tau_hist(2:sf%n_tau_hist)
-    sf%tau_hist(sf%n_tau_hist) = MIN(ABS(LOG(force_norm / sf%force_hist)), 0.15_wp)
-    sf%tau_bar = 0.5*SUM(sf%tau_hist) / sf%n_tau_hist
-
-    sf%velocity = 1 / (1 + sf%tau_bar) * ((1-sf%tau_bar)*sf%velocity + sf%dt*force_in)
+    sf%velocity = sf%beta*sf%velocity + (1-sf%beta)*force_in
     push_out = -sf%dt*sf%velocity
-
-    sf%force_hist = force_norm
     sf%n_updates =  sf%n_updates + 1
-  END FUNCTION acc_GD_get_update
+  END FUNCTION mGD_get_update
 
   !===================================================================================================================================
   !> finalize the type gradient descent
   !!
   !===================================================================================================================================
-  SUBROUTINE acc_GD_free(sf)
+  SUBROUTINE mGD_free(sf)
     ! INPUT VARIABLES -------------------------!
-    TYPE(t_free_b_minimizer_acc_GD), INTENT(INOUT)  :: sf !! self
+    TYPE(t_free_b_minimizer_mGD), INTENT(INOUT)  :: sf !! self
     ! CODE --------------------------------------------------------------------------------------------------------------------------!
     SDEALLOCATE(sf%velocity)
-    SDEALLOCATE(sf%tau_hist)
-  END SUBROUTINE acc_GD_free
+  END SUBROUTINE mGD_free
 
-END MODULE MODgvec_free_b_minimizer_acc_GD
+END MODULE MODgvec_free_b_minimizer_mGD

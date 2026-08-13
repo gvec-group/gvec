@@ -13,6 +13,9 @@ MODULE MODgvec_free_b_minimizer_LBFGS
   PUBLIC
 
   TYPE, EXTENDS(c_free_b_minimizer) :: t_free_b_minimizer_LBFGS
+    ! USE WITH CARE HARDLY TESTED!
+    ! Limited memory BFGS (L-BFGS) does not store a full Hessian but rather just some defined number of updates
+
     INTEGER :: m_updates ! number of saved updates (should be lower than n_dofs)
     REAL(wp), ALLOCATABLE :: y_n(:,:) ! gradient steps => g_{n+1} - g_{n}; the first entry in the second dim is the last update step
     REAL(wp), ALLOCATABLE :: s_n(:,:) ! dof steps => dofs_{n+1} - dofs_{n}; the first entry in the second dim is the last update step
