@@ -10,6 +10,7 @@ import numpy as np
 
 from gvec.lib import _state
 from ._binding import with_binding
+from gvec.core.compute import CoordinateSpec
 
 # === Globals === #
 
@@ -147,3 +148,79 @@ def clockwise_zeta(self):
         raise ValueError(
             f"Could not determine zeta direction! Winding number:{self.winding_nr}"
         )
+
+
+def get_intersection_planes(self, zetas: CoordinateSpec = 3, min_box_size: float = 1e-3):
+    """Create IntersectionPlane objects from a State object at specified zeta positions.
+
+    Parameters
+    ----------
+    state : State
+        GVEC state object to construct the planes from.
+    zetas : CoordinateSpec, optional
+        Zeta positions of the desired planes.
+        If an integer is given linearly spaced zetas will be used. By default 3
+    min_box_size : float, optional
+        Minimum length of the bounding box, by default 1e-3.
+
+    Returns
+    -------
+    List[IntersectionPlane]
+        List of IntersectionPlane objects.
+    """
+    from gvec.coils import IntersectionPlane
+
+    boundary = self.evaluate("pos", zeta=zetas, theta=128, rho=1.0).pos
+
+    planes = []
+    for zeta in boundary.zeta:
+        surf_point, e_q1, e_q2, e_q3 = self.evaluate_hmap_only(X1=0, X2=0, zeta=zeta)
+        e_q3 = e_q3[:, 0]
+        surf_normal_length = np.sqrt(np.dot(e_q3, e_q3))
+        if surf_normal_length <= 1e-12:  # RZ case
+            major_radius = self.evaluate("r_major", zeta=zeta).r_major.data
+            e_q1, e_q2, e_q3 = self.evaluate_hmap_only(X1=major_radius, X2=0, zeta=zeta)[1:]
+            e_q3 = e_q3[:, 0]
+            surf_normal_length = np.sqrt(np.dot(e_q3, e_q3))
+        surf_normal = e_q3 / surf_normal_length
+
+        surf_point = surf_point[:, 0]
+        e_q1 = e_q1[:, 0]
+        e_q2 = e_q2[:, 0]
+
+        boundary_x = boundary.sel(rho=1.0, xyz="x", zeta=zeta)
+        boundary_y = boundary.sel(rho=1.0, xyz="y", zeta=zeta)
+        boundary_z = boundary.sel(rho=1.0, xyz="z", zeta=zeta)
+
+        xlim = np.array([boundary_x.min().data, boundary_x.max().data])
+        ylim = np.array([boundary_y.min().data, boundary_y.max().data])
+        zlim = np.array([boundary_z.min().data, boundary_z.max().data])
+        dx = xlim[1] - xlim[0]
+        dy = ylim[1] - ylim[0]
+        dz = zlim[1] - zlim[0]
+
+        if abs(dx) < min_box_size:
+            xlim[0] -= min_box_size / 2
+            xlim[1] += min_box_size / 2
+
+        if abs(dy) < min_box_size:
+            ylim[0] -= min_box_size / 2
+            ylim[1] += min_box_size / 2
+
+        if abs(dz) < min_box_size:
+            zlim[0] -= min_box_size / 2
+            zlim[1] += min_box_size / 2
+
+        planes.append(
+            IntersectionPlane(
+                surf_normal=surf_normal,
+                surf_point=surf_point,
+                xlim=xlim,
+                ylim=ylim,
+                zlim=zlim,
+                e_q1=e_q1,
+                e_q2=e_q2,
+            )
+        )
+
+    return planes

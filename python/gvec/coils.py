@@ -634,61 +634,13 @@ def intersection_planes_from_state(
     List[IntersectionPlane]
         List of IntersectionPlane objects.
     """
+    warn(
+        "intersection_planes_from_state is deprecated and will be removed in future updates! Consider using the new version with state.get_intersection_planes(...)",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
-    boundary = state.evaluate("pos", zeta=zetas, theta=128, rho=1.0).pos
-
-    planes = []
-    for zeta in boundary.zeta:
-        surf_point, e_q1, e_q2, e_q3 = state.evaluate_hmap_only(X1=0, X2=0, zeta=zeta)
-        e_q3 = e_q3[:, 0]
-        surf_normal_length = np.sqrt(np.dot(e_q3, e_q3))
-        if surf_normal_length <= 1e-12:  # RZ case
-            major_radius = state.evaluate("r_major", zeta=zeta).r_major.data
-            e_q1, e_q2, e_q3 = state.evaluate_hmap_only(X1=major_radius, X2=0, zeta=zeta)[1:]
-            e_q3 = e_q3[:, 0]
-            surf_normal_length = np.sqrt(np.dot(e_q3, e_q3))
-        surf_normal = e_q3 / surf_normal_length
-
-        surf_point = surf_point[:, 0]
-        e_q1 = e_q1[:, 0]
-        e_q2 = e_q2[:, 0]
-
-        boundary_x = boundary.sel(rho=1.0, xyz="x", zeta=zeta)
-        boundary_y = boundary.sel(rho=1.0, xyz="y", zeta=zeta)
-        boundary_z = boundary.sel(rho=1.0, xyz="z", zeta=zeta)
-
-        xlim = np.array([boundary_x.min().data, boundary_x.max().data])
-        ylim = np.array([boundary_y.min().data, boundary_y.max().data])
-        zlim = np.array([boundary_z.min().data, boundary_z.max().data])
-        dx = xlim[1] - xlim[0]
-        dy = ylim[1] - ylim[0]
-        dz = zlim[1] - zlim[0]
-
-        if abs(dx) < min_box_size:
-            xlim[0] -= min_box_size / 2
-            xlim[1] += min_box_size / 2
-
-        if abs(dy) < min_box_size:
-            ylim[0] -= min_box_size / 2
-            ylim[1] += min_box_size / 2
-
-        if abs(dz) < min_box_size:
-            zlim[0] -= min_box_size / 2
-            zlim[1] += min_box_size / 2
-
-        planes.append(
-            IntersectionPlane(
-                surf_normal=surf_normal,
-                surf_point=surf_point,
-                xlim=xlim,
-                ylim=ylim,
-                zlim=zlim,
-                e_q1=e_q1,
-                e_q2=e_q2,
-            )
-        )
-
-    return planes
+    return state.get_intersection_planes(zetas, min_box_size)
 
 
 class IntersectionPlane:

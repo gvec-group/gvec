@@ -160,6 +160,7 @@ class State:
         _get_X2_n_modes,
         clockwise_zeta,
         winding_nr,
+        get_intersection_planes,
     )
 
     # === Evaluation Methods === #
