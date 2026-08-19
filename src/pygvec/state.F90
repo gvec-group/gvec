@@ -101,7 +101,7 @@ END SUBROUTINE ReadState
 !===================================================================================================================================
 !> Perform minimization with the current state.
 !!
-!! This method should is intended as a first step towards in-memory restart. Used by free boundary GVEC.
+!! This method is used for the in-memory restart.
 !===================================================================================================================================
 SUBROUTINE minimize(dt_in, logfinaliter, maxIter_in, minimize_tol)
   ! MODULES
@@ -125,7 +125,7 @@ SUBROUTINE minimize(dt_in, logfinaliter, maxIter_in, minimize_tol)
 END SUBROUTINE minimize
 
 !===================================================================================================================================
-!> Wrapper to update the exterior magnetic field (B_ext)²
+!> Wrapper to update the exterior magnetic field (B_ext)² for the free-boundary algorithm.
 !!
 !===================================================================================================================================
 SUBROUTINE set_Bext_squared(Bext_squared_in)
