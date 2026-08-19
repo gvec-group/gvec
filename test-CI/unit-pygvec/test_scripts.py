@@ -176,19 +176,17 @@ def test_picard_auto():
     parameters["picard_current"] = "auto"
     ProjectName = "Test_auto"
     parameters["projectname"] = ProjectName
-    if "stages" in parameters:
-        del parameters["stages"]
-    run_with_stages = gvec.run(parameters)
-    diagnostics = run_with_stages.diagnostics_minimizer
+    run = gvec.run(parameters)
+    diagnostics = run.diagnostics_minimizer
     assert diagnostics.force_X1[-1].data <= 1e-4
     assert diagnostics.force_X2[-1].data <= 1e-4
     assert diagnostics.force_LA[-1].data <= 1e-4
 
     assert Path(f"{ProjectName}_State_final.dat").exists()
     assert Path(f"parameter_{ProjectName}_final.ini").exists()
-    rho = np.sqrt(np.linspace(0, 1, 101))
+    rho = np.sqrt(np.linspace(0, 1, 256))
     rho[0] = 1e-4
-    ev = run_with_stages.state.evaluate("I_tor", "iota_curr", rho=rho, theta="int", zeta="int")
+    ev = run.state.evaluate("I_tor", "iota_curr", rho=rho, theta="int", zeta="int")
     assert ev.iota_curr.max().data < 1e-6
 
 
@@ -210,8 +208,6 @@ def test_I_tor_types(ptype):
         return 6000 * (rho2 - rho2**3 / 3)
 
     I_tor = I_tor_tp(rho2)
-    if "stages" in parameters:
-        del parameters["stages"]
 
     match ptype:
         case "interpolation":
