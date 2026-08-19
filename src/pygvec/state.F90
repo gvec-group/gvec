@@ -20,7 +20,7 @@ INTEGER :: nfp = 0
 CONTAINS
 
 !================================================================================================================================!
-SUBROUTINE Init(parameterfile, RestartFile_in)
+SUBROUTINE Init(parameterfile)
   ! MODULES
   USE MODgvec_Globals,        ONLY: fmt_sep
   USE MODgvec_MHD3D_vars,     ONLY: X1_base
@@ -32,7 +32,6 @@ SUBROUTINE Init(parameterfile, RestartFile_in)
   USE MODgvec_MPI    ,ONLY: par_Init
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   CHARACTER(LEN=*) :: parameterfile
-  CHARACTER(LEN=255), INTENT(IN), OPTIONAL  :: RestartFile_in
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   ! CODE ========================================================================================================================!
   CALL reset_subregion()
@@ -124,7 +123,6 @@ SUBROUTINE minimize(dt_in, logfinaliter, maxIter_in, minimize_tol)
         (EndTime-StartTime)/REAL(MaxIter,wp)*1.e3_wp,' msec/iteration ]'
   FLUSH(UNIT_stdOut)
 END SUBROUTINE minimize
-
 
 !===================================================================================================================================
 !> Wrapper to update the exterior magnetic field (B_ext)²
@@ -227,6 +225,7 @@ SUBROUTINE save_statefile()
     CALL WriteState(vars%dofs(0),vars%iter)
   END ASSOCIATE
 END SUBROUTINE save_statefile
+
 !===================================================================================================================================
 !> Wrapper to update the iota-profile via bspl-interpolation
 !!
@@ -285,7 +284,6 @@ FUNCTION get_Fnorm_boundary() RESULT(Fnorms)
   REAL(wp) :: Fnorms(6)
   Fnorms = SQRT((/Fnorm_X1_b_IP, Fnorm_X1_b_modes, Fnorm_X2_b_IP, Fnorm_X2_b_modes, SUM(Force_b_X1**2), SUM(Force_b_X2**2)/))
 END FUNCTION get_Fnorm_boundary
-
 
 !================================================================================================================================!
 !> Handle the selection of the base, based on the selection string
@@ -948,7 +946,6 @@ SUBROUTINE evaluate_metric_derivs(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_d
   DEALLOCATE(hmap_xv)
 END SUBROUTINE
 
-
 !================================================================================================================================!
 !> evaluate second derivatives of the hmap
 !================================================================================================================================!
@@ -976,7 +973,6 @@ SUBROUTINE evaluate_hmap_derivs(n, X1, X2, zeta, k_11, k_12, k_13, k_22, k_23, k
   !$OMP END PARALLEL DO
   DEALLOCATE(hmap_xv)
 END SUBROUTINE
-
 
 !================================================================================================================================!
 !> evaluate the jacobian determinant and its derivatives
@@ -1068,7 +1064,6 @@ SUBROUTINE evaluate_rho2_profile(n_s, rho2, deriv, var, result)
   SDEALLOCATE(input_profile)
 END SUBROUTINE evaluate_rho2_profile
 
-
 !================================================================================================================================!
 !> evaluate 1D-radial profiles and their derivatives with respect to rho
 !================================================================================================================================!
@@ -1155,7 +1150,6 @@ SUBROUTINE get_boozer(sfl_boozer)
   functional%minimizer%vars%dofs(0)%X1, functional%minimizer%vars%dofs(0)%X2, functional%minimizer%vars%dofs(0)%LA)
 END SUBROUTINE get_boozer
 
-
 !================================================================================================================================!
 !> Find the logical angles for given PEST angles on all specified surfaces.
 !================================================================================================================================!
@@ -1182,7 +1176,6 @@ SUBROUTINE find_pest_angles_2D(n_s, s, n_tz, tz_pest, tz_out)
   CALL find_pest_angles(n_s, LA_base%f, LA, n_tz, tz_pest, tz_out)
   DEALLOCATE(LA)
 END SUBROUTINE find_pest_angles_2D
-
 
 !================================================================================================================================!
 !> Evaluate LA or NU and all derivatives for a list of (theta, zeta) positions on all flux surfaces given by s
