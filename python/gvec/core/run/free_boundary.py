@@ -551,10 +551,10 @@ class FreeBoundaryRun(AbstractRun):
                         else:
                             self.diagnostics_stage[f"stage_{self.nth_stage}"].iota[
                                 :, fb_update
-                            ] = self.state.iota(
-                                self.diagnostics_stage[f"stage_{self.nth_stage}"]["rho_iota"]
-                                ** 2
-                            ).data
+                            ] = self.state.evaluate_profile(
+                                "iota",
+                                self.diagnostics_stage[f"stage_{self.nth_stage}"]["rho_iota"],
+                            )
 
                     logger.info(
                         f"free-boundary - target: {self.free_boundary_target:.3e}, tolerance: {free_boundary_tolerance}, iters: {self.iters_used} / {self.totaliter} "

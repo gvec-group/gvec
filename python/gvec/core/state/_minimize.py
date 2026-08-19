@@ -5,6 +5,7 @@
 # === Imports === #
 import numpy as np
 import scipy
+from scipy.interpolate import BSpline
 from gvec.util import write_parameter_file_ini, CaseInsensitiveDict, chdir, flatten_parameters
 from ._binding import with_binding
 from typing import Literal, Callable
@@ -79,21 +80,19 @@ def save_statefile(self):
 
 
 @with_binding
-def update_iota_for_current_constraint(
-    self, knots: np.ndarray, coefs: np.ndarray, reset_LA: bool
-):
+def update_iota_for_current_constraint(self, iota_bspl: BSpline, reset_LA: bool):
     """update the iota and chi-prime B-spline in FORTRAN.
 
     Parameters
     ----------
-    knots : np.ndarray
-        Array of B-spline knots for iota.
-    coefs : np.ndarray
-        Array of B-spline coefficients for iota
+    iota_bspl: BSpline
+        Scipy basis spline object used for updating the iota profile
     reset_LA : bool
         Whether to reset the DOFs for lambda.
     """
     logger.debug("Updating iota")
+    knots = iota_bspl.t
+    coefs = iota_bspl.c
 
     if not isinstance(knots, np.ndarray) and not np.issubdtype(knots.dtype, np.floating):
         raise TypeError("Specified knots are not a numpy array of type float.")
@@ -111,6 +110,15 @@ def update_iota_for_current_constraint(
         raise TypeError(f"Specified reset_LA is not bool but {type(reset_LA)}")
 
     _state.update_iota_for_current_constraint(knots, coefs, reset_LA)
+
+    # forget momentum and adapted time step after a iota update
+    self.reset_descent()
+    self._parameter_dict["iota"] = CaseInsensitiveDict(
+        type="bspline",
+        coefs=iota_bspl.c,
+        knots=iota_bspl.t,
+    )
+    self.iota = iota_bspl
 
 
 @with_binding
@@ -271,30 +279,31 @@ def _minimize_single_current_constraint(
     else:
         logfinaliter = False
 
+    iota_bspl = self.iota
+
     while (rms_iota > iota_tol) and (iters_used < maxIter):
         if nth_update >= maxUpdates:
             logger.warning("Maximum number of iota updates reached reached!")
             break
+
+        # only reset LA at the start
+        if iters_used > 0:
+            reset_LA = False
+
+        if iota_bspl is not None:
+            self.update_iota_for_current_constraint(iota_bspl, reset_LA)
+
         self._minimize(
             logfinaliter=logfinaliter,
             maxIter=min(maxIter - iters_used, maxIter_per_update),
             minimize_tol=minimize_tol,
             **kwargs_minimize,
         )
+
         (iota_bspl, rms_iota, delta_iota, delta_I_tor_max, rms_iota_fit) = _get_new_iota(
             self, iota_tol=iota_tol
         )
-        # only reset LA at the start
-        if iters_used > 0:
-            reset_LA = False
-        self.update_iota_for_current_constraint(iota_bspl.t, iota_bspl.c, reset_LA)
-        self.reset_descent()
-        self._parameter_dict["iota"] = CaseInsensitiveDict(
-            type="bspline",
-            coefs=iota_bspl.c,
-            knots=iota_bspl.t,
-        )
-        self.iota = iota_bspl
+
         iters = self.get_iterations()
         iters_used = iters - iters_used_start
 
@@ -303,6 +312,7 @@ def _minimize_single_current_constraint(
         iters_per_run.append(iters)
         delta_I_tor_max_over_run.append(delta_I_tor_max)
         rms_iota_fit_over_run.append(rms_iota_fit)
+
         if save_intermediate:
             self.save(
                 header=save_header + f"!Picard Iteration {nth_update + picard_offset}\n"
@@ -382,8 +392,6 @@ def _minimize_current_constraint(
         iota_tols = [iota_tol]
     iota_tol = iota_tols[0]
 
-    self.iota = self._get_new_iota(iota_tol)[0]
-
     iters_used_start = self.get_iterations()
 
     self.nth_update = 0
@@ -402,7 +410,7 @@ def _minimize_current_constraint(
             maxIter=maxIter,
             maxIter_per_update=min(AUTO_STAGE_IOTA_INIT_MAXITER, maxIter),
             iota_tol=iota_tol,
-            minimize_tol=minimize_tols[0],
+            minimize_tol=minimize_tols[-1],
             maxUpdates=maxUpdates,
             reset_LA=reset_LA,
             save_intermediate=save_intermediate,

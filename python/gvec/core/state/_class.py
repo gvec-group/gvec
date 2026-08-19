@@ -76,6 +76,7 @@ class State:
             self.iters_used = 0
             self.rms_iota = None
             self.delta_iota = None
+            self.iota = None
 
     def __del__(self):
         logger.debug(f"Deleting state {self!r}")

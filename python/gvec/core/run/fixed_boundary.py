@@ -175,12 +175,16 @@ class FixedBoundaryRun(AbstractRun):
                 diag_stage["iota"] = ev.iota
                 diag_stage["I_tor"] = ev.I_tor
                 diag_stage["n_updates"] = self.state.nth_update
-                diag_stage["iota_delta"] = ev.iota - self.state.iota(rho_eval**2)
+                diag_stage["iota_delta"] = ev.iota - self.state.evaluate_profile(
+                    "iota", rho_eval
+                )
                 diag_stage["I_tor_delta"] = ev.I_tor - self.state.I_tor(rho_eval**2)
                 diag_stage["rms_iota"] = self.state.rms_iota
                 diag_stage["rms_iota_fit"] = self.state.rms_iota_fit_over_run[-1]
                 diag_stage["max_Itor"] = self.state.delta_I_tor_max_over_run[-1]
-                diag_stage["iota_dofs"] = self.state.iota.c.size
+                diag_stage["iota_dofs"] = (
+                    self.state.iota.c.size if self.state.iota is not None else np.nan
+                )
                 diag_stage.reindex(iteration=self.state.iters_per_run, fill_value=np.nan)
                 diag_stage["iota_delta_picard"] = xr.DataArray(
                     data=self.state.rms_iota_over_run,
