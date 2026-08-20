@@ -14,7 +14,7 @@ MODULE MODgvec_free_b_minimizer_base
   TYPE, ABSTRACT :: c_free_b_minimizer
       REAL(wp) :: dt_initial ! initial time-step
       REAL(wp) :: dt ! current time step
-      REAL(wp) :: max_dt ! relevant for BFGS
+      REAL(wp) :: max_dt ! limit the maximum time step, especially relevant for quasi-newton methods
       INTEGER  :: n_dofs ! number of degrees of freedom
       INTEGER  :: n_updates ! number of calls to get_update
       contains

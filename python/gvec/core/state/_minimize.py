@@ -583,12 +583,14 @@ def _get_boundary_forces(self):
     """
     n_X1 = self._get_X1_n_modes()
     n_X2 = self._get_X2_n_modes()
-    forces_out = np.asfortranarray(np.zeros((3, n_X1 + n_X2)))
-    _state.get_boundary_forces(forces_out)
-    m = forces_out[0, :]
-    n = forces_out[1, :]
-    F = forces_out[2, :]
-    return (m, n, F)
+
+    forces_out = np.asfortranarray(np.zeros((n_X1 + n_X2)))
+    m = np.asfortranarray(np.zeros((n_X1 + n_X2), dtype=int))
+    n = np.asfortranarray(np.zeros_like(m, dtype=int))
+
+    _state.get_boundary_forces(m, n, forces_out)
+
+    return (m, n, forces_out)
 
 
 @with_binding

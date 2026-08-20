@@ -205,16 +205,24 @@ FUNCTION get_xnorm() RESULT(xnorm)
   xnorm = xnorm_fb
 END FUNCTION get_xnorm
 
-SUBROUTINE get_boundary_forces(forces_inout)
+SUBROUTINE get_boundary_forces(m_inout, n_inout, forces_inout)
   USE MODgvec_MHD3D_Vars, ONLY: Force_b_X1, Force_b_X2, X1_base, X2_base
-  REAL(wp), INTENT(INOUT) :: forces_inout(3,X1_base%f%modes + X2_base%f%modes)
+  INTEGER, INTENT(INOUT)  :: m_inout(X1_base%f%modes + X2_base%f%modes), n_inout(X1_base%f%modes + X2_base%f%modes)
+  REAL(wp), INTENT(INOUT) :: forces_inout(X1_base%f%modes + X2_base%f%modes)
 
   forces_inout = 0.0_wp
-  forces_inout(1:2,:X1_base%f%modes) = REAL(X1_base%f%Xmn)
-  forces_inout(3,:X1_base%f%modes) = Force_b_X1
+  m_inout = -1
+  n_inout = 0
 
-  forces_inout(1:2,X1_base%f%modes+1:) = REAL(X2_base%f%Xmn)
-  forces_inout(3,X1_base%f%modes+1:) = Force_b_X2
+  m_inout(:X1_base%f%modes) = X1_base%f%Xmn(1,:)
+  n_inout(:X1_base%f%modes) = X1_base%f%Xmn(2,:)
+
+  forces_inout(:X1_base%f%modes) = Force_b_X1
+
+  m_inout(X1_base%f%modes+1:) = X2_base%f%Xmn(1,:)
+  n_inout(X1_base%f%modes+1:) = X2_base%f%Xmn(2,:)
+
+  forces_inout(X1_base%f%modes+1:) = Force_b_X2
 END SUBROUTINE get_boundary_forces
 
 SUBROUTINE save_statefile()

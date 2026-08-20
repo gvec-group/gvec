@@ -1143,7 +1143,6 @@ SUBROUTINE BuildPrecond()
   D_buf=0.0_wp
   smn_IP=1.0_wp/REAL(mn_IP,wp)
   IF (FreeBoundary) THEN
-    ! NOTE: This is experimental!
     ! Includes one part of the radial preconditioner for the free boundary term:
     ! <B_ext/2 * dJh/dq1 dX2/dtheta> Y_1*Y_1 - <B_ext/2 * dJh/dq2 dX1/dtheta>Y_2*Y_2
     DX1_nn = 0.0_wp
