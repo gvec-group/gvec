@@ -163,13 +163,13 @@ def _get_new_iota(self, iota_tol: float):
     sgrid = self.get_radial_gridpoints()
     sgrid[0] = 0.0
     sgrid[-1] = 1.0
-    Qs = ["iota", "iota_0", "iota_curr_0", "I_tor"]
+    Qs = ["iota", "iota_geom", "iota_curr_bar", "I_tor"]
     while True:
         knots = _linspace_sgrid(sgrid, self.knots_per_sgrid_element)
         knots = _add_knot_multiplicity(knots, IOTA_BSPLINE_DEGREE)
         rho = _linspace_sgrid(sgrid, IOTA_SAMPLING_FACTOR * self.knots_per_sgrid_element)
         ev = _evaluate_extrapolate_in_rho2(self, *Qs, rho=rho, theta="int", zeta="int")[Qs]
-        iota_target = ev.iota_0 + self.I_tor(rho**2) * ev.iota_curr_0
+        iota_target = ev.iota_geom + self.I_tor(rho**2) * ev.iota_curr_bar
 
         # least-squares fit
         bspline = scipy.interpolate.make_lsq_spline(
@@ -585,8 +585,8 @@ def _get_boundary_forces(self):
     n_X2 = self._get_X2_n_modes()
 
     forces_out = np.asfortranarray(np.zeros((n_X1 + n_X2)))
-    m = np.asfortranarray(np.zeros((n_X1 + n_X2), dtype=int))
-    n = np.asfortranarray(np.zeros_like(m, dtype=int))
+    m = np.asfortranarray(np.zeros((n_X1 + n_X2), dtype=np.int32))
+    n = np.asfortranarray(np.zeros_like(m, dtype=np.int32))
 
     _state.get_boundary_forces(m, n, forces_out)
 
