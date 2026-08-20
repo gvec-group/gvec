@@ -24,7 +24,7 @@ from generate_parameter_list import format_parameter_list
 # -- Project information -----------------------------------------------------
 
 project = "GVEC"
-copyright = "2025 GVEC Contributors | Max Planck Institute for Plasma Physics"
+copyright = "2026 GVEC Contributors | Max Planck Institute for Plasma Physics"
 author = "Florian Hindenlang et al."
 
 try:

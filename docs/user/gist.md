@@ -266,7 +266,7 @@ L_2 &= \frac{1}{B_{ref}} \left[ \pdv{\modB}{\rho_\alpha}
 \hat{b}_\phi &= \frac{1}{B_{ref}} \pdv{\modB}{\phi_\alpha} \\
 q_0 &= \frac{1}{\iota_0} \\
 \hat{s} &= \rho_0\iota_0 \frac{d\iota}{d\rho} \\
-\hat{\beta} &= \frac{p_0 \mu_0}{B_{ref}^2}
+\hat{\beta} &= \frac{p_0 \mu_0}{B_{ref}^2} \\
 \hat{p} &= -\frac{a^4 \mu_0}{2 \Phi_{edge} |\Phi_{edge}|} \frac{dp}{d\rho} \\
 \end{align}
 $$
