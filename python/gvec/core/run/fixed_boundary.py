@@ -189,7 +189,10 @@ class FixedBoundaryRun(AbstractRun):
                 diag_stage["iota_delta_picard"] = xr.DataArray(
                     data=self.state.rms_iota_over_run,
                     dims=["picard_iteration"],
-                    coords={"picard_iteration": self.state.iters_per_run + iteration_offset},
+                    coords={
+                        "picard_iteration": np.array(self.state.iters_per_run)
+                        + iteration_offset
+                    },
                 )
 
             if self.diagnostics_stage is None:

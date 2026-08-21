@@ -262,6 +262,9 @@ def _minimize_single_current_constraint(
         )
     """
     self.rms_iota = np.inf
+    self.delta_iota_max = np.nan
+    delta_iota = None
+
     nth_update = 0
     iters_used_start = self.get_iterations()
     self.reset_descent()
@@ -321,7 +324,8 @@ def _minimize_single_current_constraint(
     logger.debug(
         f"Terminated current minimization after {nth_update} iota updates. Δiota = {self.rms_iota:.3e}, target Δiota = {iota_tol:.3e}. Used {iters_used} / {maxIter} iterations."
     )
-    self.delta_iota_max = np.abs(delta_iota).max().item()
+    if delta_iota is not None:
+        self.delta_iota_max = np.abs(delta_iota).max().item()
     self.nth_update += nth_update
 
 
