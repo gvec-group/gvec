@@ -31,6 +31,7 @@ IOTA_KNOTS_PER_ELEMENT_MIN = 2
 IOTA_KNOTS_PER_ELEMENT_MAX = 256
 IOTA_COEFS_MAX = 768  # at 20 characters per coefficient: 15360 characters + overhead < 2^14
 IOTA_MIN_RHO = 1e-2  # ignore near-axis region for Δiota & Δfit, TODO: fix accuracy problems
+IOTA_MAXITER_PER_UPDATE = 1e12  # maximum number of fixed-boundary iterations per iota update
 
 
 @with_binding
@@ -226,7 +227,6 @@ def _minimize_single_current_constraint(
     reset_LA: bool,
     save_intermediate: bool,
     save_header: str,
-    picard_offset: int,
     **kwargs_minimize,
 ):
     """Runs a single current-minimization stage (e.g, one minimize tolerance and one iota tolerance)
@@ -236,21 +236,19 @@ def _minimize_single_current_constraint(
     maxIter : int
         Maximum number of fixed-boundary iterations
     maxIter_per_update : int
-        Maximum number of fixed-boundary iterations per Picard iteration.
+        Maximum number of fixed-boundary iterations per iota update
     iota_tol : float
         Tolerance on the iota-discrepancy.
     minimize_tol : float | None
         Tolerance on the norm of the forces for X1, X2 and lambda.
     maxUpdates : int
-        Maximum number of Picard iterations.
+        Maximum number of iota updates (Picard iterations).
     reset_LA : bool
         If True, lambda is reset after an iota update.
     save_intermediate : bool
-        If True, the state after a Picard iteration is saved.
+        If True, the state after each iota update is saved.
     save_header : str
         Header string for the saved parameter files.
-    picard_offset : int
-        Number of performed Picard iterations before this call. Only relevant for parameter file headers.
 
     Returns
     -------
@@ -258,21 +256,16 @@ def _minimize_single_current_constraint(
         (
         root mean squared iota error,
         maximum iota error,
-        evolution of the rms_iota error over Picard iterations,
-        evolution of the iota fit error over Picard iterations,
-        number of used Picard iterations,
+        evolution of the rms_iota error over iota updates,
+        evolution of the iota fit error over iota updates,
+        number of used iota updates,
         )
     """
-    rms_iota = np.inf
+    self.rms_iota = np.inf
     nth_update = 0
     iters_used_start = self.get_iterations()
     self.reset_descent()
     iters_used = 0
-    delta_iota = np.inf
-    rms_iota_over_run = []
-    delta_I_tor_max_over_run = []
-    rms_iota_fit_over_run = []
-    iters_per_run = []
     if "logfinaliter" in kwargs_minimize:
         logfinaliter = kwargs_minimize["logfinaliter"]
         del kwargs_minimize["logfinaliter"]
@@ -281,9 +274,9 @@ def _minimize_single_current_constraint(
 
     iota_bspl = self.iota
 
-    while (rms_iota > iota_tol) and (iters_used < maxIter):
+    while (self.rms_iota > iota_tol) and (iters_used < maxIter):
         if nth_update >= maxUpdates:
-            logger.warning("Maximum number of iota updates reached reached!")
+            logger.warning("Maximum number of iota updates reached!")
             break
 
         # only reset LA at the start
@@ -300,7 +293,7 @@ def _minimize_single_current_constraint(
             **kwargs_minimize,
         )
 
-        (iota_bspl, rms_iota, delta_iota, delta_I_tor_max, rms_iota_fit) = _get_new_iota(
+        (iota_bspl, self.rms_iota, delta_iota, delta_I_tor_max, rms_iota_fit) = _get_new_iota(
             self, iota_tol=iota_tol
         )
 
@@ -308,35 +301,28 @@ def _minimize_single_current_constraint(
         iters_used = iters - iters_used_start
 
         nth_update += 1
-        rms_iota_over_run.append(rms_iota)
-        iters_per_run.append(iters)
-        delta_I_tor_max_over_run.append(delta_I_tor_max)
-        rms_iota_fit_over_run.append(rms_iota_fit)
+        self.rms_iota_over_run.append(self.rms_iota)
+        self.iters_per_run.append(iters)
+        self.delta_I_tor_max_over_run.append(delta_I_tor_max)
+        self.rms_iota_fit_over_run.append(rms_iota_fit)
 
         if save_intermediate:
             self.save(
-                header=save_header + f"!Picard Iteration {nth_update + picard_offset}\n"
+                header=save_header + f"!Iota update {nth_update + self.nth_update}\n"
                 f"!Created at {datetime.now().isoformat()}\n"
                 f"!pyGVEC v{__version__}\n",
             )
 
-    if rms_iota > iota_tol and maxIter > 0:
+    if self.rms_iota > iota_tol and maxIter > 0:
         logger.warning(
             "Targeted iota has not been reached!\n"
-            + f"iota_tol.: {iota_tol:.2e}, achieved rms Δiota.: {rms_iota:.2e}"
+            + f"iota_tol.: {iota_tol:.2e}, achieved rms Δiota.: {self.rms_iota:.2e}"
         )
     logger.debug(
-        f"Terminated current minimization after {nth_update} updates. Δiota = {rms_iota:.3e}, target Δiota = {iota_tol:.3e}. Used {iters_used} / {maxIter} iterations."
+        f"Terminated current minimization after {nth_update} iota updates. Δiota = {self.rms_iota:.3e}, target Δiota = {iota_tol:.3e}. Used {iters_used} / {maxIter} iterations."
     )
-    return (
-        rms_iota,
-        np.abs(delta_iota).max().item(),
-        np.array(rms_iota_over_run),
-        np.array(iters_per_run),
-        np.array(delta_I_tor_max_over_run),
-        np.array(rms_iota_fit_over_run),
-        nth_update,
-    )
+    self.delta_iota_max = np.abs(delta_iota).max().item()
+    self.nth_update += nth_update
 
 
 def _minimize_current_constraint(
@@ -349,7 +335,7 @@ def _minimize_current_constraint(
     target: Literal["iota", "iota_and_force", "auto"],
     save_intermediate: bool,
     save_header: str,
-    **kwargs,
+    **kwargs_minimize,
 ):
     """Fixed-boundary run with prescribed current profile.
 
@@ -374,6 +360,8 @@ def _minimize_current_constraint(
         If True, the state after a Picard iteration is saved.
     save_header : str
         Header string for the saved parameter files.
+    kwargs_minimize : dict
+        Additional keyword arguments passed to the energy minimization routine.
     """
 
     t0 = time.time()
@@ -395,18 +383,14 @@ def _minimize_current_constraint(
     iters_used_start = self.get_iterations()
 
     self.nth_update = 0
+    self.rms_iota_over_run = []
+    self.iters_per_run = []
+    self.delta_I_tor_max_over_run = []
+    self.rms_iota_fit_over_run = []
 
     # target iota only
     if target == "iota" or target == "auto":
-        (
-            self.rms_iota,
-            self.delta_iota_max,
-            self.rms_iota_over_run,
-            self.iters_per_run,
-            self.delta_I_tor_max_over_run,
-            self.rms_iota_fit_over_run,
-            nth_update,
-        ) = self._minimize_single_current_constraint(
+        self._minimize_single_current_constraint(
             maxIter=maxIter,
             maxIter_per_update=min(AUTO_STAGE_IOTA_INIT_MAXITER, maxIter),
             iota_tol=iota_tol,
@@ -415,15 +399,8 @@ def _minimize_current_constraint(
             reset_LA=reset_LA,
             save_intermediate=save_intermediate,
             save_header=save_header,
-            picard_offset=self.nth_update,
-            **kwargs,
+            **kwargs_minimize,
         )
-        self.nth_update += nth_update
-    else:
-        self.rms_iota_over_run = np.array([])
-        self.iters_per_run = np.array([])
-        self.delta_I_tor_max_over_run = np.array([])
-        self.rms_iota_fit_over_run = np.array([])
 
     iters_used = self.get_iterations() - iters_used_start
 
@@ -437,34 +414,16 @@ def _minimize_current_constraint(
                 logger.debug(f"iters_used:{iters_used}")
                 logger.debug(f"maxIter:{maxIter - iters_used}")
                 self.knots_per_sgrid_element = IOTA_KNOTS_PER_ELEMENT_MIN
-                (
-                    self.rms_iota,
-                    self.delta_iota_max,
-                    rms_iota_over_run,
-                    iters_per_run,
-                    delta_I_tor_max_over_run,
-                    rms_iota_fit_over_run,
-                    nth_update,
-                ) = self._minimize_single_current_constraint(
+                self._minimize_single_current_constraint(
                     maxIter=maxIter - iters_used,
-                    maxIter_per_update=1e12,
+                    maxIter_per_update=maxIter - iters_used,
                     iota_tol=iota_tol,
                     minimize_tol=minimize_tol,
                     maxUpdates=maxUpdates,
                     reset_LA=reset_LA,
                     save_intermediate=save_intermediate,
                     save_header=save_header,
-                    picard_offset=self.nth_update,
-                    **kwargs,
-                )
-                self.nth_update += nth_update
-                self.rms_iota_over_run = np.concat([self.rms_iota_over_run, rms_iota_over_run])
-                self.iters_per_run = np.concat([self.iters_per_run, iters_per_run])
-                self.delta_I_tor_max_over_run = np.concat(
-                    [self.delta_I_tor_max_over_run, delta_I_tor_max_over_run]
-                )
-                self.rms_iota_fit_over_run = np.concat(
-                    [self.rms_iota_fit_over_run, rms_iota_fit_over_run]
+                    **kwargs_minimize,
                 )
                 iters_used = self.get_iterations() - iters_used_start
     t1 = time.time()

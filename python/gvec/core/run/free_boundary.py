@@ -46,6 +46,9 @@ DEFAULT_GTOL = 1e-8
 DEFAULT_XTOL = 1e-8
 DEFAULT_DIGITS_BIEST = 8
 DEFAULT_FB_TOLERANCE = 1e-8
+DEFAULT_FB_DT = 0.1
+FORCE_RATIO_MINIMUM_FORCE = 1e-12
+GET_B2_FILL_VALUE = 1e6
 
 logger = logging.getLogger("gvec.run.free_boundary")
 
@@ -85,87 +88,36 @@ class FreeBoundaryRun(AbstractRun):
             long_name="free-boundary force balance on the LCFS.", symbol=r"$F_{b}}$"
         )
         if track_boundary_fields:
-            diagnostics["B_jump"] = (
-                ("xyz", "tor", "pol", "iteration"),
-                np.full(
-                    shape=(3, self.state.z_n, self.state.t_n, fb_updates), fill_value=np.nan
-                ),
-            )
-            diagnostics.B_jump.attrs = dict(
-                long_name="jump of the magnetic field on the LCFS", symbol=r"$B_{\text{jump}}$"
-            )
+            for key, long_name, symbol in [
+                ("B_jump", "jump of the magnetic field on the LCFS", r"$B_{\text{jump}}$"),
+                ("B_int", "internal magnetic field on the LCFS", r"$B_{\text{int}}$"),
+                ("B_ext", "external magnetic field on the LCFS", r"$B_{\text{ext}}$"),
+                ("K", "surface current on the LCFS", r"$K$"),
+            ]:
+                diagnostics[key] = (
+                    ("xyz", "tor", "pol", "iteration"),
+                    np.full(
+                        shape=(3, self.state.z_n, self.state.t_n, fb_updates), fill_value=np.nan
+                    ),
+                )
+                diagnostics[key].attrs = dict(long_name=long_name, symbol=symbol)
 
-            diagnostics["B_int"] = (
-                ("xyz", "tor", "pol", "iteration"),
-                np.full(
-                    shape=(3, self.state.z_n, self.state.t_n, fb_updates), fill_value=np.nan
-                ),
+        for key in [
+            "free_boundary_target",
+            "Fnorm_X1_b_IP",
+            "Fnorm_X2_b_IP",
+            "Fnorm_X1_b_modes",
+            "Fnorm_X2_b_modes",
+            "Fnorm_X1_b",
+            "Fnorm_X2_b",
+            "spectral_width",
+            "dt",
+            "resolved_force_ratio",
+        ]:
+            diagnostics[key] = (
+                "iteration",
+                np.full(shape=fb_updates, fill_value=np.nan),
             )
-            diagnostics.B_int.attrs = dict(
-                long_name="internal magnetic field on the LCFS", symbol=r"$B_{\text{int}}$"
-            )
-
-            diagnostics["B_ext"] = (
-                ("xyz", "tor", "pol", "iteration"),
-                np.full(
-                    shape=(3, self.state.z_n, self.state.t_n, fb_updates), fill_value=np.nan
-                ),
-            )
-            diagnostics.B_ext.attrs = dict(
-                long_name="external magnetic field on the LCFS", symbol=r"$B_{\text{ext}}$"
-            )
-
-            diagnostics["K"] = (
-                ("xyz", "tor", "pol", "iteration"),
-                np.full(
-                    shape=(3, self.state.z_n, self.state.t_n, fb_updates), fill_value=np.nan
-                ),
-            )
-            diagnostics.K.attrs = dict(long_name="surface current on the LCFS", symbol=r"$K$")
-
-        diagnostics["free_boundary_target"] = (
-            "iteration",
-            np.full(shape=fb_updates, fill_value=np.nan),
-        )
-
-        diagnostics["Fnorm_X1_b_IP"] = (
-            "iteration",
-            np.full(shape=fb_updates, fill_value=np.nan),
-        )
-        diagnostics["Fnorm_X2_b_IP"] = (
-            "iteration",
-            np.full(shape=fb_updates, fill_value=np.nan),
-        )
-        diagnostics["Fnorm_X1_b_modes"] = (
-            "iteration",
-            np.full(shape=fb_updates, fill_value=np.nan),
-        )
-        diagnostics["Fnorm_X2_b_modes"] = (
-            "iteration",
-            np.full(shape=fb_updates, fill_value=np.nan),
-        )
-
-        diagnostics["spectral_width"] = (
-            "iteration",
-            np.full(shape=fb_updates, fill_value=np.nan),
-        )
-
-        diagnostics["Fnorm_X2_b"] = (
-            "iteration",
-            np.full(shape=fb_updates, fill_value=np.nan),
-        )
-        diagnostics["Fnorm_X1_b"] = (
-            "iteration",
-            np.full(shape=fb_updates, fill_value=np.nan),
-        )
-        diagnostics["dt"] = (
-            "iteration",
-            np.full(shape=fb_updates, fill_value=np.nan),
-        )
-        diagnostics["resolved_force_ratio"] = (
-            "iteration",
-            np.full(shape=fb_updates, fill_value=np.nan),
-        )
 
         m, n, F = self.state._get_boundary_forces()
         diagnostics["m_modes"] = ("mode", m)
@@ -197,7 +149,7 @@ class FreeBoundaryRun(AbstractRun):
         full_force = max(
             (fourier_force_balance.force_balance_mns**2).sum().item()
             + (fourier_force_balance.force_balance_mnc**2).sum().item(),
-            1e-12,
+            FORCE_RATIO_MINIMUM_FORCE,
         )
         cut_force = (cut_fb.force_balance_mns**2).sum().item() + (
             cut_fb.force_balance_mnc**2
@@ -336,7 +288,7 @@ class FreeBoundaryRun(AbstractRun):
         reset_minimizer = self._state_parameters["free_boundary"].get("reset_minimizer", False)
 
         # initial stepsize for the free-b minimization
-        dt = self._state_parameters["free_boundary"].get("dt", 1e-3)
+        dt = self._state_parameters["free_boundary"].get("dt", DEFAULT_FB_DT)
 
         if ramp_force_tol:
             minimize_tol = ramp_force_tol_start
@@ -580,7 +532,7 @@ class FreeBoundaryRun(AbstractRun):
                         minimize_tol=minimize_tol_min,
                         maxIter=self._state_parameters["maxIter"],
                         maxUpdates=self._state_parameters["picard_current"].get(
-                            "maxRestarts", 30
+                            "maxRestarts", DEFAULT_PICARD_CURRENT_MAXRESTARTS
                         ),
                         picard_target=self._state_parameters["picard_current"].get(
                             "target", "auto"
@@ -812,7 +764,7 @@ def _get_B2_all_fp(
     if has_fbtools:
         from fbtools.exterior_vacuum_field import get_B_ext_plasma
     else:
-        logger.warning(
+        logger.error(
             "Could not import 'fbtools'! Please make sure the package is installed. Aborting Bext calulation."
         )
         return
@@ -854,7 +806,7 @@ def _get_B2_all_fp(
     B2 = np.sum(B_external**2, axis=0)
 
     B2 = B2[:nzeta_aux:fac, ::fac]
-    B2_flat = np.ones(ntheta * nzeta) * 1e6
+    B2_flat = np.ones(ntheta * nzeta) * GET_B2_FILL_VALUE
     counter = 0
 
     # flatten according to internal GVEC order
@@ -910,7 +862,7 @@ def _get_B2_fp(
     if has_fbtools:
         from fbtools.exterior_vacuum_field import get_B_ext_plasma
     else:
-        logger.warning(
+        logger.error(
             "Could not import 'fbtools'! Please make sure the package is installed. Aborting Bext calulation."
         )
         return
@@ -953,7 +905,7 @@ def _get_B2_fp(
 
     B2 = np.sum(B_external**2, axis=0)
 
-    B2_flat = np.ones(ntheta * nzeta) * 1e6
+    B2_flat = np.ones(ntheta * nzeta) * GET_B2_FILL_VALUE
     counter = 0
 
     # flatten according to internal GVEC order
