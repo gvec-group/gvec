@@ -61,27 +61,6 @@ def get_mn_max(self, quantity: str = "all") -> tuple[int, int]:
 
 
 @with_binding
-def get_outputlevel(self):
-    logger.debug("Extracting outputlevel")
-    outid = _state.get_outputlevel()
-    return outid
-
-
-@with_binding
-def get_iterations(self):
-    logger.debug("Extracting iterations")
-    iters = _state.get_iterations()
-    return iters
-
-
-@with_binding
-def get_minimize_tol(self):
-    logger.debug("Extracting minimize tol")
-    tol = _state.get_minimize_tol()
-    return tol
-
-
-@with_binding
 def _get_angle_integration_points(self):
     """Extracts the theta and zeta integration points from fortran GVEC
 

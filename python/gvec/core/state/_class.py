@@ -35,12 +35,9 @@ class State:
         parameterfile: str | Path,
         statefile: str | Path | None = None,
         stdout_path: str | None = None,
-        init_for_minimization: bool = False,
     ):
         self.parameterfile: Path = Path(parameterfile).absolute()
         self.statefile: Path | None = Path(statefile).absolute() if statefile else None
-
-        self._init_for_minimization: bool = init_for_minimization
 
         if stdout_path is None:
             self._stdout: tempfile.NamedTemporaryFile | None = None
@@ -64,19 +61,6 @@ class State:
         self.parameters = gvec.util.read_parameters(
             self.parameterfile, format="ini"
         )  # read-only !!!
-        if init_for_minimization:
-            # these parameters are modified during current constraint!
-            self._parameter_dict = gvec.util.read_parameters(parameterfile)
-
-            r_GP, r_w, t_n, t_w, z_n, z_w = self.get_integration_points()
-
-            self.t_n = t_n
-            self.z_n = z_n
-
-            self.iters_used = 0
-            self.rms_iota = None
-            self.delta_iota = None
-            self.iota = None
 
     def __del__(self):
         logger.debug(f"Deleting state {self!r}")
@@ -152,9 +136,6 @@ class State:
         get_integration_points,
         get_radial_gridpoints,
         get_mn_max,
-        get_outputlevel,
-        get_iterations,
-        get_minimize_tol,
         _get_angle_integration_points,
         _get_X1_n_modes,
         _get_X2_n_modes,
@@ -178,31 +159,6 @@ class State:
         evaluate_jac_h_derivs,
         evaluate_profile,
         evaluate_rho2_profile,
-    )
-
-    # === Fixed Boundary Minimization Methods === #
-    from ._minimize import (
-        minimize,
-        save_statefile,
-        update_iota_for_current_constraint,
-        reset_descent,
-        save,
-        _minimize,
-        _minimize_current_constraint,
-        _minimize_single_current_constraint,
-        _get_new_iota,
-    )
-
-    # === Free Boundary Minimization Methods === #
-    from ._minimize import (
-        set_Bext_squared,
-        _get_boundary_forces,
-        get_Fnorm_boundary,
-        get_gnorm,
-        get_xnorm,
-        update_boundary,
-        _free_boundary_target,
-        _free_boundary_update,
     )
 
     # === Boozer Potential === #

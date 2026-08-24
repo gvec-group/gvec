@@ -56,7 +56,7 @@ def with_binding(method):
 # === Binding to the Fortran library === #
 
 
-def bind(self, force: bool = False):
+def bind(self, force: bool = False, init_for_minimize: bool = False):
     """Bind this State object to the Fortran library. Allocate & initialize everything."""
     global bound_state
     if bound_state is self:
@@ -99,7 +99,7 @@ def bind(self, force: bool = False):
                 _state.init(self.parameterfile.name)
                 if self.statefile is not None:
                     logger.debug("Read state from statefile")
-                    if self._init_for_minimization:
+                    if init_for_minimize:
                         # initialize a GVEC state as during a GVEC run
                         logger.debug("Initialize solution from statefile for minimization")
                         _state.initsolution(self.statefile.absolute(), False)

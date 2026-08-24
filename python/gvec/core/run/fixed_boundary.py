@@ -13,6 +13,7 @@ from pandas import read_csv
 
 import gvec
 from gvec.core.state import State
+from gvec.core.minimize import MinimizationState
 from .abstract import (
     AbstractRun,
     DEFAULT_MINIMIZE_TOL,
@@ -77,10 +78,9 @@ class FixedBoundaryRun(AbstractRun):
 
         with gvec.util.chdir(self.rundir):
             # write parameterfile & run GVEC
-            self.state = State(
+            self.state = MinimizationState(
                 parameterfile=f"parameters_stage_{self.nth_stage:03d}_initial.ini",
                 statefile=self.state.statefile,
-                init_for_minimization=True,
                 stdout_path=Path("stdout.txt") if self.redirect_gvec_stdout else None,
             )
             iota_tol = self._state_parameters["picard_current"].get(

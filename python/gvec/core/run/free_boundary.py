@@ -17,6 +17,7 @@ from pathlib import Path
 import gvec
 from gvec.coils import CoilSet, Coil
 from gvec.core.state import State
+from gvec.core.minimize import MinimizationState
 from .abstract import (
     AbstractRun,
     DEFAULT_MINIMIZE_TOL,
@@ -317,11 +318,10 @@ class FreeBoundaryRun(AbstractRun):
         )
         with chdir(self.rundir):
             # write parameterfile & run GVEC
-            self.state = State(
+            self.state = MinimizationState(
                 parameterfile=f"parameters_stage_{self.nth_stage:03d}_initial.ini",
                 statefile=self.state.statefile,
                 stdout_path=Path("stdout.txt") if self.redirect_gvec_stdout else None,
-                init_for_minimization=True,
             )
             iota_tol = self._state_parameters["picard_current"].get(
                 "iota_tol", AUTO_PICARD_CURRENT_IOTA_TOL_TARGET
