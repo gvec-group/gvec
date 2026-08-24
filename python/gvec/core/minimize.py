@@ -5,7 +5,7 @@
 # === Imports === #
 
 from .state import State
-from .state._binding import with_binding, bind
+from .state._binding import with_binding
 from gvec.lib import _state
 
 import numpy as np
@@ -62,7 +62,7 @@ class MinimizationState(State):
         self.iota = None
 
     def bind(self, force: bool = False):
-        bind(self, force=force, init_for_minimize=True)
+        super().bind(force=force, init_for_minimize=True)
 
     logger = logging.getLogger("gvec.state")
 
@@ -245,7 +245,7 @@ class MinimizationState(State):
         delta_I_tor_max = np.abs(delta_Itor).max().item()
         return (bspline, rms_iota, delta_iota, delta_I_tor_max, rms_iota_fit)
 
-    def _minimize_single_current_constraint(
+    def _optimize_current(
         self,
         maxIter: int,
         maxIter_per_update: int,
@@ -356,7 +356,7 @@ class MinimizationState(State):
             self.delta_iota_max = np.abs(delta_iota).max().item()
         self.nth_update += nth_update
 
-    def _minimize_current_constraint(
+    def _solve_with_current(
         self,
         iota_tol: float,
         minimize_tol: float,
@@ -423,7 +423,7 @@ class MinimizationState(State):
 
         # target iota only
         if target == "iota" or target == "auto":
-            self._minimize_single_current_constraint(
+            self._optimize_current(
                 maxIter=maxIter,
                 maxIter_per_update=min(AUTO_STAGE_IOTA_INIT_MAXITER, maxIter),
                 iota_tol=iota_tol,
@@ -447,7 +447,7 @@ class MinimizationState(State):
                     logger.debug(f"iters_used:{iters_used}")
                     logger.debug(f"maxIter:{maxIter - iters_used}")
                     self.knots_per_sgrid_element = IOTA_KNOTS_PER_ELEMENT_MIN
-                    self._minimize_single_current_constraint(
+                    self._optimize_current(
                         maxIter=maxIter - iters_used,
                         maxIter_per_update=maxIter - iters_used,
                         iota_tol=iota_tol,
@@ -474,7 +474,7 @@ class MinimizationState(State):
                 f"  with {self.knots_per_sgrid_element} knots per sgrid element"
             )
 
-    def minimize(
+    def solve(
         self,
         iota_tol: float,
         maxUpdates: int,
@@ -526,7 +526,7 @@ class MinimizationState(State):
 
         if self.current_constraint:
             logger.debug("minimize with current optimization")
-            self._minimize_current_constraint(
+            self._solve_with_current(
                 iota_tol=iota_tol,
                 maxUpdates=maxUpdates,
                 reset_LA=reset_LA,
@@ -668,7 +668,7 @@ class MinimizationState(State):
         self.reset_descent()
         dt = self.update_boundary(dt, reset_minimizer, blend_depth)
 
-        self.minimize(logfinaliter=False, maxIter=maxIter, **minimize_kwargs)
+        self.solve(logfinaliter=False, maxIter=maxIter, **minimize_kwargs)
         return dt
 
     def _evaluate_extrapolate_in_rho2(self, *Qs, rho, theta, zeta):

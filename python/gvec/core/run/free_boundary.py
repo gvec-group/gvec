@@ -82,7 +82,7 @@ class FreeBoundaryRun(AbstractRun):
         diagnostics = self.state.evaluate("xyz", "theta", "zeta", rho=1.0).isel(rad=0)
         fb_updates = max(self._state_parameters["free_boundary"]["updates"], 1)
         diagnostics["force_balance"] = (
-            ("tor", "pol", "iteration"),
+            ("tor", "pol", "updates"),
             np.full(shape=(self.state.z_n, self.state.t_n, fb_updates), fill_value=np.nan),
         )
         diagnostics.force_balance.attrs = dict(
@@ -96,7 +96,7 @@ class FreeBoundaryRun(AbstractRun):
                 ("K", "surface current on the LCFS", r"$K$"),
             ]:
                 diagnostics[key] = (
-                    ("xyz", "tor", "pol", "iteration"),
+                    ("xyz", "tor", "pol", "updates"),
                     np.full(
                         shape=(3, self.state.z_n, self.state.t_n, fb_updates), fill_value=np.nan
                     ),
@@ -116,7 +116,7 @@ class FreeBoundaryRun(AbstractRun):
             "resolved_force_ratio",
         ]:
             diagnostics[key] = (
-                "iteration",
+                "updates",
                 np.full(shape=fb_updates, fill_value=np.nan),
             )
 
@@ -124,13 +124,13 @@ class FreeBoundaryRun(AbstractRun):
         diagnostics["m_modes"] = ("mode", m)
         diagnostics["n_modes"] = ("mode", n)
         diagnostics["boundary_forces"] = (
-            ("modes", "iteration"),
+            ("modes", "updates"),
             np.full(shape=(len(m), fb_updates), fill_value=np.nan),
         )
 
         if self.curr_constraint:
             diagnostics["iota"] = (
-                ("rho_iota", "iteration"),
+                ("rho_iota", "updates"),
                 np.full(shape=(DIAGNOSTICS_NPOINTS, fb_updates), fill_value=np.nan),
             )
             diagnostics["rho_iota"] = np.linspace(0, 1, DIAGNOSTICS_NPOINTS)
@@ -140,8 +140,8 @@ class FreeBoundaryRun(AbstractRun):
         self.track_boundary_fields = track_boundary_fields
         self.diagnostics_stage[f"stage_{self.nth_stage}"] = diagnostics
 
-    def _update_force_ratio(self, diag_aux, iteration):
-        force_balance_ds = diag_aux.dataset.isel(iteration=iteration)
+    def _update_force_ratio(self, diag_aux, update):
+        force_balance_ds = diag_aux.dataset.isel(updates=update)
         force_balance_ds["N_FP"] = self.state.nfp
         fourier_force_balance = ev2ft(force_balance_ds[["N_FP", "force_balance"]])
         cut_fb = fourier_force_balance.where(
@@ -162,7 +162,7 @@ class FreeBoundaryRun(AbstractRun):
         B_ext_2: np.ndarray,
         B_coils: np.ndarray,
         B_plas_ext: np.ndarray,
-        iteration: int,
+        update: int,
         dt: float,
     ):
         """Helper function to fill the diagnostics dataset
@@ -175,7 +175,7 @@ class FreeBoundaryRun(AbstractRun):
             Coil field at the boundary of shape (3,tor,pol)
         B_plas_ext : np.ndarray
             Plasma contributionn to the external field at the boundary (BIEST) of shape (3,tor,pol)
-        iteration : int
+        update : int
             Determines which entry in the allocated dataset is filled.
         """
 
@@ -184,34 +184,34 @@ class FreeBoundaryRun(AbstractRun):
         B_jump = ev_gvec.B - B_ext
 
         diag_aux = self.diagnostics_stage[f"stage_{self.nth_stage}"]
-        diag_aux.force_balance[:, :, iteration] = force_balance
-        diag_aux.free_boundary_target[iteration] = free_boundary_target
+        diag_aux.force_balance[:, :, update] = force_balance
+        diag_aux.free_boundary_target[update] = free_boundary_target
         Fnorm = self.state.get_Fnorm_boundary()
         if self.track_boundary_fields:
             # mu_0*K = n x [[B]]
-            diag_aux.K[:, :, :, iteration] = np.cross(ev_gvec.normal, B_jump, axis=0) / mu_0
-            diag_aux.B_ext[:, :, :, iteration] = B_ext
-            diag_aux.B_jump[:, :, :, iteration] = B_jump.data
-            diag_aux.B_int[:, :, :, iteration] = ev_gvec.B.data
+            diag_aux.K[:, :, :, update] = np.cross(ev_gvec.normal, B_jump, axis=0) / mu_0
+            diag_aux.B_ext[:, :, :, update] = B_ext
+            diag_aux.B_jump[:, :, :, update] = B_jump.data
+            diag_aux.B_int[:, :, :, update] = ev_gvec.B.data
 
-        diag_aux.Fnorm_X1_b_IP[iteration] = Fnorm[0]
-        diag_aux.Fnorm_X1_b_modes[iteration] = Fnorm[1]
-        diag_aux.Fnorm_X2_b_IP[iteration] = Fnorm[2]
-        diag_aux.Fnorm_X2_b_modes[iteration] = Fnorm[3]
-        diag_aux.Fnorm_X1_b[iteration] = Fnorm[4]
-        diag_aux.Fnorm_X2_b[iteration] = Fnorm[5]
+        diag_aux.Fnorm_X1_b_IP[update] = Fnorm[0]
+        diag_aux.Fnorm_X1_b_modes[update] = Fnorm[1]
+        diag_aux.Fnorm_X2_b_IP[update] = Fnorm[2]
+        diag_aux.Fnorm_X2_b_modes[update] = Fnorm[3]
+        diag_aux.Fnorm_X1_b[update] = Fnorm[4]
+        diag_aux.Fnorm_X2_b[update] = Fnorm[5]
 
-        diag_aux.spectral_width[iteration] = _state.get_spectral_width()
+        diag_aux.spectral_width[update] = _state.get_spectral_width()
 
-        diag_aux.dt[iteration] = dt
+        diag_aux.dt[update] = dt
         self.free_boundary_target = free_boundary_target.item()
-        self._update_force_ratio(diag_aux, iteration)
-        diag_aux.resolved_force_ratio[iteration] = self._resolved_force_ratio
+        self._update_force_ratio(diag_aux, update)
+        diag_aux.resolved_force_ratio[update] = self._resolved_force_ratio
 
-        diag_aux.boundary_forces[:, iteration] = self.state._get_boundary_forces()[2]
+        diag_aux.boundary_forces[:, update] = self.state._get_boundary_forces()[2]
         self.diagnostics_stage[f"stage_{self.nth_stage}"] = diag_aux
 
-    def _run_single_minimization(self):
+    def _run_stage(self):
         """Perform the free-boundary run.
 
         algorithm
@@ -335,7 +335,7 @@ class FreeBoundaryRun(AbstractRun):
                     f"!pyGVEC v{gvec.__version__}\n",
                 )
 
-            self.state.minimize(
+            self.state.solve(
                 iota_tol=iota_tol,
                 minimize_tol=minimize_tol,
                 maxIter=self._state_parameters["maxIter"],
@@ -376,7 +376,7 @@ class FreeBoundaryRun(AbstractRun):
             try:  # allow clean abort with KeybordInterrupt
                 for fb_update in range(1, fb_updates):
                     logger.info(
-                        f"============= free-boundary step {fb_update} / {fb_updates} ============="
+                        f"============= free-boundary update {fb_update} / {fb_updates} ============="
                     )
                     # abort if budget is used up
                     if self.iters_used >= self.totaliter:
@@ -460,14 +460,14 @@ class FreeBoundaryRun(AbstractRun):
                                 "reset_LA", False
                             ),
                             save_header=f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n"
-                            + f"!free-boundary step {fb_update}\n",
+                            + f"!free-boundary update {fb_update}\n",
                             save_intermediate=self.save_intermediate,
                         )
 
                         if self.save_fb_updates:
                             self.state.save(
                                 f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n"
-                                f"!free-boundary step {fb_update}\n"
+                                f"!free-boundary update {fb_update}\n"
                                 f"!Created at {datetime.now().isoformat()}\n"
                                 f"!pyGVEC v{gvec.__version__}\n"
                             )
@@ -527,7 +527,7 @@ class FreeBoundaryRun(AbstractRun):
                     logger.info(
                         "Minimizing fixed-boundary equilibrium for the final boundary ..."
                     )
-                    self.state.minimize(
+                    self.state.solve(
                         iota_tol=iota_tol,
                         minimize_tol=minimize_tol_min,
                         maxIter=self._state_parameters["maxIter"],
@@ -548,7 +548,7 @@ class FreeBoundaryRun(AbstractRun):
             ):
                 fb_aux = (
                     self.diagnostics_stage[f"stage_{self.nth_stage}"]
-                    .force_balance.isel(iteration=fb_update - 1)
+                    .force_balance.isel(updates=fb_update - 1)
                     .squeeze()
                     .transpose("pol", "tor")
                 )
@@ -573,7 +573,7 @@ class FreeBoundaryRun(AbstractRun):
 
             self.state.save(
                 f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n"
-                f"!free-boundary step {fb_update}\n"
+                f"!free-boundary update {fb_update}\n"
                 f"!Created at {datetime.now().isoformat()}\n"
                 f"!pyGVEC v{gvec.__version__}\n"
             )
@@ -638,50 +638,50 @@ class FreeBoundaryRun(AbstractRun):
         if self.curr_constraint:
             fig_iota, ax_iota = plt.subplots()
         diagnostics = self.diagnostics_stage
-        iteration_offset = 0
+        updates_offset = 0
         for ith_stage, stage in enumerate(diagnostics):
-            ds = xr.Dataset(diagnostics[stage]).dropna(dim="iteration")
+            ds = xr.Dataset(diagnostics[stage]).dropna(dim="updates")
 
-            # skip the setup stage with zero free boundary iterations.
-            if len(ds.iteration) == 0:
+            # skip the setup stage with zero free boundary updates.
+            if len(ds.updates) == 0:
                 continue
 
             axs_fb[0].semilogy(
-                ds.iteration + iteration_offset,
+                ds.updates + updates_offset,
                 ds.free_boundary_target,
                 color=f"C{ith_stage}",
                 label=stage.replace("_", " "),
             )
             axs_fb[1].semilogy(
-                ds.iteration + iteration_offset,
+                ds.updates + updates_offset,
                 ds.Fnorm_X1_b,
                 color=f"C{ith_stage}",
                 label=r"$X^1$ " + stage.replace("_", " "),
             )
             axs_fb[1].semilogy(
-                ds.iteration + iteration_offset,
+                ds.updates + updates_offset,
                 ds.Fnorm_X2_b,
                 "--",
                 color=f"C{ith_stage}",
                 label=r"$X^2$ " + stage.replace("_", " "),
             )
             axs_fb[2].semilogy(
-                ds.iteration + iteration_offset,
+                ds.updates + updates_offset,
                 ds.resolved_force_ratio,
                 color=f"C{ith_stage}",
                 label=stage.replace("_", " "),
             )
-            iteration_offset += ds.iteration.max()
+            updates_offset += ds.updates.max()
             if self.curr_constraint:
-                max_iter = ds.iteration.max()
-                for iter in ds.iteration:
-                    ds_aux = ds.sel(iteration=iter)
+                max_iter = ds.updates.max()
+                for update in ds.updates:
+                    ds_aux = ds.sel(updates=update)
                     ax_iota.plot(
                         ds_aux.iota.rho_iota,
                         ds_aux.iota,
                         "-.",
                         color=f"C{ith_stage}",
-                        alpha=min(0.01 + (iter / (5 * max_iter)).item(), 1),
+                        alpha=min(0.01 + (update / (5 * max_iter)).item(), 1),
                     )
                 ax_iota.plot(
                     ds_aux.iota.rho_iota,
@@ -694,7 +694,7 @@ class FreeBoundaryRun(AbstractRun):
             ax_iota.legend()
         axs_fb[0].set(ylabel="free boundary target")
         axs_fb[1].set(ylabel=r"$\left\|\hat{\mathbf{F}}_\text{b}\right\|^\text{max}$")
-        axs_fb[2].set(ylabel="resolved force ratio", xlabel="free boundary iteration")
+        axs_fb[2].set(ylabel="resolved force ratio", xlabel="free boundary update")
         for ax in axs_fb:
             ax.grid("on")
             ax.legend(ncol=2)

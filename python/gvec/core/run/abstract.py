@@ -385,7 +385,22 @@ class AbstractRun(ABC):
             self._log_hfactors()
 
             # run the stage
-            self._minimize_stage()
+            self._state_parameters["maxIter"] = min(
+                self.totaliter - self.GVEC_iter_used,
+                self._state_parameters["maxIter"],
+            )
+            self._print_progress()
+
+            self._run_stage()
+            if self.curr_constraint:
+                self._state_parameters["iota"] = self.state._parameter_dict["iota"]
+            if (
+                self.max_force > self._state_parameters["minimize_tol"]
+                and self._state_parameters["maxIter"] > 0
+            ):
+                self.logger.warning(
+                    f"Force tolerance was not reached! |force|: {self.max_force:.2e}, minimize_tol: {self._state_parameters['minimize_tol']:.2e}"
+                )
 
         self.logger.info("Done.")
         end_time = time.time()
@@ -436,24 +451,6 @@ class AbstractRun(ABC):
         diagnostics = (self.diagnostics_stage, self.diagnostics_minimizer)
         return (self.state, diagnostics)
 
-    def _minimize_stage(self):
-        self._state_parameters["maxIter"] = min(
-            self.totaliter - self.GVEC_iter_used,
-            self._state_parameters["maxIter"],
-        )
-        self._print_progress()
-
-        self._run_single_minimization()
-        if self.curr_constraint:
-            self._state_parameters["iota"] = self.state._parameter_dict["iota"]
-        if (
-            self.max_force > self._state_parameters["minimize_tol"]
-            and self._state_parameters["maxIter"] > 0
-        ):
-            self.logger.warning(
-                f"Force tolerance was not reached! |force|: {self.max_force:.2e}, minimize_tol: {self._state_parameters['minimize_tol']:.2e}"
-            )
-
     def _print_progress(self):
         """
         Evaluate and print a progress string for the current stage and run.
@@ -494,5 +491,5 @@ class AbstractRun(ABC):
             )
 
     @abstractmethod
-    def _run_single_minimization(self):
+    def _run_stage(self):
         """Runs a single minimization within a stage."""

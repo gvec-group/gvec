@@ -53,7 +53,7 @@ class FixedBoundaryRun(AbstractRun):
         """
         super().__init__(params, state, redirect_gvec_stdout, quiet, parameter_format)
 
-    def _run_single_minimization(self):
+    def _run_stage(self):
         """Run a single GVEC energy minimization using the current parameters, updating the run-state."""
         start_time = time.time()
         # find previous state
@@ -93,7 +93,7 @@ class FixedBoundaryRun(AbstractRun):
                     f"!Created at {datetime.now().isoformat()}\n"
                     f"!pyGVEC v{gvec.__version__}\n",
                 )
-            self.state.minimize(
+            self.state.solve(
                 I_tor=self.I_tor if self.curr_constraint else None,
                 reset_LA=self._state_parameters["picard_current"].get("reset_LA", False),
                 iota_tol=iota_tol,
