@@ -49,7 +49,6 @@ DEFAULT_DIGITS_BIEST = 8
 DEFAULT_FB_TOLERANCE = 1e-8
 DEFAULT_FB_DT = 0.1
 FORCE_RATIO_MINIMUM_FORCE = 1e-12
-GET_B2_FILL_VALUE = 1e6
 
 logger = logging.getLogger("gvec.run.free_boundary")
 
@@ -721,111 +720,7 @@ class FreeBoundaryRun(AbstractRun):
         return (fig, axs)
 
 
-# ============= BIEST CALLS ===========================
-def _get_B2_all_fp(
-    state: State,
-    coil_set: CoilSet | Coil,
-    ntheta: int,
-    nzeta: int,
-    I_tor: float,
-    diagnostic_output=False,
-    fac: int = 1,
-):
-    """Setup BIEST with points corresponding to all field periods and return the flattened squared exterior field for free boundary gvec.
-    All field periods are used to avoid automatic copying of from inside BIEST which may expect different orientation of the points.
-
-    Parameters
-    ----------
-    state : State
-        GVEC state object. This is used to extract the boundary points
-    coil_set : CoilSet | Coil
-        Free-boundary coil set. The coil magnetic field is evaluated at the boundary-integration points.
-    ntheta : int
-        Number of theta integration points.
-    nzeta : int
-        Number of zeta integration points.
-    I_tor : float
-        Toroidal current at the boundary.
-    diagnostic_output : bool, optional
-        Debug-flag to enable the return of the intermediate fields, by default False.
-        If True B2_flat, B_plas_ext, B_coils, B2 for one field period are returned
-    fac: int
-        Factor which increases the number of source points with respect to the GVEC integration points.
-        For example, if fac = 2, twice as many points in theta (=2*ntheta) and zeta (=2*NFP*nzeta) will be used to evaluate the field,
-        but still only the GVEC integration points will be returned. That is B2_ext will be of size(ntheta*nzeta).
-        Defaults to 1.
-
-    Returns
-    -------
-    np.ndarray(B2_ext)
-        Squared exterior field at the GVEC integration points flattened in GVEC order.
-    """
-
-    if has_fbtools:
-        from fbtools.exterior_vacuum_field import get_B_ext_plasma
-    else:
-        logger.error(
-            "Could not import 'fbtools'! Please make sure the package is installed. Aborting Bext calulation."
-        )
-        return
-
-    # upsample the gvec internal integration points
-    ntheta_aux = fac * ntheta
-    nzeta_aux = fac * nzeta
-
-    theta = np.linspace(0, 2 * np.pi, ntheta_aux, endpoint=False)
-    theta += 0.5 * theta[1]
-    N_FP = state.evaluate("N_FP").N_FP
-    zeta = np.linspace(0, 2 * np.pi, nzeta_aux * N_FP.item(), endpoint=False)
-    zeta += 0.5 * zeta[1]
-
-    # get the boundary for the full device (=all field periods)
-    boundary = state.evaluate("pos", "N_FP", rho=1.0, theta=theta, zeta=zeta)
-    boundary = boundary.sel(rho=1).transpose("xyz", "tor", "pol")
-
-    # coil-field at the boundary
-    ev_coils = coil_set.eval_B(boundary.pos)
-    B_coils = ev_coils.B.transpose("xyz", "tor", "pol").values
-
-    # main BIEST calculation
-    time_0 = time.time()
-    B_plas_ext = get_B_ext_plasma(
-        boundary.pos.values,
-        1,  # one FP!
-        B_coils,
-        I_tor * mu_0,
-        digits=10,
-    )
-    time_1 = time.time()
-    logger.info(
-        f"time for BIEST: {time_1 - time_0:.3}s for {ntheta_aux * nzeta_aux * N_FP.item()} points"
-    )
-
-    # Bext^2
-    B_external = B_plas_ext + B_coils
-    B2 = np.sum(B_external**2, axis=0)
-
-    B2 = B2[:nzeta_aux:fac, ::fac]
-    B2_flat = np.ones(ntheta * nzeta) * GET_B2_FILL_VALUE
-    counter = 0
-
-    # flatten according to internal GVEC order
-    for nIP in range(nzeta):
-        for mIP in range(ntheta):
-            B2_flat[counter] = B2[nIP, mIP]
-            counter += 1
-    B2_flat = np.asfortranarray(B2_flat)
-    if diagnostic_output:
-        return (
-            B2_flat,
-            B_plas_ext[:, :nzeta_aux:fac, ::fac],
-            B_coils[:, :nzeta_aux:fac, ::fac],
-            B2,
-        )
-    else:
-        return B2_flat
-
-
+# ============= BIEST CALL ===========================
 def _get_B2_fp(
     state: State,
     coil_set: CoilSet | Coil,
@@ -905,15 +800,7 @@ def _get_B2_fp(
 
     B2 = np.sum(B_external**2, axis=0)
 
-    B2_flat = np.ones(ntheta * nzeta) * GET_B2_FILL_VALUE
-    counter = 0
-
-    # flatten according to internal GVEC order
-    for nIP in range(nzeta):
-        for mIP in range(ntheta):
-            B2_flat[counter] = B2[nIP, mIP]
-            counter += 1
-    B2_flat = np.asfortranarray(B2_flat)
+    B2_flat = np.asfortranarray(B2.flatten(order="C"))
     if diagnostic_output:
         return (
             B2_flat,
