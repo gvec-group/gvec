@@ -56,7 +56,7 @@ def run(
 
     # logger setup
     gvec.util.logging_setup()
-    logger = logging.getLogger("gvec.run")
+    logger = logging.getLogger("gvec")
     if loglevel is not None:
         logger.setLevel(loglevel)
     else:
