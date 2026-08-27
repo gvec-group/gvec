@@ -11,11 +11,8 @@ import warnings
 
 import numpy as np
 from numpy.typing import ArrayLike
-
-try:
-    from scipy.interpolate import BSpline
-except ImportError:
-    BSpline = None
+from numpy.polynomial import Polynomial
+from scipy.interpolate import BSpline, make_interp_spline
 
 from .util import logger
 
@@ -901,6 +898,70 @@ def bspl2gvec(
     params[f"{name}_type"] = "bspline"
 
     return params
+
+
+def profile_from_parameters(params: CaseInsensitiveDict) -> BSpline | Polynomial:
+    match params.get("type", "polynomial"):
+        case "polynomial":
+            coefs = np.array(params["coefs"])
+            coefs *= params.get("scale", 1.0)
+            return np.polynomial.Polynomial(coefs)
+
+        case "bspline":
+            coefs = np.array(params["coefs"], dtype=float)
+            coefs *= params.get("scale", 1.0)
+            knots = np.array(params["knots"], dtype=float)
+            deg = np.sum(knots == knots[0]) - 1
+            if not np.isclose(knots[0], 0.0) or not np.isclose(knots[-1], 1.0):
+                raise ValueError(
+                    f"Knots for B-spline profile must start at 0.0 and end at 1.0, but got {knots[0]} and {knots[-1]}"
+                )
+            return BSpline(knots, coefs, deg)
+
+        case "interpolation":
+            k = 3
+            vals = np.array(params["vals"], dtype=float)
+            rho2 = np.array(params["rho2"], dtype=float)
+            if min(np.sqrt(rho2)) > 1e-4:
+                rho2 = np.append([0.0], rho2)
+                vals = np.append([0.0], vals)
+            BC_vals = params.get("BC_vals", (0.0, 0.0))
+            BC_type = [None, None]
+            knots = rho2.copy()
+            for i, key in enumerate(["axis", "edge"]):
+                match params[f"BC_type_{key}"]:
+                    case "not_a_knot":
+                        pass
+                    case "1st_deriv":
+                        BC_type[i] = [(1, BC_vals[i])]
+                    case "2nd_deriv":
+                        BC_type[i] = [(2, BC_vals[i])]
+                    case _:
+                        raise ValueError(f"Unknown BC_type_{key}: {params[f'BC_type_{key}']}")
+            if BC_type[0] is None:
+                knots = np.concatenate([knots[:1], knots[2:]])
+            if BC_type[1] is None:
+                knots = np.concatenate([knots[:-2], knots[-1:]])
+            knots = np.concatenate([np.zeros(k), knots, np.ones(k)])
+            return make_interp_spline(rho2, vals, k=k, t=knots, bc_type=BC_type)
+        case _:
+            raise ValueError(f"Unknown profile type: {params['type']}")
+
+
+def profile_to_parameters(profile: BSpline | Polynomial) -> CaseInsensitiveDict:
+    if isinstance(profile, np.polynomial.Polynomial):
+        return CaseInsensitiveDict(
+            type="polynomial",
+            coefs=profile.coef,
+        )
+    elif isinstance(profile, BSpline):
+        return CaseInsensitiveDict(
+            type="bspline",
+            coefs=profile.c,
+            knots=profile.t,
+        )
+    else:
+        raise TypeError(f"Unknown profile type: {type(profile)}")
 
 
 def get_boundary_from_statefile(filename: str | Path):
