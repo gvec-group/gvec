@@ -14,7 +14,7 @@ import xarray as xr
 
 import gvec
 from gvec.core.state import State
-from gvec.util import CaseInsensitiveDict as cidict, compute_hfactor
+from gvec.util import CaseInsensitiveDict as cidict, compute_hfactor, profile_from_parameters
 
 
 DEFAULT_MINIMIZE_TOL = 1e-6  # different to default `minimize_tol` in fortran
@@ -238,44 +238,12 @@ class AbstractRun(ABC):
         gvec.errors.InvalidParameterError
             If an unknown profile type is provided.
         """
-        match params["I_tor"].get("type", "polynomial"):
-            case "polynomial":
-                coefs = np.array(params["I_tor"]["coefs"])
-                coefs *= params["I_tor"].get("scale", 1.0)
-                self.I_tor = np.polynomial.Polynomial(coefs)
-                if abs(coefs[0]) > 1e-8:
-                    raise gvec.errors.InvalidParameterError(
-                        f"Toroidal current profile not zero at magnetic axis!  I_tor(rho=0): {coefs[0]}"
-                    )
-            case "bspline":
-                from scipy.interpolate import BSpline
-
-                coefs = np.array(params["I_tor"]["coefs"], dtype=float)
-                coefs *= params["I_tor"].get("scale", 1.0)
-                knots = np.array(params["I_tor"]["knots"], dtype=float)
-                deg = np.sum(knots == knots[0]) - 1
-                self.I_tor = BSpline(knots, coefs, deg)
-                if abs(self.I_tor(0.0)) > 1e-8:
-                    raise gvec.errors.InvalidParameterError(
-                        f"Toroidal current profile not zero at magnetic axis! I_tor(rho=0): {self.I_tor(0.0)}"
-                    )
-            case "interpolation":
-                from scipy.interpolate import make_interp_spline
-
-                y_vals = np.array(params["I_tor"]["vals"], dtype=float)
-                rho2_vals = np.array(params["I_tor"]["rho2"], dtype=float)
-                if min(np.sqrt(rho2_vals)) > 1e-4:
-                    rho2_vals = np.append([0], rho2_vals)
-                    y_vals = np.append([0], y_vals)
-                self.I_tor = make_interp_spline(rho2_vals, y_vals)
-                if abs(self.I_tor(0.0)) > 1e-8:
-                    raise gvec.errors.InvalidParameterError(
-                        f"Toroidal current profile not zero at magnetic axis! I_tor(rho=0): {self.I_tor(0.0)}"
-                    )
-            case _:
-                raise gvec.errors.InvalidParameterError(
-                    f"Unknown Itor type: {params['I_tor']['type']}"
-                )
+        profile = profile_from_parameters(params["I_tor"])
+        if abs(profile(0.0)) > 1e-8:
+            raise gvec.errors.InvalidParameterError(
+                f"Toroidal current profile not zero at magnetic axis! I_tor(rho=0): {profile(0.0)}"
+            )
+        self.I_tor = profile
 
     def _reset_params_to_original(self):
         """
