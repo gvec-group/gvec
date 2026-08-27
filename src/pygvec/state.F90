@@ -289,47 +289,63 @@ SUBROUTINE save_statefile()
 END SUBROUTINE save_statefile
 
 !===================================================================================================================================
-!> Wrapper to update the iota-profile via bspl-interpolation
-!!
-!! Used for current constraint with free-boundary. Updates iota_profile, chi_profile and chiPrime_GP
+!> Wrapper to get the iota profile object
 !===================================================================================================================================
-SUBROUTINE update_iota_for_current_constraint(knots, coefs, reset_LA)
+FUNCTION get_iota() RESULT(iota_fobj)
   ! MODULES
-  USE MODgvec_cubic_spline   , ONLY: interpolate_cubic_spline
-  USE MODgvec_MHD3D_evalFunc , ONLY: chiPrime_GP
-  USE MODgvec_MHD3D_Vars     , ONLY: iota_profile, chi_profile, X1_base, Phi_edge, init_LA
-  USE MODgvec_MHD3D          , ONLY: Init_LA_from_Solution
-  USE MODgvec_rProfile_bspl  , ONLY: t_rProfile_bspl
-
+  USE MODgvec_rProfile_base, ONLY: c_rProfile
+  USE MODgvec_MHD3D_Vars, ONLY: iota_profile
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  REAL(wp), INTENT(IN) :: knots(:) !! interpolation points
-  REAL(wp), INTENT(IN) :: coefs(:) !! profile values at the interpolation points
-  LOGICAL,  INTENT(IN) :: reset_LA !! whether to set LA to zero
+  CLASS(c_rProfile), ALLOCATABLE :: iota_fobj
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  iota_fobj = iota_profile
+END FUNCTION get_iota
+
+!===================================================================================================================================
+!> Wrapper to set the iota profile object
+!!
+!! Updates iota_profile, chi_profile and chiPrime_GP.
+!! Used in current-constraint.
+!===================================================================================================================================
+SUBROUTINE set_iota(iota_fobj)
+  ! MODULES
+  USE MODgvec_rProfile_base, ONLY: c_rProfile
+  USE MODgvec_MHD3D_evalFunc , ONLY: chiPrime_GP
+  USE MODgvec_MHD3D_Vars, ONLY: iota_profile, chi_profile, X1_base, Phi_edge
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  CLASS(c_rProfile), ALLOCATABLE, INTENT(IN) :: iota_fobj
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: iGP, nGP
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   SDEALLOCATE(iota_profile)
   SDEALLOCATE(chi_profile)
 
-  iota_profile = t_rProfile_bspl(knots, coefs)
+  iota_profile = iota_fobj
   chi_profile = iota_profile%antiderivative()
   !iota= (dChi/ds) / (dPhi/ds) = dchi_ds / Phi_edge  => chi = Phi_edge * int(iota ds)
-  chi_profile%coefs=chi_profile%coefs*Phi_edge
-  nGP     = X1_base%s%nGP
+  chi_profile%coefs = chi_profile%coefs*Phi_edge
+  nGP = X1_base%s%nGP
   ASSOCIATE(s_GP => X1_base%s%s_GP)
     DO iGP=1,nGP
-      chiPrime_GP( iGP) = chi_profile%eval_at_rho(s_GP(iGP),deriv=1)
+      chiPrime_GP(iGP) = chi_profile%eval_at_rho(s_GP(iGP), deriv=1)
     END DO !iGP
   END ASSOCIATE
+END SUBROUTINE set_iota
 
-  IF (reset_LA) THEN
-    IF (init_LA) THEN
-      CALL Init_LA_from_Solution(functional%minimizer%vars%dofs(0))
-    ELSE
-      functional%minimizer%vars%dofs(0)%LA = 0.0_wp
-    END IF
+!===================================================================================================================================
+!> Reset the lambda DoFs to zero or initialize from the current solution
+!===================================================================================================================================
+SUBROUTINE reset_LA()
+  ! MODULES
+  USE MODgvec_MHD3D_Vars, ONLY: init_LA
+  USE MODgvec_MHD3D, ONLY: Init_LA_from_Solution
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  IF (init_LA) THEN
+    CALL Init_LA_from_Solution(functional%minimizer%vars%dofs(0))
+  ELSE
+    functional%minimizer%vars%dofs(0)%LA = 0.0_wp
   END IF
-END SUBROUTINE update_iota_for_current_constraint
+END SUBROUTINE reset_LA
 
 !================================================================================================================================!
 !> Returns the theta and zeta integration points

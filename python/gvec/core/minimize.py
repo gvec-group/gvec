@@ -22,11 +22,13 @@ from gvec.util import (
     chdir,
     flatten_parameters,
     read_parameters,
+    profile_to_parameters,
+    profile_from_parameters,
 )
 from gvec.core.compute import fluxsurface_integral
 from gvec.core.state import State
 from gvec.core.state._binding import with_binding
-from gvec.lib import _state
+from gvec.lib import _state, c_rProfile, t_rProfile_poly, t_rProfile_bspl
 
 
 # === Globals === #
@@ -65,7 +67,7 @@ class MinimizationState(State):
         self.iters_used = 0
         self.rms_iota = None
         self.delta_iota = None
-        self.iota = None
+        self._iota: BSpline | Polynomial = profile_from_parameters(self._parameter_dict["iota"])
 
     def bind(self, force: bool = False):
         super().bind(force=force, init_for_minimize=True)
@@ -118,51 +120,40 @@ class MinimizationState(State):
         logger.debug("Writing state to file.")
         _state.save_statefile()
 
+    @property
+    def iota(self) -> BSpline | Polynomial:
+        """The rotational transform profile as a function of rho^2."""
+        return self._iota
+
+    @iota.setter
     @with_binding
-    def update_iota_for_current_constraint(self, iota_bspl: BSpline, reset_LA: bool):
-        """update the iota and chi-prime B-spline in FORTRAN.
-
-        Parameters
-        ----------
-        iota_bspl: BSpline
-            Scipy basis spline object used for updating the iota profile
-        reset_LA : bool
-            Whether to reset the DOFs for lambda.
-        """
-        logger.debug("Updating iota")
-        knots = iota_bspl.t
-        coefs = iota_bspl.c
-
-        if not isinstance(knots, np.ndarray) and not np.issubdtype(knots.dtype, np.floating):
-            raise TypeError("Specified knots are not a numpy array of type float.")
-
-        if knots.ndim != 1:
-            raise ValueError(f"Specified knots.ndim is not 1 but {knots.ndim}.")
-
-        if not isinstance(coefs, np.ndarray) and not np.issubdtype(coefs.dtype, np.floating):
-            raise TypeError("Specified coefs are not a numpy array of type float.")
-
-        if coefs.ndim != 1:
-            raise ValueError(f"Specified coefs.ndim is not 1 but {coefs.ndim}.")
-
-        if not isinstance(reset_LA, bool):
-            raise TypeError(f"Specified reset_LA is not bool but {type(reset_LA)}")
-
-        _state.update_iota_for_current_constraint(knots, coefs, reset_LA)
-
-        # forget momentum and adapted time step after a iota update
+    def iota(self, value: BSpline | Polynomial):
+        self.logger.debug("Setting new iota profile")
+        match value:
+            case BSpline():
+                fobj = t_rProfile_bspl(value.t, value.c)
+            case Polynomial():
+                fobj = t_rProfile_poly(value.coef)
+        self._parameter_dict["iota"] = profile_to_parameters(value)
+        self._iota = value
+        _state.set_iota(fobj)
+        del fobj  # deallocate
         self.reset_descent()
-        self._parameter_dict["iota"] = CaseInsensitiveDict(
-            type="bspline",
-            coefs=iota_bspl.c,
-            knots=iota_bspl.t,
-        )
-        self.iota = iota_bspl
+
+    @with_binding
+    def _get_iota_fobj(self) -> c_rProfile:
+        """Get the fortran object for the iota profile."""
+        return _state.get_iota()
 
     @with_binding
     def reset_descent(self):
         logger.debug("Resetting accelerated descent")
         _state.reset_descent()
+
+    @with_binding
+    def reset_LA(self):
+        logger.debug("Resetting lambda DoFs")
+        _state.reset_LA()
 
     def save(self, header: str = ""):
         """Write a parameter and statefile for the current state.
@@ -316,12 +307,11 @@ class MinimizationState(State):
                 logger.warning("Maximum number of iota updates reached!")
                 break
 
-            # only reset LA at the start
-            if iters_used > 0:
-                reset_LA = False
+            self.iota = iota_bspl
 
-            if iota_bspl is not None:
-                self.update_iota_for_current_constraint(iota_bspl, reset_LA)
+            # only reset LA at the start
+            if reset_LA and iters_used == 0:
+                self._state.reset_LA()
 
             self._minimize(
                 logfinaliter=logfinaliter,

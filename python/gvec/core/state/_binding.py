@@ -10,7 +10,7 @@ import tempfile
 
 import gvec.util
 from gvec.errors import catch_gvec_errors
-from gvec.lib import _binding, _run, _state, _globals, t_sfl_boozer
+from gvec.lib import _binding, _run, _state, _globals, t_sfl_boozer, c_rProfile
 
 # === Globals === #
 
@@ -140,7 +140,7 @@ def unbind(self, cleanup: bool = False):
 
     with catch_gvec_errors():
         for child in self._children:
-            if isinstance(child, t_sfl_boozer):
+            if isinstance(child, (t_sfl_boozer, c_rProfile)):
                 logger.debug(f"Unbinding child {child!r} from the fortran library.")
                 del child
             else:
