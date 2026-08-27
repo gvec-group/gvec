@@ -16,7 +16,6 @@ from gvec.lib import t_sfl_boozer, MAXLEN
 import gvec.util
 
 from . import _binding
-from ._binding import flush_stdout
 
 # === Globals === #
 
@@ -116,7 +115,7 @@ class State:
         if self._stdout is None:
             return ""
         if _binding.bound_state is self:
-            flush_stdout()
+            _binding.flush_stdout()
         self._stdout.seek(0)
         return self._stdout.read()
 

@@ -4,16 +4,18 @@
 
 # === Imports === #
 
-from .state import State
-from .state._binding import with_binding
-from gvec.lib import _state
+import time
+import logging
+from datetime import datetime
+from typing import Literal, Callable
 
 import numpy as np
-
 import scipy
 from scipy.interpolate import BSpline
 from scipy.constants import mu_0
+from numpy.polynomial import Polynomial
 
+from gvec import __version__
 from gvec.util import (
     write_parameter_file_ini,
     CaseInsensitiveDict,
@@ -21,13 +23,14 @@ from gvec.util import (
     flatten_parameters,
     read_parameters,
 )
-from typing import Literal, Callable
 from gvec.core.compute import fluxsurface_integral
-from gvec import __version__
-from datetime import datetime
+from gvec.core.state import State
+from gvec.core.state._binding import with_binding
+from gvec.lib import _state
 
-import time
-import logging
+
+# === Globals === #
+
 
 logger = logging.getLogger("gvec.state")
 
@@ -42,6 +45,9 @@ IOTA_KNOTS_PER_ELEMENT_MAX = 256
 IOTA_COEFS_MAX = 768  # at 20 characters per coefficient: 15360 characters + overhead < 2^14
 IOTA_MIN_RHO = 1e-2  # ignore near-axis region for Δiota & Δfit, TODO: fix accuracy problems
 IOTA_MAXITER_PER_UPDATE = 1e12  # maximum number of fixed-boundary iterations per iota update
+
+
+# === MinimizationState Class === #
 
 
 class MinimizationState(State):
