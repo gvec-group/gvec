@@ -10,6 +10,7 @@ from typing import Literal
 import numpy as np
 import xarray as xr
 from pandas import read_csv
+from scipy.interpolate import BSpline
 
 import gvec
 from gvec.core.state import State
@@ -183,7 +184,7 @@ class FixedBoundaryRun(AbstractRun):
                 diag_stage["rms_iota_fit"] = self.state.rms_iota_fit_over_run[-1]
                 diag_stage["max_Itor"] = self.state.delta_I_tor_max_over_run[-1]
                 diag_stage["iota_dofs"] = (
-                    self.state.iota.c.size if self.state.iota is not None else np.nan
+                    self.state.iota.c.size if isinstance(self.state.iota, BSpline) else np.nan
                 )
                 diag_stage.reindex(iteration=self.state.iters_per_run, fill_value=np.nan)
                 diag_stage["iota_delta_picard"] = xr.DataArray(
