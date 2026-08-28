@@ -16,6 +16,11 @@ from scipy.interpolate import BSpline, make_interp_spline
 
 from .util import logger
 
+PARAMETER_SCALE_DEFAULT = 1.0
+PARAMETER_BC_VALS_DEFAULT = (0, 0)
+PARAMETER_BC_TYPE_DEFAULT = "not_a_knot"
+PROFILE_INTERPOLATION_RHO2_MIN = 1e-4
+
 
 class CaseInsensitiveDict(MutableMapping):
     # Adapted from requests.structures.CaseInsensitiveDict
@@ -904,12 +909,12 @@ def profile_from_parameters(params: CaseInsensitiveDict) -> BSpline | Polynomial
     match params.get("type", "polynomial"):
         case "polynomial":
             coefs = np.array(params["coefs"])
-            coefs *= params.get("scale", 1.0)
+            coefs *= params.get("scale", PARAMETER_SCALE_DEFAULT)
             return np.polynomial.Polynomial(coefs)
 
         case "bspline":
             coefs = np.array(params["coefs"], dtype=float)
-            coefs *= params.get("scale", 1.0)
+            coefs *= params.get("scale", PARAMETER_SCALE_DEFAULT)
             knots = np.array(params["knots"], dtype=float)
             deg = np.sum(knots == knots[0]) - 1
             if not np.isclose(knots[0], 0.0) or not np.isclose(knots[-1], 1.0):
@@ -922,14 +927,14 @@ def profile_from_parameters(params: CaseInsensitiveDict) -> BSpline | Polynomial
             k = 3
             vals = np.array(params["vals"], dtype=float)
             rho2 = np.array(params["rho2"], dtype=float)
-            if min(np.sqrt(rho2)) > 1e-4:
+            if min(np.sqrt(rho2)) > PROFILE_INTERPOLATION_RHO2_MIN:
                 rho2 = np.append([0.0], rho2)
                 vals = np.append([0.0], vals)
-            BC_vals = params.get("BC_vals", (0.0, 0.0))
+            BC_vals = params.get("BC_vals", PARAMETER_BC_VALS_DEFAULT)
             BC_type = [None, None]
             knots = rho2.copy()
             for i, key in enumerate(["axis", "edge"]):
-                match params[f"BC_type_{key}"]:
+                match params.get(f"BC_type_{key}", PARAMETER_BC_TYPE_DEFAULT):
                     case "not_a_knot":
                         pass
                     case "1st_deriv":
