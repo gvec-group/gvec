@@ -180,9 +180,25 @@ class FixedBoundaryRun(AbstractRun):
                     "iota", rho_eval
                 )
                 diag_stage["I_tor_delta"] = ev.I_tor - self.state.I_tor(rho_eval**2)
+
                 diag_stage["rms_iota"] = self.state.rms_iota
+                diag_stage["rms_iota_evolution"] = (
+                    ("iota_update"),
+                    self.state.rms_iota_over_run,
+                )
+
                 diag_stage["rms_iota_fit"] = self.state.rms_iota_fit_over_run[-1]
+                diag_stage["rms_iota_fit_evolution"] = (
+                    ("iota_update"),
+                    self.state.rms_iota_fit_over_run,
+                )
+
                 diag_stage["max_Itor"] = self.state.delta_I_tor_max_over_run[-1]
+                diag_stage["max_Itor_evolution"] = (
+                    ("iota_update"),
+                    self.state.delta_I_tor_max_over_run,
+                )
+
                 diag_stage["iota_dofs"] = (
                     self.state.iota.c.size if isinstance(self.state.iota, BSpline) else np.nan
                 )
@@ -243,71 +259,64 @@ class FixedBoundaryRun(AbstractRun):
         )
         self.logger.info("-" * 40)
 
-    def plot_diagnostics_run(self):
-        import matplotlib.pyplot as plt
-
-        diagnostics = self.diagnostics_stage
-        if self.curr_constraint:
-            fig, axs = plt.subplots(1, 2, figsize=(10, 3), tight_layout=True)
-        else:
-            fig, ax = plt.subplots(1, 1, figsize=(5, 3), tight_layout=True)
-            axs = [ax]
-        axs[0].plot(
-            diagnostics.run,
-            [
-                np.sqrt((diagnostics.sel(run=run).F_r_avg ** 2).mean(dim="rad"))
-                for run in diagnostics.run
-            ],
-            ".-",
-        )
-        axs[0].set(
-            xlabel="restart number",
-            ylabel=f"rms ${diagnostics.F_r_avg.attrs['symbol']}$",
-            title=diagnostics.F_r_avg.attrs["long_name"],
-            yscale="log",
-        )
-        if self.curr_constraint:
-            axs[1].plot(diagnostics.run, np.sqrt((diagnostics.iota_delta**2).mean("rad")), ".-")
-            axs[1].set(
-                xlabel="restart number",
-                ylabel=r"$\sqrt{\sum \left(\Delta\iota\right)^2}$",
-                title=f"Difference to target {diagnostics.iota.attrs['long_name']}\nroot mean square",
-                yscale="log",
-            )
-        return fig
-
     def plot_diagnostics_current_profiles(self):
         import matplotlib.pyplot as plt
+        from gvec.plotting.plots1d import _add_rationals_to_iota_plot
 
         diagnostics = self.diagnostics_stage
 
-        fig, axs = plt.subplots(2, 2, figsize=(15, 5), tight_layout=True, sharex=True)
-        for r in diagnostics.stage.data:
-            if r == diagnostics.stage.data[-1]:
-                kwargs = dict(marker=".", color="C0", alpha=1.0, label="final profile")
-            elif r == diagnostics.stage.data[0]:
-                kwargs = dict(color="black", linestyle="--", alpha=0.5, label="initial profile")
-            else:
-                kwargs = dict(color="black", alpha=0.2 + 0.3 * (r / diagnostics.stage.data[-1]))
-                if r == diagnostics.stage.data[1]:
-                    kwargs["label"] = "intermediate profiles"
-            d = diagnostics.sel(run=r)
-            axs[0, 0].plot(d.rho**2, d.iota, **kwargs)
-            axs[1, 0].plot(d.rho**2, np.abs(d.iota_delta), **kwargs)
-            axs[0, 1].plot(d.rho**2, d.I_tor, **kwargs)
-            axs[1, 1].plot(d.rho**2, np.abs(d.I_tor_delta), **kwargs)
-        for i, var in enumerate(["iota", "I_tor"]):
-            axs[0, i].set(
-                title=diagnostics[var].attrs["long_name"],
-                ylabel=f"${diagnostics[var].attrs['symbol']}$",
+        fig, axs = plt.subplots(2, 2, sharex="col", layout="constrained", figsize=(12, 8))
+        updates_offset = 0
+        for i, stage in enumerate(diagnostics):
+            ds = diagnostics[stage]
+
+            # delta iota
+            axs[0, 0].semilogy(
+                ds.iota_update + updates_offset,
+                ds.rms_iota_fit_evolution,
+                "x--",
+                color=f"C{i}",
+                label=r"$\Delta \iota_\text{fit}$ " + stage.replace("_", " "),
             )
-            axs[1, i].set(
-                title=f"Difference to target {diagnostics[var].attrs['long_name']}",
-                xlabel=r"$\rho^2$",
-                ylabel=rf"$|\Delta {diagnostics[var].attrs['symbol']}|$",
-                yscale="log",
+            axs[0, 0].semilogy(
+                ds.iota_update + updates_offset,
+                ds.rms_iota_evolution,
+                "d--",
+                color=f"C{i}",
+                label=r"$\Delta \iota_\text{rms}$ " + stage.replace("_", " "),
             )
-        axs[0, 0].legend()
+
+            # delta Itor
+            axs[1, 0].semilogy(
+                ds.iota_update + updates_offset,
+                ds.max_Itor_evolution,
+                "x--",
+                label=stage.replace("_", " "),
+            )
+            updates_offset += ds.n_updates
+
+            # iota profile
+            axs[0, 1].plot(ds.iota.rho, ds.iota, color=f"C{i}", label=stage.replace("_", " "))
+            _add_rationals_to_iota_plot(axs[0, 1])
+            axs[0, 1].set(ylabel=r"$\iota$")
+
+            # Itor profile
+            axs[1, 1].plot(ds.rho, ds.I_tor, color=f"C{i}", label=stage.replace("_", " "))
+            axs[1, 1].set(ylabel=r"$I_\text{tor}$ [A]", xlabel=r"$\rho$")
+
+        for ax in axs.flat:
+            ax.grid("on")
+            ax.legend(
+                bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
+                loc="lower left",
+                ncols=2,
+                mode="expand",
+                borderaxespad=0.0,
+            )
+
+        axs[1, 0].set(
+            ylabel=r"$\max\left(\Delta I_\text{tor}\right)$ [A]", xlabel=r"$\iota$ update"
+        )
         return fig
 
     def plot_diagnostics_minimization(self):
@@ -316,24 +325,18 @@ class FixedBoundaryRun(AbstractRun):
         diagnostics = self.diagnostics_stage
         if self.curr_constraint:
             fig, axs = plt.subplots(3, 1, figsize=(10, 5), layout="constrained", sharex=True)
-            for stage in diagnostics:
-                ds_aux = diagnostics[stage]
-                axs[2].plot(
-                    ds_aux.picard_iteration,
-                    ds_aux.iota_delta_picard,
-                    ".-",
-                    label=stage.replace("_", " "),
-                )
-            axs[2].set(ylabel=r"$\Delta\iota_{rms}$", yscale="log")
-            axs[2].legend(bbox_to_anchor=(1.0, 0.5), loc="center left")
         else:
             fig, axs = plt.subplots(2, 1, figsize=(10, 5), tight_layout=True, sharex=True)
+
+        # Energy
         axs[0].plot(
             self.diagnostics_minimizer.total_iteration, self.diagnostics_minimizer.W_MHD, "-"
         )
         axs[0].set(
             ylabel=f"${self.diagnostics_minimizer.W_MHD.attrs['symbol']}$",
         )
+
+        # Forces
         axf = axs[1]
 
         axf.plot(
@@ -359,5 +362,33 @@ class FixedBoundaryRun(AbstractRun):
         axf.yaxis.grid(True, linestyle="--", alpha=0.5)
         axf.legend(bbox_to_anchor=(1.0, 0.5), loc="center left")
         axs[-1].set(xlabel="GVEC iteration")
+
+        if self.curr_constraint:
+            # rms iota
+            for stage in diagnostics:
+                ds_aux = diagnostics[stage]
+                axs[2].plot(
+                    ds_aux.picard_iteration,
+                    ds_aux.iota_delta_picard,
+                    ".-",
+                    label=stage.replace("_", " "),
+                )
+                axs[2].set(ylabel=r"$\Delta\iota_{rms}$", yscale="log")
+                axs[2].legend(bbox_to_anchor=(1.0, 0.5), loc="center left")
+
+            # vlines
+            # after all the plots to get proper ylims
+            for ax in axs:
+                ylims = ax.get_ylim()
+                for stage in diagnostics:
+                    ds_aux = diagnostics[stage]
+                    ax.vlines(
+                        ds_aux.picard_iteration,
+                        ylims[0],
+                        ylims[1],
+                        color="grey",
+                        alpha=0.4,
+                        zorder=-100,
+                    )
 
         return fig
