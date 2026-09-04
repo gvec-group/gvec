@@ -173,6 +173,33 @@ FUNCTION get_iterations() RESULT(iters)
   END IF
 END FUNCTION get_iterations
 
+FUNCTION get_dt() RESULT(dt)
+  ! MODULES
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  REAL(wp) :: dt
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  IF (ALLOCATED(functional%minimizer)) THEN
+    dt = functional%minimizer%vars%dt
+  ELSE
+    dt = 0
+  END IF
+END FUNCTION get_dt
+
+SUBROUTINE set_dt(dt)
+  ! MODULES
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  REAL(wp), INTENT(IN) :: dt
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  IF (ALLOCATED(functional%minimizer)) THEN
+    functional%minimizer%vars%dt = dt
+  ELSE
+    CALL abort(__STAMP__, &
+      'ERROR: trying to set time-step but minimizer is not allocated!')
+  END IF
+END SUBROUTINE set_dt
+
 SUBROUTINE reset_descent()
   ! MODULES
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!

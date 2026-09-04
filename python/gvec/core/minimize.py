@@ -67,6 +67,7 @@ class MinimizationState(State):
         self.iters_used = 0
         self.rms_iota = None
         self.delta_iota = None
+        self.dt_fixed_initial = self.dt_fixed
         self._iota: BSpline | Polynomial = profile_from_parameters(self._parameter_dict["iota"])
 
     def bind(self, force: bool = False):
@@ -149,6 +150,25 @@ class MinimizationState(State):
     def reset_descent(self):
         logger.debug("Resetting accelerated descent")
         _state.reset_descent()
+        self.dt_fixed = self.dt_fixed_initial
+
+    @property
+    @with_binding
+    def dt_fixed(self):
+        "The current time-step for the fixed-boundary minimizer"
+        logger.debug("Extracting fixed boundary time-step...")
+        dt = _state.get_dt()
+        logger.debug(f"... dt = {dt:.2e}")
+        return dt
+
+    @dt_fixed.setter
+    @with_binding
+    def dt_fixed(self, dt):
+        if not isinstance(dt, float):
+            raise TypeError(f"Expected type(dt) float but got {type(dt)} in _set_dt()")
+        "Set the time-step for the fixed-boundary minimizer"
+        logger.debug(f"Setting fixed boundary time-step dt={dt:.2e}.")
+        return _state.set_dt(dt)
 
     @with_binding
     def reset_LA(self):
@@ -403,11 +423,10 @@ class MinimizationState(State):
 
         if n_stages > 1:
             iota_tols = np.ones(n_stages) * AUTO_PICARD_CURRENT_IOTA_TOL
-            iota_tols[0] = AUTO_STAGE_IOTA_INIT_IOTA_TOL
             iota_tols[-1] = iota_tol
         else:
             iota_tols = [iota_tol]
-        iota_tol = iota_tols[0]
+        iota_tol = AUTO_STAGE_IOTA_INIT_IOTA_TOL
 
         iters_used_start = self.get_iterations()
 
@@ -423,7 +442,7 @@ class MinimizationState(State):
                 maxIter=maxIter,
                 maxIter_per_update=min(AUTO_STAGE_IOTA_INIT_MAXITER, maxIter),
                 iota_tol=iota_tol,
-                minimize_tol=minimize_tols[-1],
+                minimize_tol=minimize_tols[0],
                 maxUpdates=maxUpdates,
                 reset_LA=reset_LA,
                 save_intermediate=save_intermediate,
@@ -434,6 +453,8 @@ class MinimizationState(State):
         iters_used = self.get_iterations() - iters_used_start
 
         # target iota and forces
+        logger.debug(f"minmize tols {minimize_tols}")
+        logger.debug(f"iota tols {iota_tols}")
         if target == "iota_and_force" or target == "auto":
             if iters_used < maxIter:
                 for minimize_tol, iota_tol in zip(minimize_tols, iota_tols):
@@ -457,13 +478,13 @@ class MinimizationState(State):
                     iters_used = self.get_iterations() - iters_used_start
         t1 = time.time()
 
-        logger.info(f"Terminated current minimization after {t1 - t0:.2}s.")
-        logger.info(f"  used {iters_used} / {maxIter} iterations,")
-        logger.info(f"  max Δiota: {self.delta_iota_max:.2e},")
-        logger.info(f"  rms Δiota: {self.rms_iota:.2e},")
-        logger.info(f"  iota_tol: {iota_tol:.2e}")
-
         if maxIter > 0:
+            logger.info(f"Terminated current minimization after {t1 - t0:.2}s.")
+            logger.info(f"  used {iters_used} / {maxIter} iterations,")
+            logger.info(f"  max Δiota: {self.delta_iota_max:.2e},")
+            logger.info(f"  rms Δiota: {self.rms_iota:.2e},")
+            logger.info(f"  iota_tol: {iota_tol:.2e}")
+
             logger.info(f"  max ΔItor: {self.delta_I_tor_max_over_run[-1]:.2e}")
             logger.debug(
                 f"  rms Δiota_fit: {self.rms_iota_fit_over_run[-1]:.2e}, "
