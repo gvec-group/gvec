@@ -1,5 +1,8 @@
 # python packages needed for editable installations
+# need to satisfy the 'build requirements'
 # all other dependencies are in pyproject.toml
+#
+#$ pip install -r requirements.txt
 #$ pip install --no-build-isolation -ve .
 
 numpy>=2
