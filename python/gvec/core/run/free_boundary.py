@@ -44,11 +44,13 @@ DEFAULT_FORCE_TOL_START = 1e-3
 DEFAULT_ALPHA = 10.0
 DEFAULT_BLEND_DEPTH = 0.6
 DEFAULT_GTOL = 1e-8
-DEFAULT_XTOL = 1e-8
+DEFAULT_XTOL = 1e-5
 DEFAULT_DIGITS_BIEST = 8
 DEFAULT_FB_TOLERANCE = 1e-8
 DEFAULT_FB_DT = 0.1
 FORCE_RATIO_MINIMUM_FORCE = 1e-12
+DEFAULT_FTOL = 1e-5
+MOVING_AVERAGE_WINDOW = 10
 
 logger = logging.getLogger("gvec.run.free_boundary")
 
@@ -73,6 +75,16 @@ class FreeBoundaryRun(AbstractRun):
 
         self.m_max, self.n_max = self.state.get_mn_max()
 
+        self.target_mavg_last = np.nan
+        self.target_mavg = np.nan
+
+        self.xnorm = np.nan
+        self.gnorm = np.nan
+        self.fdelta = np.nan
+
+        self.xnorm_mavg = np.nan
+        self.gnorm_mavg = np.nan
+
         if self._has_initial_stage:
             self.stages[0]["free_boundary"] = {"updates": 0}
 
@@ -80,6 +92,7 @@ class FreeBoundaryRun(AbstractRun):
         """Setup the diagnostics dataset."""
         diagnostics = self.state.evaluate("xyz", "theta", "zeta", rho=1.0).isel(rad=0)
         fb_updates = max(self._state_parameters["free_boundary"]["updates"], 1)
+        diagnostics["updates"] = ("updates", np.arange(fb_updates))
         diagnostics["force_balance"] = (
             ("tor", "pol", "updates"),
             np.full(shape=(self.state.z_n, self.state.t_n, fb_updates), fill_value=np.nan),
@@ -104,6 +117,12 @@ class FreeBoundaryRun(AbstractRun):
 
         for key in [
             "free_boundary_target",
+            "free_boundary_target_mavg",
+            "fdelta",
+            "xnorm",
+            "xnorm_mavg",
+            "gnorm",
+            "gnorm_mavg",
             "Fnorm_X1_b_IP",
             "Fnorm_X2_b_IP",
             "Fnorm_X1_b_modes",
@@ -204,10 +223,53 @@ class FreeBoundaryRun(AbstractRun):
 
         diag_aux.dt[update] = dt
         self.free_boundary_target = free_boundary_target.item()
+
         self._update_force_ratio(diag_aux, update)
         diag_aux.resolved_force_ratio[update] = self._resolved_force_ratio
 
         diag_aux.boundary_forces[:, update] = self.state._get_boundary_forces()[2]
+
+        diag_aux.xnorm[update] = self.xnorm
+        diag_aux.gnorm[update] = self.gnorm
+
+        # moving averages
+        diag_aux.free_boundary_target_mavg[update] = np.mean(
+            diag_aux.free_boundary_target[
+                update - min(MOVING_AVERAGE_WINDOW, update) : update + 1
+            ]
+        )
+        diag_aux.fdelta[update] = (
+            np.std(
+                diag_aux.free_boundary_target_mavg[
+                    update - min(MOVING_AVERAGE_WINDOW, update) : update + 1
+                ]
+            )
+            if update != 0
+            else np.nan
+        )
+
+        diag_aux.xnorm_mavg[update] = np.mean(
+            diag_aux.xnorm[update - min(MOVING_AVERAGE_WINDOW, update) : update + 1].dropna(
+                dim="updates"
+            )
+        )
+        diag_aux.gnorm_mavg[update] = np.mean(
+            diag_aux.gnorm[update - min(MOVING_AVERAGE_WINDOW, update) : update + 1].dropna(
+                dim="updates"
+            )
+        )
+
+        self.fdelta = diag_aux.fdelta[update].item()
+        self.xnorm_mavg = diag_aux.xnorm_mavg[update].item()
+        self.gnorm_mavg = diag_aux.gnorm_mavg[update].item()
+
+        if np.isnan(self.target_mavg_last):
+            self.target_mavg_last = diag_aux.free_boundary_target_mavg[update]
+        else:
+            self.target_mavg_last = diag_aux.free_boundary_target_mavg[update - 1]
+
+        self.target_mavg = diag_aux.free_boundary_target_mavg[update]
+
         self.diagnostics_stage[f"stage_{self.nth_stage}"] = diag_aux
 
     def _run_stage(self):
@@ -228,10 +290,24 @@ class FreeBoundaryRun(AbstractRun):
         # NOTE: required parameter
         fb_updates = self._state_parameters["free_boundary"]["updates"]
 
-        # ftol termination criterion
+        # target termination criterion
         free_boundary_tolerance = self._state_parameters["free_boundary"].get(
             "tolerance", DEFAULT_FB_TOLERANCE
         )
+
+        # ftol termination criterion
+        ftol = self._state_parameters["free_boundary"].get("ftol", DEFAULT_FTOL)
+
+        minimizer_type = self._state_parameters["free_boundary"].get("minimizer_type", "GD")
+
+        step_size_heuristic = False
+        match minimizer_type:
+            case "GD" | "mGD":
+                step_size_heuristic = True
+            case "BFGS" | "dBFGS" | "SR1" | "lBFGS" | "aGD" | "ADAM":
+                step_size_heuristic = False
+            case _:
+                raise ValueError(f"Unknown free-boundary minimizer_type: {minimizer_type}")
 
         # If True, saves diagnostics after each free-b update
         save_diagnostics = self._state_parameters["free_boundary"].get(
@@ -284,8 +360,14 @@ class FreeBoundaryRun(AbstractRun):
         # targeted minimize_tol
         minimize_tol_min = self._state_parameters.get("minimize_tol", DEFAULT_MINIMIZE_TOL)
 
-        # Flag to restart the free boundary minimizer after a stage.
-        reset_minimizer = self._state_parameters["free_boundary"].get("reset_minimizer", False)
+        # maximum stepsize
+        max_dt = self._state_parameters.get("max_dt", 1.0)
+
+        # minimum stepsize
+        min_dt = self._state_parameters["free_boundary"].get("min_dt", 1e-4)
+
+        # Flag to restart the free boundary minimizer a step-size reduction.
+        reset_minimizer = False
 
         # initial stepsize for the free-b minimization
         dt = self._state_parameters["free_boundary"].get("dt", DEFAULT_FB_DT)
@@ -405,38 +487,67 @@ class FreeBoundaryRun(AbstractRun):
                         minimize_tol = np.min([minimize_tol, current_lowest_min_tol])
                         logger.info(f"Setting gvec minimize_tol: {minimize_tol:.2e}")
 
-                    # abort criteria
-                    xnorm = self.state.get_xnorm()
-                    gnorm = self.state.get_gnorm()
-
                     fb_target_reached = self.free_boundary_target <= free_boundary_tolerance
-                    xtol_reached = xnorm <= xtol
-                    gtol_reached = gnorm <= gtol
+                    ftol_reached = self.fdelta <= ftol
+                    xtol_reached = self.xnorm_mavg <= xtol
+                    gtol_reached = self.gnorm_mavg <= gtol
                     force_ratio_limit_reached = self._resolved_force_ratio <= force_ratio_limit
 
-                    if (
-                        fb_target_reached
-                        or xtol_reached
-                        or gtol_reached
-                        or force_ratio_limit_reached
-                    ):
-                        logger.info("Reached free boundary stopping criterion!")
+                    if fb_target_reached:
                         logger.info(
-                            f"free-boundary target: {self.free_boundary_target:.3e}, specified tol.: {free_boundary_tolerance:.3e}."
+                            "Reached free boundary target tolerance! Terminating free boundary updates."
                         )
-                        logger.info(f"xnorm: {xnorm:.2e}, xtol: {xtol:.2e}.")
-                        logger.info(f"gnorm: {gnorm:.2e}, gtol: {gtol:.2e}.")
+                        break
+                    elif ftol_reached:
+                        logger.info("Reached ftol! Terminating free boundary updates.")
+                        break
+                    elif xtol_reached:
+                        logger.info("Reached xtol! Terminating free boundary updates.")
+                        break
+                    elif gtol_reached:
+                        logger.info("Reached gtol! Terminating free boundary updates.")
+                        break
+                    elif force_ratio_limit_reached:
                         logger.info(
-                            f"resolved force-balance ratio: {self._resolved_force_ratio:.2e}, specified limit: {force_ratio_limit:.2e}."
+                            "Force ratio below specified limit! Terminating free boundary updates."
                         )
                         break
                     else:
-                        logger.info(f"xnorm: {xnorm:.2e}, xtol: {xtol:.2e}.")
-                        logger.info(f"gnorm: {gnorm:.2e}, gtol: {gtol:.2e}.")
+                        logger.info(f"rel. Δf: {self.fdelta:.2e}, ftol: {ftol:.2e}.")
+                        logger.info(
+                            f"xnorm: {self.xnorm:.2e}, m.avg. xnorm: {self.xnorm_mavg:.2e}, xtol: {xtol:.2e}."
+                        )
+                        logger.info(
+                            f"gnorm: {self.gnorm:.2e}, m.avg. gnorm: {self.gnorm_mavg:.2e}, gtol: {gtol:.2e}."
+                        )
                         logger.info(
                             f"force ratio {self._resolved_force_ratio:.2e}, limit {force_ratio_limit:.2e}"
                         )
                         t_fb_0 = time.time()
+
+                        # Step-size dt is reduced if the moving average of the target increases until the minimum step-size is reached,
+                        # otherwise it is increased. However, some algorithms such as BFGS also perform step-size estimations, which overwrite
+                        # the provided step-size, if the estimated step-size is SMALLER.
+                        if (
+                            self.target_mavg_last < self.target_mavg
+                            or dt < min_dt
+                            and step_size_heuristic
+                        ):
+                            dt = max(0.5 * dt, min_dt)
+                        elif step_size_heuristic:
+                            dt = min(1.1 * dt, max_dt)
+
+                        # this is relevant to whipe the memory of methods like BFGS and aGD
+                        if dt <= min_dt and reset_minimizer and step_size_heuristic:
+                            reset_minimizer = True
+                            logger.warning(
+                                "Reached minimum step-size! Resetting free boundary minimizer."
+                            )
+                        elif step_size_heuristic:
+                            reset_minimizer = False
+
+                        logger.info(f"Free boundary dt: {dt:.2e}")
+
                         # pushes boundary and does a fixed-b run
                         dt = self.state._free_boundary_update(
                             maxIter=min(
@@ -470,13 +581,17 @@ class FreeBoundaryRun(AbstractRun):
                                 f"!Created at {datetime.now().isoformat()}\n"
                                 f"!pyGVEC v{gvec.__version__}\n"
                             )
+
+                        # abort criteria
+                        self.xnorm = self.state.get_xnorm() / dt
+                        self.gnorm = self.state.get_gnorm()
                         # NOTE: always use self consistent I_tor
-                        if self.curr_constraint:
-                            self.I_tor_boundary = self.I_tor(1.0)
-                        else:
-                            self.I_tor_boundary = (
-                                self.state.evaluate("I_tor", rho=1.0).squeeze()["I_tor"].item()
-                            )
+                        # if self.curr_constraint:
+                        #     self.I_tor_boundary = self.I_tor(1.0)
+                        # else:
+                        self.I_tor_boundary = (
+                            self.state.evaluate("I_tor", rho=1.0).squeeze()["I_tor"].item()
+                        )
 
                         # Call to BIEST
                         (B2, B_plas_ext, B_coils, B_ext_2) = _get_B2_fp(
@@ -521,6 +636,17 @@ class FreeBoundaryRun(AbstractRun):
                             )
 
                 # ensure that the final result is in fixed-boundary equilibrium with specified tolerance
+                logger.info("=================================================================")
+                logger.info("FINAL free-boundary optimization criteria")
+                logger.info(
+                    f"free-boundary - target: {self.free_boundary_target:.3e}, tolerance: {free_boundary_tolerance}, iters: {self.iters_used} / {self.totaliter} "
+                )
+                logger.info(f"rel. Δf: {self.fdelta:.2e}, ftol: {ftol}.")
+                logger.info(f"xnorm: {self.xnorm:.2e}, xtol: {xtol:.2e}.")
+                logger.info(f"gnorm: {self.gnorm:.2e}, gtol: {gtol:.2e}.")
+                logger.info(
+                    f"resolved force-balance ratio: {self._resolved_force_ratio:.2e}, specified limit: {force_ratio_limit:.2e}."
+                )
                 logger.info("=================================================================")
                 if self._state_parameters["maxIter"] > 0:
                     logger.info(
@@ -632,15 +758,28 @@ class FreeBoundaryRun(AbstractRun):
 
     def plot_diagnostics_minimization(self):
         import matplotlib.pyplot as plt
+        from gvec.plotting.plots1d import _add_rationals_to_iota_plot
 
-        fig_fb, axs_fb = plt.subplots(3, 1, figsize=(10, 5), layout="constrained", sharex=True)
+        fig_fb, axs_fb = plt.subplots(5, 1, figsize=(10, 10), layout="constrained", sharex=True)
+        quantities = [
+            "free_boundary_target",
+            "free_boundary_target_mavg",
+            "Fnorm_X1_b",
+            "Fnorm_X2_b",
+            "resolved_force_ratio",
+            "xnorm",
+            "xnorm_mavg",
+            "gnorm",
+            "gnorm_mavg",
+        ]
         if self.curr_constraint:
             fig_iota, ax_iota = plt.subplots()
+            quantities.append("iota")
         diagnostics = self.diagnostics_stage
+
         updates_offset = 0
         for ith_stage, stage in enumerate(diagnostics):
-            ds = xr.Dataset(diagnostics[stage]).dropna(dim="updates")
-
+            ds = xr.Dataset(diagnostics[stage])[quantities].dropna(dim="updates")
             # skip the setup stage with zero free boundary updates.
             if len(ds.updates) == 0:
                 continue
@@ -649,8 +788,16 @@ class FreeBoundaryRun(AbstractRun):
                 ds.updates + updates_offset,
                 ds.free_boundary_target,
                 color=f"C{ith_stage}",
-                label=stage.replace("_", " "),
+                label="value " + stage.replace("_", " "),
             )
+            axs_fb[0].semilogy(
+                ds.updates + updates_offset,
+                ds.free_boundary_target_mavg,
+                color=f"C{ith_stage}",
+                linestyle="-.",
+                label="mov. avg. " + stage.replace("_", " "),
+            )
+
             axs_fb[1].semilogy(
                 ds.updates + updates_offset,
                 ds.Fnorm_X1_b,
@@ -670,6 +817,35 @@ class FreeBoundaryRun(AbstractRun):
                 color=f"C{ith_stage}",
                 label=stage.replace("_", " "),
             )
+
+            axs_fb[3].semilogy(
+                ds.updates + updates_offset,
+                ds.xnorm,
+                color=f"C{ith_stage}",
+                label="value " + stage.replace("_", " "),
+            )
+            axs_fb[3].semilogy(
+                ds.updates + updates_offset,
+                ds.xnorm_mavg,
+                color=f"C{ith_stage}",
+                linestyle="-.",
+                label="mov. avg. " + stage.replace("_", " "),
+            )
+
+            axs_fb[4].semilogy(
+                ds.updates + updates_offset,
+                ds.gnorm,
+                color=f"C{ith_stage}",
+                label="value " + stage.replace("_", " "),
+            )
+            axs_fb[4].semilogy(
+                ds.updates + updates_offset,
+                ds.gnorm_mavg,
+                color=f"C{ith_stage}",
+                linestyle="-.",
+                label="mov. avg. " + stage.replace("_", " "),
+            )
+
             updates_offset += ds.updates.max()
             if self.curr_constraint:
                 max_iter = ds.updates.max()
@@ -690,10 +866,14 @@ class FreeBoundaryRun(AbstractRun):
                 )
         if self.curr_constraint:
             ax_iota.set(xlabel=r"$\rho$", ylabel=r"$\iota$")
+            _add_rationals_to_iota_plot(ax_iota, nfp=self.state.nfp)
             ax_iota.legend()
         axs_fb[0].set(ylabel="free boundary target")
         axs_fb[1].set(ylabel=r"$\left\|\hat{\mathbf{F}}_\text{b}\right\|^\text{max}$")
-        axs_fb[2].set(ylabel="resolved force ratio", xlabel="free boundary update")
+        axs_fb[2].set(ylabel="resolved force ratio")
+        axs_fb[3].set(ylabel="xnorm")
+        axs_fb[4].set(ylabel="gnorm", xlabel="free boundary update")
+
         for ax in axs_fb:
             ax.grid("on")
             ax.legend(ncol=2)
