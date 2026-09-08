@@ -73,7 +73,7 @@ parser.add_argument(
 def gvec_to_paraview(
     state: State,
     outputfile: Path,
-    nrho: int = 11,
+    nrho: int = 20,
     ntheta: int = 41,
     nzeta: int = 51,
     period: Literal["full", "single", "half"] = "full",
@@ -96,7 +96,7 @@ def gvec_to_paraview(
 
     evaluations = state.evaluate(
         *output_variables,
-        rho=20,
+        rho=nrho,
         theta=theta,
         zeta=zeta,
     )
