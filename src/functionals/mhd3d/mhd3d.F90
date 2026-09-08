@@ -522,7 +522,7 @@ SUBROUTINE InitFreeBoundary(sf)
   ASSOCIATE(modes_X1 => X1_base%f%modes, modes_X2 => X2_base%f%modes)
     ALLOCATE(Force_b_X1(1:modes_X1))
     ALLOCATE(Force_b_X2(1:modes_X2))
-    precond_boundary = GETLOGICAL("free_boundary_precond_boundary", Proposal=.FALSE.)
+    precond_boundary = GETLOGICAL("free_boundary_precond_boundary", Proposal=.TRUE.)
     ALLOCATE(Precond_b_X1(1:modes_X1))
     ALLOCATE(Precond_b_X2(1:modes_X2))
 
@@ -550,35 +550,23 @@ SUBROUTINE InitFreeBoundary(sf)
     CASE("aGD")
       free_b_minimizer = t_free_b_minimizer_aGD(modes_X1 + modes_X2)
     CASE("BFGS")
-      IF (precond_boundary) THEN
-        WRITE(UNIT_stdOut,'(A)') "WARNING: precond_boundary is set to True for BFGS! Turning of additional preconditioning."
-      END IF
       precond_boundary = .FALSE.
       n_grad_steps = GETINT("free_boundary_n_grad_steps", Proposal=0)
       max_dt = GETREAL("free_boundary_max_dt", Proposal=0.1_wp)
       M = GETREAL("free_boundary_M_BFGS", Proposal=0.001_wp)
       free_b_minimizer = t_free_b_minimizer_BFGS(modes_X1 + modes_X2, n_grad_steps=n_grad_steps, max_dt=max_dt,M=M)
     CASE("dBFGS")
-      IF (precond_boundary) THEN
-        WRITE(UNIT_stdOut,'(A)') "WARNING: precond_boundary is set to True for dBFGS! Turning of additional preconditioning."
-      END IF
       precond_boundary = .FALSE.
       n_grad_steps = GETINT("free_boundary_n_grad_steps", Proposal=0)
       max_dt = GETREAL("free_boundary_max_dt", Proposal=0.1_wp)
       M = GETREAL("free_boundary_M_BFGS", Proposal=0.001_wp)
       free_b_minimizer = t_free_b_minimizer_dBFGS(modes_X1 + modes_X2, n_grad_steps=n_grad_steps, max_dt=max_dt,M=M)
     CASE("SR1")
-      IF (precond_boundary) THEN
-        WRITE(UNIT_stdOut,'(A)') "WARNING: precond_boundary is set to True for SR1! Turning of additional preconditioning."
-      END IF
       precond_boundary = .FALSE.
       n_grad_steps = GETINT("free_boundary_n_grad_steps", Proposal=0)
       max_dt = GETREAL("free_boundary_max_dt", Proposal=0.1_wp)
       free_b_minimizer = t_free_b_minimizer_SR1(modes_X1 + modes_X2, n_grad_steps=n_grad_steps, max_dt=max_dt)
     CASE("lBFGS")
-      IF (precond_boundary) THEN
-        WRITE(UNIT_stdOut,'(A)') "WARNING: precond_boundary is set to True for lBFGS! Turning of additional preconditioning."
-      END IF
       precond_boundary = .FALSE.
       free_b_minimizer = t_free_b_minimizer_LBFGS(modes_X1 + modes_X2)
     CASE DEFAULT
