@@ -13,15 +13,15 @@ MODULE MODgvec_free_b_minimizer_ADAM
   PUBLIC
 
   TYPE, EXTENDS(c_free_b_minimizer) :: t_free_b_minimizer_ADAM
-    ! Adaptive Moment Estimation (ADAM) algorithm uses a momentum term (consider past gradients) and adaptive learning rates (step sizes).
+    ! Adaptive Moment Estimation (ADAM) algorithm uses a velocity term (consider past gradients) and adaptive learning rates (step sizes).
     ! It is controlled by 3 hyper parameters:
-    ! the initial step-size (often called alpha, here dt), beta1 (decay rate momentum) and beta2 (decay rate velocity)
+    ! the initial step-size / learning rate (often called alpha, here dt), beta1 (decay rate velocity) and beta2 (decay rate acceleration)
 
+    REAL(wp), ALLOCATABLE :: acceleration(:)
     REAL(wp), ALLOCATABLE :: velocity(:)
-    REAL(wp), ALLOCATABLE :: momentum(:)
 
-    REAL(wp)              :: beta1 ! decay rate momentum
-    REAL(wp)              :: beta2 ! decay rate velocity
+    REAL(wp)              :: beta1 ! decay rate velocity
+    REAL(wp)              :: beta2 ! decay rate acceleration
     CONTAINS
     PROCEDURE :: get_update => ADAM_get_update
     PROCEDURE :: reset      => ADAM_reset
@@ -38,8 +38,8 @@ MODULE MODgvec_free_b_minimizer_ADAM
   FUNCTION ADAM_new(n_dofs, beta1, beta2, dt) RESULT(sf)
     ! INPUT VARIABLES -------------------------!
     INTEGER, INTENT(IN)            :: n_dofs  ! number of degrees of freedom
-    REAL(wp), INTENT(IN)           :: beta1 ! decay rate momentum
-    REAL(wp), INTENT(IN)           :: beta2 ! decay rate velocity
+    REAL(wp), INTENT(IN)           :: beta1 ! decay rate velocity
+    REAL(wp), INTENT(IN)           :: beta2 ! decay rate acceleration
     REAL(wp), INTENT(IN), OPTIONAL :: dt ! initial / default time step
 
     ! OUTPUT VARIABLES -------------------------!
@@ -57,11 +57,11 @@ MODULE MODgvec_free_b_minimizer_ADAM
     sf%dt =  sf%dt_initial
     sf%max_dt = sf%dt
 
-    ALLOCATE(sf%momentum(sf%n_dofs))
     ALLOCATE(sf%velocity(sf%n_dofs))
+    ALLOCATE(sf%acceleration(sf%n_dofs))
 
-    sf%momentum = 0.0_wp
     sf%velocity = 0.0_wp
+    sf%acceleration = 0.0_wp
     sf%n_updates = 0
   END FUNCTION ADAM_new
 
@@ -72,8 +72,8 @@ MODULE MODgvec_free_b_minimizer_ADAM
     ! LOCAL VARIABLES -------------------------!
     ! CODE --------------------------------------------------------------------------------------------------------------------------!
     sf%dt = sf%dt_initial
-    sf%momentum = 0.0_wp
     sf%velocity = 0.0_wp
+    sf%acceleration = 0.0_wp
     sf%n_updates = 0
   END SUBROUTINE ADAM_reset
 
@@ -88,12 +88,12 @@ MODULE MODgvec_free_b_minimizer_ADAM
     REAL(wp) :: v_hat(sf%n_dofs)
     ! CODE --------------------------------------------------------------------------------------------------------------------------!
     push_out = 0.0_wp
-    sf%momentum = sf%beta1*sf%momentum + (1-sf%beta1)*force_in
-    sf%velocity = sf%beta2*sf%velocity + (1-sf%beta2)*force_in**2
+    sf%velocity = sf%beta1*sf%velocity + (1-sf%beta1)*force_in
+    sf%acceleration = sf%beta2*sf%acceleration + (1-sf%beta2)*force_in**2
 
     ! NOTE: free_boundary_updates starts at 0, hence the +1
-    m_hat = sf%momentum / (1-sf%beta1**(sf%n_updates+1))
-    v_hat = sf%velocity / (1-sf%beta2**(sf%n_updates+1))
+    m_hat = sf%velocity / (1-sf%beta1**(sf%n_updates+1))
+    v_hat = sf%acceleration / (1-sf%beta2**(sf%n_updates+1))
 
     push_out = -sf%dt*m_hat/(SQRT(v_hat)+1e-12_wp)
 
@@ -108,8 +108,8 @@ MODULE MODgvec_free_b_minimizer_ADAM
     ! INPUT VARIABLES -------------------------!
     TYPE(t_free_b_minimizer_ADAM), INTENT(INOUT)  :: sf !! self
     ! CODE --------------------------------------------------------------------------------------------------------------------------!
+    SDEALLOCATE(sf%acceleration)
     SDEALLOCATE(sf%velocity)
-    SDEALLOCATE(sf%momentum)
   END SUBROUTINE ADAM_free
 
 END MODULE MODgvec_free_b_minimizer_ADAM
