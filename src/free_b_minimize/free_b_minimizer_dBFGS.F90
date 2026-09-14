@@ -43,10 +43,10 @@ MODULE MODgvec_free_b_minimizer_dBFGS
   FUNCTION dBFGS_new(n_dofs, dt, n_grad_steps, max_dt, M) RESULT(sf)
     ! INPUT VARIABLES -------------------------!
     INTEGER, INTENT(IN)            :: n_dofs  ! number of degrees of freedom
-    REAL(wp), INTENT(IN), OPTIONAL :: dt ! initial / default time step
-    REAL(wp), INTENT(IN), OPTIONAL :: max_dt
+    REAL(wp), INTENT(IN)           :: dt ! initial / default time step
+    REAL(wp), INTENT(IN)           :: max_dt
     INTEGER, INTENT(IN), OPTIONAL  :: n_grad_steps
-    REAL(wp), INTENT(IN), OPTIONAL  :: M
+    REAL(wp), INTENT(IN), OPTIONAL :: M
 
     ! OUTPUT VARIABLES -------------------------!
     TYPE(t_free_b_minimizer_dBFGS) :: sf
@@ -60,11 +60,9 @@ MODULE MODgvec_free_b_minimizer_dBFGS
         sf%n_grad_steps = 0
     END IF
 
-    IF (PRESENT(dt)) THEN
-        sf%dt_initial = dt
-    ELSE
-        sf%dt_initial = 1e-3_wp
-    END IF
+    sf%dt_initial = dt
+    sf%dt = dt
+    sf%max_dt = max_dt
 
     IF (PRESENT(M)) THEN
         sf%M = M
@@ -72,11 +70,6 @@ MODULE MODgvec_free_b_minimizer_dBFGS
         sf%M = 1e-3_wp
     END IF
 
-    IF (PRESENT(max_dt)) THEN
-        sf%max_dt = max_dt
-    ELSE
-        sf%max_dt = 0.1_wp
-    END IF
 
     ALLOCATE(sf%s_k(1:sf%n_dofs))
     ALLOCATE(sf%y_k(1:sf%n_dofs))

@@ -47,7 +47,6 @@ DEFAULT_GTOL = 1e-8
 DEFAULT_XTOL = 1e-5
 DEFAULT_DIGITS_BIEST = 8
 DEFAULT_FB_TOLERANCE = 1e-8
-DEFAULT_FB_DT = 0.1
 FORCE_RATIO_MINIMUM_FORCE = 1e-12
 DEFAULT_FTOL = 1e-5
 MOVING_AVERAGE_WINDOW = 10
@@ -360,17 +359,11 @@ class FreeBoundaryRun(AbstractRun):
         # targeted minimize_tol
         minimize_tol_min = self._state_parameters.get("minimize_tol", DEFAULT_MINIMIZE_TOL)
 
-        # maximum stepsize
-        max_dt = self._state_parameters.get("max_dt", 1.0)
-
         # minimum stepsize
         min_dt = self._state_parameters["free_boundary"].get("min_dt", 1e-4)
 
         # Flag to restart the free boundary minimizer a step-size reduction.
         reset_minimizer = False
-
-        # initial stepsize for the free-b minimization
-        dt = self._state_parameters["free_boundary"].get("dt", DEFAULT_FB_DT)
 
         if ramp_force_tol:
             minimize_tol = ramp_force_tol_start
@@ -408,6 +401,10 @@ class FreeBoundaryRun(AbstractRun):
                 "iota_tol", AUTO_PICARD_CURRENT_IOTA_TOL_TARGET
             )
             self.m_max, self.n_max = self.state.get_mn_max()
+
+            # initial stepsize for the free-b minimization
+            dt = self.state.dt_free
+            max_dt = self.state.max_dt_free
 
             if self.save_intermediate:
                 self.state.save(
@@ -549,7 +546,7 @@ class FreeBoundaryRun(AbstractRun):
                         logger.info(f"Free boundary dt: {dt:.2e}")
 
                         # pushes boundary and does a fixed-b run
-                        dt = self.state._free_boundary_update(
+                        self.state._free_boundary_update(
                             maxIter=min(
                                 max_iter_per_update_aux, self._state_parameters["maxIter"]
                             ),
@@ -573,6 +570,7 @@ class FreeBoundaryRun(AbstractRun):
                             + f"!free-boundary update {fb_update}\n",
                             save_intermediate=self.save_intermediate,
                         )
+                        dt = self.state.dt_free
 
                         if self.save_fb_updates:
                             self.state.save(

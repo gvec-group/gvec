@@ -150,14 +150,13 @@ END SUBROUTINE set_Bext_squared
 FUNCTION update_boundary(dt, reset_minimizer, blend_depth) RESULT(dt_out)
   ! MODULES
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  REAL(wp), INTENT(INOUT)  :: dt
+  REAL(wp), INTENT(IN)  :: dt
   LOGICAL, INTENT(IN)      ::reset_minimizer
   REAL(wp), INTENT(IN), OPTIONAL :: blend_depth
   REAL(wp)                 :: dt_out
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL functional%update_boundary(dt, reset_minimizer, blend_depth_in=blend_depth)
-  dt_out = dt
 END FUNCTION update_boundary
 
 FUNCTION get_iterations() RESULT(iters)
@@ -199,6 +198,66 @@ SUBROUTINE set_dt(dt)
       'ERROR: trying to set time-step but minimizer is not allocated!')
   END IF
 END SUBROUTINE set_dt
+
+FUNCTION get_free_boundary_dt() RESULT(dt)
+  ! MODULES
+  USE MODgvec_MHD3D_Vars, ONLY: free_b_minimizer
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  REAL(wp) :: dt
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  IF (ALLOCATED(free_b_minimizer)) THEN
+    dt = free_b_minimizer%dt
+  ELSE
+    CALL abort(__STAMP__, &
+      'ERROR: trying to extract fixed boundary time-step but minimizer is not allocated!')
+  END IF
+END FUNCTION get_free_boundary_dt
+
+SUBROUTINE set_free_boundary_dt(dt)
+  ! MODULES
+  USE MODgvec_MHD3D_Vars, ONLY: free_b_minimizer
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  REAL(wp), INTENT(IN) :: dt
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  IF (ALLOCATED(free_b_minimizer)) THEN
+    free_b_minimizer%dt = dt
+  ELSE
+    CALL abort(__STAMP__, &
+      'ERROR: trying to set free boundary time-step but minimizer is not allocated!')
+  END IF
+END SUBROUTINE set_free_boundary_dt
+
+FUNCTION get_free_boundary_max_dt() RESULT(dt)
+  ! MODULES
+  USE MODgvec_MHD3D_Vars, ONLY: free_b_minimizer
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  REAL(wp) :: dt
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  IF (ALLOCATED(free_b_minimizer)) THEN
+    dt = free_b_minimizer%max_dt
+  ELSE
+    CALL abort(__STAMP__, &
+      'ERROR: trying to extract free boundary time-step but minimizer is not allocated!')
+  END IF
+END FUNCTION get_free_boundary_max_dt
+
+SUBROUTINE set_free_boundary_max_dt(dt)
+  ! MODULES
+  USE MODgvec_MHD3D_Vars, ONLY: free_b_minimizer
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  REAL(wp), INTENT(IN) :: dt
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  IF (ALLOCATED(free_b_minimizer)) THEN
+    free_b_minimizer%max_dt = dt
+  ELSE
+    CALL abort(__STAMP__, &
+      'ERROR: trying to set free boundary time-step but minimizer is not allocated!')
+  END IF
+END SUBROUTINE set_free_boundary_max_dt
 
 SUBROUTINE reset_descent()
   ! MODULES

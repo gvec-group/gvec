@@ -44,8 +44,8 @@ MODULE MODgvec_free_b_minimizer_SR1
   FUNCTION SR1_new(n_dofs, dt, n_grad_steps, max_dt) RESULT(sf)
     ! INPUT VARIABLES -------------------------!
     INTEGER, INTENT(IN)            :: n_dofs  ! number of degrees of freedom
-    REAL(wp), INTENT(IN), OPTIONAL :: dt ! initial / default time step
-    REAL(wp), INTENT(IN), OPTIONAL :: max_dt
+    REAL(wp), INTENT(IN)           :: dt ! initial / default time step
+    REAL(wp), INTENT(IN)           :: max_dt
     INTEGER, INTENT(IN), OPTIONAL  :: n_grad_steps
 
     ! OUTPUT VARIABLES -------------------------!
@@ -60,17 +60,9 @@ MODULE MODgvec_free_b_minimizer_SR1
         sf%n_grad_steps = 0
     END IF
 
-    IF (PRESENT(dt)) THEN
-        sf%dt_initial = dt
-    ELSE
-        sf%dt_initial = 1e-3_wp
-    END IF
-
-    IF (PRESENT(max_dt)) THEN
-        sf%max_dt = max_dt
-    ELSE
-        sf%max_dt = 0.1_wp
-    END IF
+    sf%dt_initial = dt
+    sf%dt = dt
+    sf%max_dt = max_dt
 
     ALLOCATE(sf%s_k(1:sf%n_dofs))
     ALLOCATE(sf%y_k(1:sf%n_dofs))

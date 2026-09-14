@@ -36,10 +36,11 @@ MODULE MODgvec_free_b_minimizer_aGD
 
   CONTAINS
 
-  FUNCTION aGD_new(n_dofs, dt, n_tau_hist) RESULT(sf)
+  FUNCTION aGD_new(n_dofs, dt, n_tau_hist, max_dt) RESULT(sf)
     ! INPUT VARIABLES -------------------------!
     INTEGER, INTENT(IN)            :: n_dofs  ! number of degrees of freedom
-    REAL(wp), INTENT(IN), OPTIONAL :: dt ! initial / default time step
+    REAL(wp), INTENT(IN)           :: dt ! initial / default time step
+    REAL(wp), INTENT(IN)           :: max_dt
     INTEGER, INTENT(IN) , OPTIONAL :: n_tau_hist  ! number of remembered tau_hat
 
     ! OUTPUT VARIABLES -------------------------!
@@ -47,13 +48,10 @@ MODULE MODgvec_free_b_minimizer_aGD
     ! LOCAL VARIABLES -------------------------!
     ! CODE --------------------------------------------------------------------------------------------------------------------------!
     sf%n_dofs = n_dofs
-    IF (PRESENT(dt)) THEN
-        sf%dt_initial = dt
-    ELSE
-        sf%dt_initial = 1e-3_wp
-    END IF
+    sf%dt_initial = dt
+    sf%dt =  sf%dt_initial
+    sf%max_dt = max_dt
 
-    sf%max_dt = sf%dt
 
     IF (PRESENT(n_tau_hist)) THEN
         sf%n_tau_hist = n_tau_hist
@@ -61,7 +59,6 @@ MODULE MODgvec_free_b_minimizer_aGD
         sf%n_tau_hist = 10
     END IF
 
-    sf%dt =  sf%dt_initial
 
     ALLOCATE(sf%velocity(sf%n_dofs))
     ALLOCATE(sf%tau_hist(sf%n_tau_hist))

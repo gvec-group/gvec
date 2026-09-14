@@ -33,11 +33,12 @@ MODULE MODgvec_free_b_minimizer_mGD
 
   CONTAINS
 
-  FUNCTION mGD_new(n_dofs, beta, dt) RESULT(sf)
+  FUNCTION mGD_new(n_dofs, beta, dt, max_dt) RESULT(sf)
     ! INPUT VARIABLES -------------------------!
-    INTEGER, INTENT(IN)            :: n_dofs  ! number of degrees of freedom
-    REAL(wp), INTENT(IN)           :: beta
-    REAL(wp), INTENT(IN), OPTIONAL :: dt ! initial / default time step
+    INTEGER, INTENT(IN)  :: n_dofs  ! number of degrees of freedom
+    REAL(wp), INTENT(IN) :: beta
+    REAL(wp), INTENT(IN) :: dt ! initial / default time step
+    REAL(wp), INTENT(IN) :: max_dt
 
     ! OUTPUT VARIABLES -------------------------!
     TYPE(t_free_b_minimizer_mGD) :: sf
@@ -45,12 +46,10 @@ MODULE MODgvec_free_b_minimizer_mGD
     ! CODE --------------------------------------------------------------------------------------------------------------------------!
     sf%n_dofs = n_dofs
     sf%beta  = beta
-    IF (PRESENT(dt)) THEN
-        sf%dt_initial = dt
-    ELSE
-        sf%dt_initial = 1e-3_wp
-    END IF
-    sf%dt =  sf%dt_initial
+
+    sf%dt_initial = dt
+    sf%dt = sf%dt_initial
+    sf%max_dt = max_dt
 
     ALLOCATE(sf%velocity(sf%n_dofs))
     sf%velocity = 0.0_wp

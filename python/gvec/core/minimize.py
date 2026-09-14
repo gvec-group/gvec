@@ -164,11 +164,51 @@ class MinimizationState(State):
     @dt_fixed.setter
     @with_binding
     def dt_fixed(self, dt):
+        "Set the time-step for the fixed-boundary minimizer"
         if not isinstance(dt, float):
             raise TypeError(f"Expected type(dt) float but got {type(dt)} in _set_dt()")
-        "Set the time-step for the fixed-boundary minimizer"
         logger.debug(f"Setting fixed boundary time-step dt={dt:.2e}.")
         return _state.set_dt(dt)
+
+    @property
+    @with_binding
+    def dt_free(self):
+        "The current time-step for the free-boundary minimizer"
+        logger.debug("Extracting free boundary time-step...")
+        dt = _state.get_free_boundary_dt()
+        logger.debug(f"... dt = {dt:.2e}")
+        return dt
+
+    @dt_free.setter
+    @with_binding
+    def dt_free(self, dt):
+        "Set the time-step for the free-boundary minimizer"
+        if not isinstance(dt, float):
+            raise TypeError(
+                f"Expected type(dt) float but got {type(dt)} in _set_free_boundary_dt()"
+            )
+        logger.debug(f"Setting free boundary time-step dt={dt:.2e}.")
+        return _state.set_free_boundary_dt(dt)
+
+    @property
+    @with_binding
+    def max_dt_free(self):
+        "The maximum time-step for the free-boundary minimizer"
+        logger.debug("Extracting free boundary max time-step...")
+        dt = _state.get_free_boundary_max_dt()
+        logger.debug(f"... max_dt = {dt:.2e}")
+        return dt
+
+    @max_dt_free.setter
+    @with_binding
+    def max_dt_free(self, dt):
+        "Set the maximum time-step for the free-boundary minimizer"
+        if not isinstance(dt, float):
+            raise TypeError(
+                f"Expected type(dt) float but got {type(dt)} in _set_free_boundary_dt()"
+            )
+        logger.debug(f"Setting free boundary max time-step max_dt={dt:.2e}.")
+        return _state.set_free_boundary_max_dt(dt)
 
     @with_binding
     def reset_LA(self):
@@ -617,8 +657,7 @@ class MinimizationState(State):
     @with_binding
     def update_boundary(self, dt: float, reset_minimizer: bool, blend_depth: float = 0.6):
         logger.debug("Stepping in free boundary direction")
-        dt = _state.update_boundary(dt, reset_minimizer, blend_depth=blend_depth)
-        return dt
+        _state.update_boundary(dt, reset_minimizer, blend_depth=blend_depth)
 
     def _free_boundary_target(self, B_ext_2: np.ndarray):
         """Evaluate the free-boundary target function based on the force-balance.

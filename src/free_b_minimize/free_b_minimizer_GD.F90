@@ -29,22 +29,21 @@ MODULE MODgvec_free_b_minimizer_GD
 
   CONTAINS
 
-  FUNCTION GD_new(n_dofs, dt) RESULT(sf)
+  FUNCTION GD_new(n_dofs, dt, max_dt) RESULT(sf)
     ! INPUT VARIABLES -------------------------!
-    INTEGER, INTENT(IN)            :: n_dofs  ! number of degrees of freedom
-    REAL(wp), INTENT(IN), OPTIONAL :: dt ! initial / default time step
+    INTEGER,  INTENT(IN)  :: n_dofs  ! number of degrees of freedom
+    REAL(wp), INTENT(IN)  :: dt ! initial / default time step
+    REAL(wp), INTENT(IN)  :: max_dt ! initial / default time step
     ! OUTPUT VARIABLES -------------------------!
     TYPE(t_free_b_minimizer_GD) :: sf
     ! LOCAL VARIABLES -------------------------!
     ! CODE --------------------------------------------------------------------------------------------------------------------------!
     sf%n_dofs = n_dofs
-    IF (PRESENT(dt)) THEN
-        sf%dt_initial = dt
-    ELSE
-        sf%dt_initial = 1e-3_wp
-    END IF
-    sf%dt =  sf%dt_initial
-    sf%max_dt = sf%dt_initial
+
+    sf%dt_initial = dt
+    sf%max_dt = max_dt
+    sf%dt = sf%dt_initial
+
     sf%n_updates = 0
   END FUNCTION GD_new
 

@@ -511,7 +511,7 @@ SUBROUTINE InitFreeBoundary(sf)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER  :: n_grad_steps
-  REAL(wp) :: max_dt, M
+  REAL(wp) :: max_dt, M, dt
   REAL(wp) :: mn_X1X2(2,X1_base%f%modes+X2_base%f%modes)
 !-----------------------------------------------------------------------------------------------------------------------------------
   free_b_minimizer_type = GETSTR("free_boundary_minimizer_type", Proposal="GD")
@@ -539,33 +539,44 @@ SUBROUTINE InitFreeBoundary(sf)
 
     SELECT CASE(free_b_minimizer_type)
     CASE("GD")
-      free_b_minimizer = t_free_b_minimizer_GD(modes_X1 + modes_X2)
+      dt = GETREAL("free_boundary_dt", Proposal=0.1_wp)
+      max_dt = GETREAL("free_boundary_max_dt", Proposal=1.0_wp)
+      free_b_minimizer = t_free_b_minimizer_GD(modes_X1 + modes_X2, dt=dt, max_dt=max_dt)
     CASE("ADAM")
+      dt = GETREAL("free_boundary_dt", Proposal=1e-3_wp)
+      max_dt = GETREAL("free_boundary_max_dt", Proposal=1e-2_wp)
       beta1 = GETREAL("free_boundary_beta1_adam", Proposal=0.9)
       beta2 = GETREAL("free_boundary_beta2_adam", Proposal=0.999)
-      free_b_minimizer = t_free_b_minimizer_ADAM(modes_X1 + modes_X2, beta1, beta2)
+      free_b_minimizer = t_free_b_minimizer_ADAM(modes_X1 + modes_X2, beta1, beta2, dt=dt, max_dt=max_dt)
     CASE("mGD")
+      dt = GETREAL("free_boundary_dt", Proposal=0.1_wp)
+      max_dt = GETREAL("free_boundary_max_dt", Proposal=1.0_wp)
       beta1 = GETREAL("free_boundary_beta_moment_GD", Proposal=0.9)
-      free_b_minimizer = t_free_b_minimizer_mGD(modes_X1 + modes_X2, beta1)
+      free_b_minimizer = t_free_b_minimizer_mGD(modes_X1 + modes_X2, beta1, dt=dt, max_dt=max_dt)
     CASE("aGD")
-      free_b_minimizer = t_free_b_minimizer_aGD(modes_X1 + modes_X2)
+      dt = GETREAL("free_boundary_dt", Proposal=0.1_wp)
+      max_dt = GETREAL("free_boundary_max_dt", Proposal=0.1_wp)
+      free_b_minimizer = t_free_b_minimizer_aGD(modes_X1 + modes_X2, dt=dt, max_dt=max_dt)
     CASE("BFGS")
       precond_boundary = .FALSE.
       n_grad_steps = GETINT("free_boundary_n_grad_steps", Proposal=0)
-      max_dt = GETREAL("free_boundary_max_dt", Proposal=0.1_wp)
+      dt = GETREAL("free_boundary_dt", Proposal=0.1_wp)
+      max_dt = GETREAL("free_boundary_max_dt", Proposal=1.0_wp)
       M = GETREAL("free_boundary_M_BFGS", Proposal=0.001_wp)
-      free_b_minimizer = t_free_b_minimizer_BFGS(modes_X1 + modes_X2, n_grad_steps=n_grad_steps, max_dt=max_dt,M=M)
+      free_b_minimizer = t_free_b_minimizer_BFGS(modes_X1 + modes_X2, n_grad_steps=n_grad_steps, dt=dt, max_dt=max_dt,M=M)
     CASE("dBFGS")
       precond_boundary = .FALSE.
       n_grad_steps = GETINT("free_boundary_n_grad_steps", Proposal=0)
-      max_dt = GETREAL("free_boundary_max_dt", Proposal=0.1_wp)
+      dt = GETREAL("free_boundary_dt", Proposal=0.1_wp)
+      max_dt = GETREAL("free_boundary_max_dt", Proposal=1.0_wp)
       M = GETREAL("free_boundary_M_BFGS", Proposal=0.001_wp)
-      free_b_minimizer = t_free_b_minimizer_dBFGS(modes_X1 + modes_X2, n_grad_steps=n_grad_steps, max_dt=max_dt,M=M)
+      free_b_minimizer = t_free_b_minimizer_dBFGS(modes_X1 + modes_X2, n_grad_steps=n_grad_steps, dt=dt, max_dt=max_dt,M=M)
     CASE("SR1")
       precond_boundary = .FALSE.
       n_grad_steps = GETINT("free_boundary_n_grad_steps", Proposal=0)
-      max_dt = GETREAL("free_boundary_max_dt", Proposal=0.1_wp)
-      free_b_minimizer = t_free_b_minimizer_SR1(modes_X1 + modes_X2, n_grad_steps=n_grad_steps, max_dt=max_dt)
+      dt = GETREAL("free_boundary_dt", Proposal=0.1_wp)
+      max_dt = GETREAL("free_boundary_max_dt", Proposal=1.0_wp)
+      free_b_minimizer = t_free_b_minimizer_SR1(modes_X1 + modes_X2, n_grad_steps=n_grad_steps,dt=dt, max_dt=max_dt)
     CASE("lBFGS")
       precond_boundary = .FALSE.
       free_b_minimizer = t_free_b_minimizer_LBFGS(modes_X1 + modes_X2)
@@ -1326,7 +1337,7 @@ SUBROUTINE update_boundary_MHD3D(sf, dt_in, reset_minimizer, blend_depth_in)
   USE MODgvec_MHD3D_evalFunc, ONLY : EvalForce, EvalEnergy
 
   CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
-  REAL(wp), INTENT(INOUT)                  :: dt_in
+  REAL(wp), INTENT(IN)                     :: dt_in
   LOGICAL, INTENT(IN)                      :: reset_minimizer
   REAL(wp), INTENT(IN), OPTIONAL           :: blend_depth_in
 
@@ -1398,6 +1409,7 @@ SUBROUTINE update_boundary_MHD3D(sf, dt_in, reset_minimizer, blend_depth_in)
         dt = 0.9*dt
         X1pert_b = 0.9*X1pert_b
         X2pert_b = 0.9*X2pert_b
+        CALL free_b_minimizer%reset()
         free_b_minimizer%dt = dt
 
         JacCheck = 2
@@ -1410,7 +1422,6 @@ SUBROUTINE update_boundary_MHD3D(sf, dt_in, reset_minimizer, blend_depth_in)
     CALL vars%dofs(0)%set_to(vars%temp_dofs(1))
     vars%dt = MIN(vars%dt*1.05, vars%max_dt)
   END ASSOCIATE
-  dt_in = free_b_minimizer%dt
 END SUBROUTINE update_boundary_MHD3D
 
 !===================================================================================================================================

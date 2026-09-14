@@ -35,12 +35,14 @@ MODULE MODgvec_free_b_minimizer_ADAM
 
   CONTAINS
 
-  FUNCTION ADAM_new(n_dofs, beta1, beta2, dt) RESULT(sf)
+  FUNCTION ADAM_new(n_dofs, beta1, beta2, dt, max_dt) RESULT(sf)
     ! INPUT VARIABLES -------------------------!
-    INTEGER, INTENT(IN)            :: n_dofs  ! number of degrees of freedom
-    REAL(wp), INTENT(IN)           :: beta1 ! decay rate velocity
-    REAL(wp), INTENT(IN)           :: beta2 ! decay rate acceleration
-    REAL(wp), INTENT(IN), OPTIONAL :: dt ! initial / default time step
+    INTEGER, INTENT(IN)  :: n_dofs  ! number of degrees of freedom
+    REAL(wp), INTENT(IN) :: beta1 ! decay rate velocity
+    REAL(wp), INTENT(IN) :: beta2 ! decay rate acceleration
+    REAL(wp), INTENT(IN) :: dt ! initial / default time step
+    REAL(wp), INTENT(IN) :: max_dt
+
 
     ! OUTPUT VARIABLES -------------------------!
     TYPE(t_free_b_minimizer_ADAM) :: sf
@@ -49,13 +51,10 @@ MODULE MODgvec_free_b_minimizer_ADAM
     sf%n_dofs = n_dofs
     sf%beta1  = beta1
     sf%beta2 = beta2
-    IF (PRESENT(dt)) THEN
-        sf%dt_initial = dt
-    ELSE
-        sf%dt_initial = 1e-3_wp
-    END IF
+    sf%dt_initial = dt
+
     sf%dt =  sf%dt_initial
-    sf%max_dt = sf%dt
+    sf%max_dt = max_dt
 
     ALLOCATE(sf%velocity(sf%n_dofs))
     ALLOCATE(sf%acceleration(sf%n_dofs))
