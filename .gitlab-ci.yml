@@ -74,6 +74,15 @@ variables:
 default:
   before_script:
     - source CI_templates/helpers.bash
+    # early detection of incompatible hardware
+    - if [[ "${CI_RUNNER_TAGS}" =~ gpu-amd ]] && [[ "${CMP_MODE}" = Release ]] && [[ "${CURR_CMP}" =~ ifx|ifort ]]; then
+        echo "ERROR:" "GPU-AMD runner cannot run RELEASE mode for Intel compilers on AMD hardware. Retrying...";
+        exit 137;
+      fi
+  retry:
+    max: 2
+    exit_codes:
+      - 137 # incompatible hardware
 
 # =================================================================================================================================
 # SHORT SYNTAX EXPLANATIONS FOR THE JOB, FOR DETAILS VISIT:    ===> https://docs.gitlab.com/ce/ci/yaml/   <===
