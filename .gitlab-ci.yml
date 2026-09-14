@@ -992,7 +992,6 @@ include:
     inputs:
       env: .viper_ifx-2024
       vars: .vars_hpc_py
-      unit-postfix: _slurm
       rules: .rules_private_runner_minimal
 
   # ============================
@@ -1416,7 +1415,7 @@ include:
     CMP_MODE: "Debug"
     OMP_MODE: "ompON"
     MPI_MODE: "mpiOFF"
-    OMP_NUM_THR: "10"
+    OMP_NUM_THR: "1"
     PYTEST_KEY_OPTS: "axisNB_QH_nfp7"
 
 # reference tag
