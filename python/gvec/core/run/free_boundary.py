@@ -510,7 +510,7 @@ class FreeBoundaryRun(AbstractRun):
                         )
                         break
                     else:
-                        logger.info(f"rel. Δf: {self.fdelta:.2e}, ftol: {ftol:.2e}.")
+                        logger.info(f"Δf: {self.fdelta:.2e}, ftol: {ftol:.2e}.")
                         logger.info(
                             f"xnorm: {self.xnorm:.2e}, m.avg. xnorm: {self.xnorm_mavg:.2e}, xtol: {xtol:.2e}."
                         )
@@ -639,7 +639,7 @@ class FreeBoundaryRun(AbstractRun):
                 logger.info(
                     f"free-boundary - target: {self.free_boundary_target:.3e}, tolerance: {free_boundary_tolerance}, iters: {self.iters_used} / {self.totaliter} "
                 )
-                logger.info(f"rel. Δf: {self.fdelta:.2e}, ftol: {ftol}.")
+                logger.info(f"Δf: {self.fdelta:.2e}, ftol: {ftol}.")
                 logger.info(f"xnorm: {self.xnorm:.2e}, xtol: {xtol:.2e}.")
                 logger.info(f"gnorm: {self.gnorm:.2e}, gtol: {gtol:.2e}.")
                 logger.info(
