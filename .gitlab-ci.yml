@@ -55,6 +55,7 @@ variables:
   # global defaults for the pytest -m and -k options (can be reassigned at the job level!)
   PYTEST_MARKER_OPTS: "example"
   PYTEST_KEY_OPTS: ""               # default value
+  PYTEST_UNIT_KEY_OPTS: ""
   PYTEST_EXTRA_OPTS: ""
   PRIVATE_RUNNER_PIPELINE:
    value: "true"
@@ -1001,6 +1002,7 @@ include:
     inputs:
       env: .viper_ifx-2024
       vars: .vars_hpc_py
+      unit-postfix: _slurm
       rules: .rules_private_runner_minimal
 
   # ============================
@@ -1424,8 +1426,9 @@ include:
     CMP_MODE: "Debug"
     OMP_MODE: "ompON"
     MPI_MODE: "mpiOFF"
-    OMP_NUM_THR: "1"
+    OMP_NUM_THR: "10"
     PYTEST_KEY_OPTS: "axisNB_QH_nfp7"
+    PYTEST_UNIT_KEY_OPTS: "not test_get_iota_fobj" # exclude known issue on viper ifx in debug mode that crashes the unit test
 
 # reference tag
 .vars_hpc_tag:
