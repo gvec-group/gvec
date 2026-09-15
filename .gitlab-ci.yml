@@ -55,7 +55,7 @@ variables:
   # global defaults for the pytest -m and -k options (can be reassigned at the job level!)
   PYTEST_MARKER_OPTS: "example"
   PYTEST_KEY_OPTS: ""               # default value
-  PYTEST_UNIT_KEY_OPTS: "''"
+  PYTEST_UNIT_KEY_OPTS: ""
   PYTEST_EXTRA_OPTS: ""
   PRIVATE_RUNNER_PIPELINE:
    value: "true"
@@ -1428,7 +1428,7 @@ include:
     MPI_MODE: "mpiOFF"
     OMP_NUM_THR: "10"
     PYTEST_KEY_OPTS: "axisNB_QH_nfp7"
-    PYTEST_UNIT_KEY_OPTS: "'not test_get_iota_fobj'" # exclude known issue on viper ifx in debug mode that crashes the unit test
+    PYTEST_UNIT_KEY_OPTS: "not test_get_iota_fobj" # exclude known issue on viper ifx in debug mode that crashes the unit test
 
 # reference tag
 .vars_hpc_tag:

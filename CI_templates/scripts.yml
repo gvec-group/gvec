@@ -331,7 +331,7 @@
     - which pytest
     - pytest
       -m "unit"
-      -k ${PYTEST_UNIT_KEY_OPTS}
+      -k "${PYTEST_UNIT_KEY_OPTS}"
       -v -rA
       --junitxml=pytest.xml
       --require-pygvec
