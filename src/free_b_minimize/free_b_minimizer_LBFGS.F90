@@ -21,6 +21,7 @@ MODULE MODgvec_free_b_minimizer_LBFGS
     REAL(wp), ALLOCATABLE :: s_n(:,:) ! dof steps => dofs_{n+1} - dofs_{n}; the first entry in the second dim is the last update step
     REAL(wp), ALLOCATABLE :: rho_n(:) ! y_n^T s_n
     REAL(wp), ALLOCATABLE :: alpha(:) ! last m stepsizes
+    REAL(wp), ALLOCATABLE :: gradf_old(:) ! gradient of step k
 
     CONTAINS
     PROCEDURE :: get_update => LBFGS_get_update
@@ -35,36 +36,31 @@ MODULE MODgvec_free_b_minimizer_LBFGS
 
   CONTAINS
 
-  FUNCTION LBFGS_new(n_dofs, dt, m_updates) RESULT(sf)
+  FUNCTION LBFGS_new(n_dofs, dt, max_dt, m_updates) RESULT(sf)
     ! INPUT VARIABLES -------------------------!
-    INTEGER, INTENT(IN)            :: n_dofs  ! number of degrees of freedom
-    REAL(wp), INTENT(IN), OPTIONAL :: dt ! initial / default time step
-    INTEGER, INTENT(IN) , OPTIONAL :: m_updates  ! number of remembered tau_hat
+    INTEGER, INTENT(IN)  :: n_dofs  ! number of degrees of freedom
+    REAL(wp), INTENT(IN) :: dt ! initial / default time step
+    REAL(wp), INTENT(IN) :: max_dt
+    INTEGER, INTENT(IN)  :: m_updates  ! number of remembered tau_hat
 
     ! OUTPUT VARIABLES -------------------------!
     TYPE(t_free_b_minimizer_LBFGS) :: sf
     ! LOCAL VARIABLES -------------------------!
     ! CODE --------------------------------------------------------------------------------------------------------------------------!
     sf%n_dofs = n_dofs
-    IF (PRESENT(dt)) THEN
-        sf%dt_initial = dt
-    ELSE
-        sf%dt_initial = 1e-3_wp
-    END IF
+    sf%dt_initial = dt
 
-    IF (PRESENT(m_updates)) THEN
-        sf%m_updates = m_updates
-    ELSE
-        sf%m_updates = 10
-    END IF
-
-    sf%dt =  sf%dt_initial
+    sf%m_updates = m_updates
+    sf%dt = sf%dt_initial
+    sf%max_dt = max_dt
 
     ALLOCATE(sf%y_n(sf%n_dofs,sf%m_updates))
     ALLOCATE(sf%s_n(sf%n_dofs,sf%m_updates))
     ALLOCATE(sf%rho_n(sf%m_updates))
     ALLOCATE(sf%alpha(sf%m_updates))
+    ALLOCATE(sf%gradf_old(1:sf%n_dofs))
 
+    sf%gradf_old = 0.0_wp
     sf%y_n = 0.0_wp
     sf%s_n = 0.0_wp
     sf%rho_n = 0.0_wp
@@ -82,56 +78,70 @@ MODULE MODgvec_free_b_minimizer_LBFGS
     sf%n_updates = 0
   END SUBROUTINE LBFGS_reset
 
-  SUBROUTINE set_sk_yk(sf, s_k, y_k)
-    ! INPUT VARIABLES -------------------------!
-    CLASS(t_free_b_minimizer_LBFGS), INTENT(INOUT) :: sf
-    REAL(wp), INTENT(IN) :: s_k(sf%n_dofs), y_k(sf%n_dofs)
-    ! CODE --------------------------------------------------------------------------------------------------------------------------!
-    sf%s_n(:,2:) = sf%s_n(:,1:sf%m_updates-1)
-    sf%y_n(:,2:) = sf%y_n(:,1:sf%m_updates-1)
-
-    sf%s_n(:,1) = s_k
-    sf%y_n(:,1) = y_k
-  END SUBROUTINE set_sk_yk
-
   FUNCTION LBFGS_get_update(sf, force_in) RESULT(push_out)
+    USE MODgvec_MHD3D_Vars, ONLY: Precond_b_X1, Precond_b_X2, X1_base, X2_base
     ! INPUT VARIABLES -------------------------!
     CLASS(t_free_b_minimizer_LBFGS), INTENT(INOUT) :: sf
     REAL(wp)                       , INTENT(IN) :: force_in(sf%n_dofs)
     ! OUTPUT VARIABLES -------------------------!
     REAL(wp) :: push_out(sf%n_dofs)
     ! LOCAL VARIABLES
-    INTEGER :: i, m
-    REAL(wp):: q(sf%n_dofs), H0(sf%n_dofs,sf%n_dofs), alpha_i(sf%m_updates), beta
+    INTEGER :: i, m, n_saved_updates
+    REAL(wp):: q(sf%n_dofs), H0(sf%n_dofs,sf%n_dofs), alpha_i(sf%m_updates), beta, r(sf%n_dofs)
     ! CODE --------------------------------------------------------------------------------------------------------------------------!
     q = force_in
     alpha_i = 0.0_wp
     ! identity matrix
     H0 = 0.0_wp
-    DO i=1,sf%n_dofs
+    r = 0.0_wp
+    n_saved_updates = MIN(sf%m_updates,sf%n_updates)
+
+    IF (sf%n_updates == 0) THEN
+      ! use diag. preconditioner as initial guess for the hessian
+      DO i=1,X1_base%f%modes
+        H0(i,i) = 1 / Precond_b_X1(i)
+      END DO
+
+      DO i=1,X2_base%f%modes
+        H0(X1_base%f%modes+i,X1_base%f%modes+i) = 1 / Precond_b_X2(i)
+      END DO
+
+    ELSE
+      DO i=1,sf%n_dofs
         H0(i,i) = 1.0_wp
+      END DO
+      H0 = DOT_PRODUCT(sf%s_n(:,1),sf%y_n(:,1)) / DOT_PRODUCT(sf%y_n(:,1),sf%y_n(:,1))*H0
+      PRINT*, "gamma_k", DOT_PRODUCT(sf%s_n(:,1),sf%y_n(:,1)) / DOT_PRODUCT(sf%y_n(:,1),sf%y_n(:,1))
+    END IF
+
+    DO i=1,n_saved_updates
+      PRINT*, "i first loop", i
+      alpha_i(i) = sf%rho_n(i)*DOT_PRODUCT(sf%s_n(:,i),q)
+      q = q - alpha_i(i)*sf%y_n(:,i)
     END DO
 
-    IF(sf%n_updates>1) THEN
-        H0 = DOT_PRODUCT(sf%s_n(:,1),sf%y_n(:,1)) / DOT_PRODUCT(sf%y_n(:,1),sf%y_n(:,1))
-        ! first loop
-        DO i=1,MIN(sf%m_updates,sf%n_updates)
-            alpha_i(i) = sf%rho_n(i)*DOT_PRODUCT(sf%s_n(:,i),q)
-            q = q - alpha_i(i)*sf%y_n(:,i)
-        END DO
-        push_out = MATMUL(H0,q)
-        DO i=1,MIN(sf%m_updates,sf%n_updates)
-            beta = sf%rho_n(i)*DOT_PRODUCT(sf%y_n(:,i),push_out)
-            push_out = push_out + sf%s_n(:,i)*(alpha_i(i) - beta)
-        END DO
-        ! -H_k (nabla*f_k)
-        push_out = -sf%dt*push_out
-        sf%n_updates = sf%n_updates + 1
-    ELSE
-        ! -(nabla*f_k)
-        push_out = -sf%dt*q
-        sf%n_updates = sf%n_updates + 1
-    END IF
+    r = MATMUL(H0,q)
+
+    DO m=1,n_saved_updates
+      i = n_saved_updates + 1 - m
+      PRINT*, "i second loop", i
+      beta = sf%rho_n(i)*DOT_PRODUCT(sf%y_n(:,i),r)
+      r = r + sf%s_n(:,i)*(alpha_i(i) - beta)
+    END DO
+
+    ! -H_k (nabla*f_k)
+    push_out = -sf%dt*r
+    sf%n_updates = sf%n_updates + 1
+
+    ! update history
+    sf%s_n(:,2:) = sf%s_n(:,1:sf%m_updates-1)
+    sf%y_n(:,2:) = sf%y_n(:,1:sf%m_updates-1)
+    sf%rho_n(2:) = sf%rho_n(1:sf%m_updates-1)
+
+    sf%s_n(:,1) = r
+    sf%y_n(:,1) = force_in - sf%gradf_old
+    sf%rho_n(1) = 1 / DOT_PRODUCT(sf%y_n(:,1),sf%s_n(:,1))
+    PRINT*, "rho_n(1)", sf%rho_n(1)
   END FUNCTION LBFGS_get_update
 
   !===================================================================================================================================
@@ -146,10 +156,7 @@ MODULE MODgvec_free_b_minimizer_LBFGS
     SDEALLOCATE(sf%s_n)
     SDEALLOCATE(sf%rho_n)
     SDEALLOCATE(sf%alpha)
-    SDEALLOCATE(sf%y_n)
-    SDEALLOCATE(sf%s_n)
-    SDEALLOCATE(sf%rho_n)
-    SDEALLOCATE(sf%alpha)
+    SDEALLOCATE(sf%gradf_old)
   END SUBROUTINE LBFGS_free
 
 END MODULE MODgvec_free_b_minimizer_LBFGS

@@ -510,7 +510,7 @@ SUBROUTINE InitFreeBoundary(sf)
   CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER  :: n_grad_steps
+  INTEGER  :: n_grad_steps, m_updates
   REAL(wp) :: max_dt, M, dt
   REAL(wp) :: mn_X1X2(2,X1_base%f%modes+X2_base%f%modes)
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -579,7 +579,10 @@ SUBROUTINE InitFreeBoundary(sf)
       free_b_minimizer = t_free_b_minimizer_SR1(modes_X1 + modes_X2, n_grad_steps=n_grad_steps,dt=dt, max_dt=max_dt)
     CASE("lBFGS")
       precond_boundary = .FALSE.
-      free_b_minimizer = t_free_b_minimizer_LBFGS(modes_X1 + modes_X2)
+      m_updates = GETINT("free_boundary_m_updates_lBFGS", Proposal=10)
+      dt = GETREAL("free_boundary_dt", Proposal=0.1_wp)
+      max_dt = GETREAL("free_boundary_max_dt", Proposal=1.0_wp)
+      free_b_minimizer = t_free_b_minimizer_LBFGS(modes_X1 + modes_X2, dt=dt, max_dt=max_dt, m_updates=m_updates)
     CASE DEFAULT
       CALL abort(__STAMP__,&
     'unknown free_b_minimizer_type! Must be either GD (=gradient descent), ADAM, mGD (=moment GD), aGD (=accelerated gradient descent), BFGS, dBFGS (=damped BFGS), SR1 or lBFGS!')

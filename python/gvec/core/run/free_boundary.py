@@ -301,9 +301,9 @@ class FreeBoundaryRun(AbstractRun):
 
         step_size_heuristic = False
         match minimizer_type:
-            case "GD" | "mGD":
+            case "GD" | "mGD" | "lBFGS":
                 step_size_heuristic = True
-            case "BFGS" | "dBFGS" | "SR1" | "lBFGS" | "aGD" | "ADAM":
+            case "BFGS" | "dBFGS" | "SR1" | "aGD" | "ADAM":
                 step_size_heuristic = False
             case _:
                 raise ValueError(f"Unknown free-boundary minimizer_type: {minimizer_type}")
