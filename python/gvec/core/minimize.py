@@ -144,6 +144,9 @@ class MinimizationState(State):
     @with_binding
     def _get_iota_fobj(self) -> c_rProfile:
         """Get the fortran object for the iota profile."""
+        raise NotImplementedError(
+            "_get_iota_fobj causes issues with some compilers and might be revisited when it is actually needed."
+        )
         return _state.get_iota()
 
     @with_binding
