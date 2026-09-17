@@ -148,24 +148,31 @@ def get_intersection_planes(self, zetas: CoordinateSpec = 3, min_box_size: float
         List of IntersectionPlane objects.
     """
     from gvec.coils import IntersectionPlane
+    import xarray as xr
 
     boundary = self.evaluate("pos", zeta=zetas, theta=128, rho=1.0).pos
 
     planes = []
     for zeta in boundary.zeta:
-        surf_point, e_q1, e_q2, e_q3 = self.evaluate_hmap_only(X1=0, X2=0, zeta=zeta)
-        e_q3 = e_q3[:, 0]
-        surf_normal_length = np.sqrt(np.dot(e_q3, e_q3))
-        if surf_normal_length <= 1e-12:  # RZ case
-            major_radius = self.evaluate("r_major", zeta=zeta).r_major.data
-            e_q1, e_q2, e_q3 = self.evaluate_hmap_only(X1=major_radius, X2=0, zeta=zeta)[1:]
-            e_q3 = e_q3[:, 0]
-            surf_normal_length = np.sqrt(np.dot(e_q3, e_q3))
-        surf_normal = e_q3 / surf_normal_length
+        ev = self.evaluate(
+            "pos",
+            "e_q1",
+            "e_q2",
+            "e_q3",
+            "X1",
+            "X2",
+            "grad_zeta",
+            "mod_grad_zeta",
+            rho=0.0,
+            theta=0.0,
+            zeta=zeta,
+        ).squeeze()
+        Jh = xr.dot(xr.cross(ev.e_q1, ev.e_q2, dim="xyz"), ev.e_q3, dim="xyz")
+        surf_normal = (ev.grad_zeta / ev.mod_grad_zeta).data
 
-        surf_point = surf_point[:, 0]
-        e_q1 = e_q1[:, 0]
-        e_q2 = e_q2[:, 0]
+        surf_point = ev.pos - ev.X1 * ev.e_q1 - ev.X2 * ev.e_q2
+        grad_q1 = (xr.cross(ev.e_q2, ev.e_q3, dim="xyz") / Jh).data
+        grad_q2 = (xr.cross(ev.e_q3, ev.e_q1, dim="xyz") / Jh).data
 
         boundary_x = boundary.sel(rho=1.0, xyz="x", zeta=zeta)
         boundary_y = boundary.sel(rho=1.0, xyz="y", zeta=zeta)
@@ -197,8 +204,8 @@ def get_intersection_planes(self, zetas: CoordinateSpec = 3, min_box_size: float
                 xlim=xlim,
                 ylim=ylim,
                 zlim=zlim,
-                e_q1=e_q1,
-                e_q2=e_q2,
+                grad_q1=grad_q1,
+                grad_q2=grad_q2,
             )
         )
 

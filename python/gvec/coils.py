@@ -651,8 +651,8 @@ class IntersectionPlane:
         xlim: ArrayLike = np.inf,
         ylim: ArrayLike = np.inf,
         zlim: ArrayLike = np.inf,
-        e_q1: ArrayLike = None,
-        e_q2: ArrayLike = None,
+        grad_q1: ArrayLike = None,
+        grad_q2: ArrayLike = None,
     ):
         """Define a plane for Poincaré plots with a bounding box.
 
@@ -661,13 +661,17 @@ class IntersectionPlane:
         surf_normal : np.ndarray
             Surface normal of the plane.
         surf_point : np.ndarray
-            Point on the plane. If e_q1 and e_q2 are specified, this is assumed to be the origin.
+            Point on the plane. If grad_q1 and grad_q2 are specified, this is assumed to be the origin.
         xlim : ArrayLike, optional
             X limits of the bounding box, by default np.inf
         ylim : ArrayLike, optional
             Y limits of the bounding box, by default np.inf
         zlim : ArrayLike, optional
             Z limits of the bounding box, by default np.inf
+        grad_q1: ArrayLike, optional
+            First basis vector in the plane with expected shape (3,). Used for projecting xyz data onto X1.
+        grad_q2: ArrayLike, optional
+            Second basis vector in the plane with xpected shape (3,). Used for projecting xyz data onto X2.
         """
 
         self.surf_normal = surf_normal
@@ -675,15 +679,15 @@ class IntersectionPlane:
         self.xlim = xlim
         self.ylim = ylim
         self.zlim = zlim
-        self.e_q1 = e_q1
-        self.e_q2 = e_q2
+        self.grad_q1 = grad_q1
+        self.grad_q2 = grad_q2
 
     def transform_events_to_X1_X2(self, events):
-        if self.e_q1 is None or self.e_q2 is None:
+        if self.grad_q1 is None or self.grad_q2 is None:
             warn("Quantities not set, cannot transform events to X1 and X2.")
             return
-        X1 = np.dot((events - self.surf_point), self.e_q1)
-        X2 = np.dot((events - self.surf_point), self.e_q2)
+        X1 = np.dot((events - self.surf_point), self.grad_q1)
+        X2 = np.dot((events - self.surf_point), self.grad_q2)
         return (X1, X2)
 
     def __call__(self, t, R):
@@ -817,7 +821,7 @@ def trace_fieldlines(
                             ds_event.sel(xyz="z") <= event_aux.zlim[1]
                         )
                         ds[f"event_{i}"] = ds_event.where(mask_x & mask_y & mask_z)
-                        if hasattr(event_aux, "e_q1") and hasattr(event_aux, "e_q2"):
+                        if hasattr(event_aux, "grad_q1") and hasattr(event_aux, "grad_q2"):
                             X1, X2 = event_aux.transform_events_to_X1_X2(ds[f"event_{i}"])
                             ds[f"event_{i}_X1"] = ((f"time_event_{i}"), X1)
                             ds[f"event_{i}_X2"] = ((f"time_event_{i}"), X2)
