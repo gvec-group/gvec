@@ -12,7 +12,12 @@ import warnings
 import numpy as np
 from numpy.typing import ArrayLike
 from numpy.polynomial import Polynomial
-from scipy.interpolate import BSpline, make_interp_spline
+
+# NOTE: this exception handling is relevenat for the CI pipeline, since some util methods are used without installing gvec and therefore scipy
+try:
+    from scipy.interpolate import BSpline, make_interp_spline
+except ImportError:
+    BSpline = None
 
 from .util import logger
 
