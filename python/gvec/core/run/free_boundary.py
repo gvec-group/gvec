@@ -657,8 +657,12 @@ class FreeBoundaryRun(AbstractRun):
                         maxUpdates=self._state_parameters["picard_current"].get(
                             "maxRestarts", DEFAULT_PICARD_CURRENT_MAXRESTARTS
                         ),
+                        I_tor=self.I_tor if self.curr_constraint else None,
                         picard_target=self._state_parameters["picard_current"].get(
                             "target", "auto"
+                        ),
+                        reset_LA=self._state_parameters["picard_current"].get(
+                            "reset_LA", False
                         ),
                         save_header=f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n",
                     )
