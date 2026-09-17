@@ -959,10 +959,12 @@ include:
   - local: CI_templates/unit.yml
     inputs:
       env: .mpcdfci_ifx-2024
+      vars: .vars_ifx_unit
 
   - local: CI_templates/unit.yml
     inputs:
       env: .mpcdfci_ifx-latest
+      vars: .vars_ifx_unit
       allow_failure: true
 
   - local: CI_templates/unit.yml
@@ -1428,7 +1430,12 @@ include:
     MPI_MODE: "mpiOFF"
     OMP_NUM_THR: "10"
     PYTEST_KEY_OPTS: "axisNB_QH_nfp7"
-    PYTEST_UNIT_KEY_OPTS: "not test_get_iota_fobj" # exclude known issue on viper ifx in debug mode that crashes the unit test
+    PYTEST_UNIT_KEY_OPTS: "not test_get_iota_fobj" # exclude known issue on ifx in debug mode that crashes the unit test
+
+# hack for ifx issue when using wraped fortran profiles
+.vars_ifx_unit:
+  variables:
+    PYTEST_UNIT_KEY_OPTS: "not test_get_iota_fobj" # exclude known issue on ifx in debug mode that crashes the unit test
 
 # reference tag
 .vars_hpc_tag:
