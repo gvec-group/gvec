@@ -146,13 +146,6 @@ toq("toq_current", Qs_current)
 See [the derivation](../dev/derivations.md#susceptance-matrix--rotational-transform) for details.
 ```
 
-```{warning}
-The formulas for the entries of the susceptance matrix agree with those found in the literature for VMEC.
-Bateman (1973) however notes that the susceptance matrix should be symmetric, which this is not.
-Further investigation is required.
-See [the derivation](../dev/derivations.md#susceptance-matrix--rotational-transform) for details.
-```
-
 ```{code-cell} ipython3
 :tags: [remove-input]
 Qs_susceptance = [f"susceptance_{ij}" for ij in [11, 12, 21, 22]]

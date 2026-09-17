@@ -317,11 +317,11 @@ where
 $$
 \begin{align}
 \mu_0 \Itor &= \oint_{C_\vartheta} \dd{\vec{\ell}} \cdot \vec{B} = \langle B_\vartheta \rangle \\
-\mu_0 \tIpol &= \oint_{C_\zeta} \dd{\vec{\ell}} \cdot \vec{B} = \langle B_\vartheta \rangle \\
+\mu_0 \tIpol &= \oint_{C_\zeta} \dd{\vec{\ell}} \cdot \vec{B} = \langle B_\zeta \rangle \\
 \hat\Phi &= \int_{\partial\zeta} \dd{\vec{n}} \cdot \vec{B} = 2\pi\Phi \\
 \hat\chi &= \int_{\partial\vartheta} \dd{\vec{n}} \cdot \vec{B} = 2\pi\chi \\
 V(\rho) &= \int_0^\rho \dd{\tilde\rho} \llangle \Jac \rrangle \\
-\dv{V}{d\rho} &= \llangle \Jac \rrangle.
+\dv{V}{\rho} &= \llangle \Jac \rrangle.
 \end{align}
 $$
 
@@ -343,11 +343,11 @@ and
 
 $$
 \begin{align}
-\mu_0 \Ipol &= \frac{1}{2\pi} \llangle B_\zeta \rrangle \\
-\mu_0 \Ipol &= \frac{1}{2\pi} \llangle \gtz B^\vartheta + \gzz B^\zeta \rrangle \\
-\mu_0 \Ipol &= \frac{1}{2\pi} \llangle \frac{\gtz}{\Jac} \qty(\dv{\chi}{\rho} - \dv{\Phi}{\rho}\pdv{\lambda}{\zeta}) + \frac{\gzz}{\Jac} \dv{\Phi}{\rho} \qty(1 + \pdv{\lambda}{\vartheta}) \rrangle \\
-\mu_0 \Ipol &= \frac{1}{2\pi} \llangle \frac{\gtz}{\Jac} \rrangle \dv{\chi}{\rho} + \frac{1}{2\pi} \llangle -\frac{\gtz}{\Jac} \pdv{\lambda}{\zeta} + \frac{\gzz}{\Jac} \qty(1 + \pdv{\lambda}{\vartheta}) \rrangle \dv{\Phi}{\rho} \\
-\mu_0 \Ipol &= \underbrace{\frac{1}{4\pi^2} \llangle \frac{\gtz}{\Jac} \rrangle \dv{V}{\rho}}_{S_{21}} \dv{\hat\chi}{V} + \underbrace{\frac{1}{4\pi^2} \llangle -\frac{\gtz}{\Jac} \pdv{\lambda}{\zeta} + \frac{\gzz}{\Jac} \qty(1 + \pdv{\lambda}{\vartheta}) \rrangle \dv{V}{\rho}}_{S_{22}} \dv{\hat\Phi}{V} \\
+\mu_0 \tIpol &= \frac{1}{2\pi} \llangle B_\zeta \rrangle \\
+\mu_0 \tIpol &= \frac{1}{2\pi} \llangle \gtz B^\vartheta + \gzz B^\zeta \rrangle \\
+\mu_0 \tIpol &= \frac{1}{2\pi} \llangle \frac{\gtz}{\Jac} \qty(\dv{\chi}{\rho} - \dv{\Phi}{\rho}\pdv{\lambda}{\zeta}) + \frac{\gzz}{\Jac} \dv{\Phi}{\rho} \qty(1 + \pdv{\lambda}{\vartheta}) \rrangle \\
+\mu_0 \tIpol &= \frac{1}{2\pi} \llangle \frac{\gtz}{\Jac} \rrangle \dv{\chi}{\rho} + \frac{1}{2\pi} \llangle -\frac{\gtz}{\Jac} \pdv{\lambda}{\zeta} + \frac{\gzz}{\Jac} \qty(1 + \pdv{\lambda}{\vartheta}) \rrangle \dv{\Phi}{\rho} \\
+\mu_0 \tIpol &= \underbrace{\frac{1}{4\pi^2} \llangle \frac{\gtz}{\Jac} \rrangle \dv{V}{\rho}}_{S_{21}} \dv{\hat\chi}{V} + \underbrace{\frac{1}{4\pi^2} \llangle -\frac{\gtz}{\Jac} \pdv{\lambda}{\zeta} + \frac{\gzz}{\Jac} \qty(1 + \pdv{\lambda}{\vartheta}) \rrangle \dv{V}{\rho}}_{S_{22}} \dv{\hat\Phi}{V} \\
 \end{align}
 $$
 
@@ -370,12 +370,8 @@ $$
 
 **Notes:**
 
-```{warning}
-Bateman (1973) notes that the susceptance matrix is symmetric and positive definite. This also very logically follows from the definition if straight fieldline coordinates are used. This derivation however yields a non-symmetric susceptance matrix!
-
-The definition of $S_{ij}$ however is independent of the choice of angular coordiantes.
-```
-
+* The definition of the susceptance matrix is not unique! There are two equations for four unknowns. For the derivation above, the choice of coordinate system therefore matters.
+* Bateman (1973) notes that the susceptance matrix should be symmetric and positive definite, which is guaranteed when straight fieldline coordinates are used for the derivation as above. With logical coordinates, the susceptance matrix is however not symmetric!
 * In literature, the symbols $I=\Itor$, $F=\tIpol$ and $\Psi=\hat\chi$ are often used.
 * The additional factor of $2\pi$ for the fluxes is dependent on whether one refers to the integral magnetic flux or the component of the vector potential. (GVEC follows the latter definition)
 * Bateman (1973) calls this quantitiy the *specific inductance matrix* $\Lambda_{ij}$, but noted that "should rigorously be called the specific susceptance matrix"

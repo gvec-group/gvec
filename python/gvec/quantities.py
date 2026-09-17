@@ -1612,6 +1612,18 @@ def V(ds: xr.Dataset):
 
 
 @register(
+    requirements=("Jac",),
+    integration=("theta", "zeta"),
+    attrs=dict(
+        long_name="derivative of the plasma volume w.r.t. radial coordinate",
+        symbol=r"\frac{dV}{dr}",
+    ),
+)
+def dV_dr(ds: xr.Dataset):
+    ds["dV_dr"] = fluxsurface_integral(ds.Jac)
+
+
+@register(
     requirements=("Jac", "Phi_edge", "dPhi_dr"),
     integration=("theta", "zeta"),
     attrs=dict(
@@ -1735,6 +1747,7 @@ def iota_avg2(ds: xr.Dataset):
 
 @register(
     requirements=("dV_dr", "g_tt", "Jac"),
+    integration=("theta", "zeta"),
     attrs=dict(
         long_name="susceptance of the toroidal current with respect to the poloidal flux",
         symbol=r"S_{11}",
@@ -1747,6 +1760,7 @@ def susceptance_11(ds: xr.Dataset):
 
 @register(
     requirements=("dV_dr", "g_tt", "g_tz", "Jac", "dLA_dt", "dLA_dz"),
+    integration=("theta", "zeta"),
     attrs=dict(
         long_name="susceptance of the toroidal current with respect to the toroidal flux",
         symbol=r"S_{12}",
@@ -1759,6 +1773,7 @@ def susceptance_12(ds: xr.Dataset):
 
 @register(
     requirements=("dV_dr", "g_tz", "Jac"),
+    integration=("theta", "zeta"),
     attrs=dict(
         long_name="susceptance of the poloidal current with respect to the poloidal flux",
         symbol=r"S_{21}",
@@ -1771,6 +1786,7 @@ def susceptance_21(ds: xr.Dataset):
 
 @register(
     requirements=("dV_dr", "g_tz", "g_zz", "Jac", "dLA_dt", "dLA_dz"),
+    integration=("theta", "zeta"),
     attrs=dict(
         long_name="susceptance of the poloidal current with respect to the toroidal flux",
         symbol=r"S_{22}",
