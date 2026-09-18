@@ -526,10 +526,8 @@ class FreeBoundaryRun(AbstractRun):
                         # otherwise it is increased. However, some algorithms such as BFGS also perform step-size estimations, which overwrite
                         # the provided step-size, if the estimated step-size is SMALLER.
                         if (
-                            self.target_mavg_last < self.target_mavg
-                            or dt < min_dt
-                            and step_size_heuristic
-                        ):
+                            self.target_mavg_last < self.target_mavg or dt < min_dt
+                        ) and step_size_heuristic:
                             dt = max(0.5 * dt, min_dt)
                         elif step_size_heuristic:
                             dt = min(1.1 * dt, max_dt)

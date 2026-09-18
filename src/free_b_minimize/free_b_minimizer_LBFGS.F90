@@ -111,11 +111,9 @@ MODULE MODgvec_free_b_minimizer_LBFGS
         H0(i,i) = 1.0_wp
       END DO
       H0 = DOT_PRODUCT(sf%s_n(:,1),sf%y_n(:,1)) / DOT_PRODUCT(sf%y_n(:,1),sf%y_n(:,1))*H0
-      PRINT*, "gamma_k", DOT_PRODUCT(sf%s_n(:,1),sf%y_n(:,1)) / DOT_PRODUCT(sf%y_n(:,1),sf%y_n(:,1))
     END IF
 
     DO i=1,n_saved_updates
-      PRINT*, "i first loop", i
       alpha_i(i) = sf%rho_n(i)*DOT_PRODUCT(sf%s_n(:,i),q)
       q = q - alpha_i(i)*sf%y_n(:,i)
     END DO
@@ -124,7 +122,6 @@ MODULE MODgvec_free_b_minimizer_LBFGS
 
     DO m=1,n_saved_updates
       i = n_saved_updates + 1 - m
-      PRINT*, "i second loop", i
       beta = sf%rho_n(i)*DOT_PRODUCT(sf%y_n(:,i),r)
       r = r + sf%s_n(:,i)*(alpha_i(i) - beta)
     END DO
@@ -141,7 +138,6 @@ MODULE MODgvec_free_b_minimizer_LBFGS
     sf%s_n(:,1) = r
     sf%y_n(:,1) = force_in - sf%gradf_old
     sf%rho_n(1) = 1 / DOT_PRODUCT(sf%y_n(:,1),sf%s_n(:,1))
-    PRINT*, "rho_n(1)", sf%rho_n(1)
   END FUNCTION LBFGS_get_update
 
   !===================================================================================================================================
