@@ -31,13 +31,6 @@ from gvec.core.compute import ev2ft
 from gvec import fourier
 from gvec.lib import _state
 
-try:
-    import fbtools
-
-    has_fbtools = True
-except ImportError:
-    has_fbtools = False
-
 
 DEFAULT_FORCE_RATIO = 0.01
 DEFAULT_FORCE_TOL_START = 1e-3
@@ -936,13 +929,12 @@ def _get_B2_fp(
         Squared exterior field at the GVEC integration points flattened in GVEC order.
     """
 
-    if has_fbtools:
+    try:
         from fbtools.exterior_vacuum_field import get_B_ext_plasma
-    else:
-        logger.error(
-            "Could not import 'fbtools'! Please make sure the package is installed. Aborting Bext calulation."
-        )
-        return
+    except ImportError as e:
+        raise ImportError(
+            "Could not import fbtools. Was free-boundary gvec (`gvec[free_boundary]`) installed?"
+        ) from e
 
     theta = np.linspace(0, 2 * np.pi, ntheta, endpoint=False)
     theta += 0.5 * theta[1]
