@@ -355,7 +355,7 @@
     - python --version
     - echo "install from wheel with Buildname:" ${BUILDNAME}
     - ls dist_${BUILDNAME}/*.whl
-    - pip install `ls dist_${BUILDNAME}/*.whl`
+    - pip install "`ls dist_${BUILDNAME}/*.whl`[examples, free_boundary]"
     - module list || echo "No modules available"
     - pip install -r docs/tutorials/requirements.txt
     - pip list
