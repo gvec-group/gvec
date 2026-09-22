@@ -579,20 +579,14 @@ class MinimizationState(State):
         ValueError
             If iota_target is unknown.
         """
-        if I_tor is not None:
-            self.current_constraint = True
-            self.I_tor = I_tor
-        else:
-            self.current_constraint = False
-            self.I_tor = None
-
         if picard_target not in ["iota", "iota_and_force", "auto"]:
             raise ValueError(
                 f"""Unknown picard_current["target"]: {picard_target}! target has to be "iota","iota_and_force" or "auto"."""
             )
 
-        if self.current_constraint:
+        if I_tor is not None:
             logger.debug("minimize with current optimization")
+            self.I_tor = I_tor
             self._solve_with_current(
                 iota_tol=iota_tol,
                 maxUpdates=maxUpdates,
@@ -604,6 +598,7 @@ class MinimizationState(State):
             )
         else:
             logger.debug("minimize with fixed iota")
+            self.I_tor = None
             self._minimize(**kwargs)
 
     # ==== Free Boundary ==== #
