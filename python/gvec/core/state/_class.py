@@ -59,7 +59,7 @@ class State:
             raise FileNotFoundError(f"State file {self.statefile} does not exist.")
         self.parameters = gvec.util.read_parameters(
             self.parameterfile, format="ini"
-        )  # read-only !!!
+        )  # usually read-only, but MinimizationState will modify it
 
     def __del__(self):
         logger.debug(f"Deleting state {self!r}")

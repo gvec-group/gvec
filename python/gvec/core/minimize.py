@@ -8,6 +8,7 @@ import time
 import logging
 from datetime import datetime
 from typing import Literal, Callable
+from pathlib import Path
 
 import numpy as np
 import scipy
@@ -18,10 +19,8 @@ from numpy.polynomial import Polynomial
 from gvec import __version__
 from gvec.util import (
     write_parameter_file_ini,
-    CaseInsensitiveDict,
     chdir,
     flatten_parameters,
-    read_parameters,
     profile_to_parameters,
     profile_from_parameters,
 )
@@ -55,10 +54,6 @@ IOTA_MAXITER_PER_UPDATE = 1e12  # maximum number of fixed-boundary iterations pe
 class MinimizationState(State):
     def __init__(self, parameterfile, statefile=None, stdout_path=None):
         super().__init__(parameterfile, statefile, stdout_path)
-
-        # these parameters are modified during current constraint!
-        self._parameter_dict = read_parameters(parameterfile)
-
         r_GP, r_w, t_n, t_w, z_n, z_w = self.get_integration_points()
 
         self.t_n = t_n
@@ -68,7 +63,7 @@ class MinimizationState(State):
         self.rms_iota = None
         self.delta_iota = None
         self.dt_fixed_initial = self.dt_fixed
-        self._iota: BSpline | Polynomial = profile_from_parameters(self._parameter_dict["iota"])
+        self._iota: BSpline | Polynomial = profile_from_parameters(self.parameters["iota"])
 
     def bind(self, force: bool = False):
         super().bind(force=force, init_for_minimize=True)
@@ -135,7 +130,7 @@ class MinimizationState(State):
                 fobj = t_rProfile_bspl(value.t, value.c)
             case Polynomial():
                 fobj = t_rProfile_poly(value.coef)
-        self._parameter_dict["iota"] = profile_to_parameters(value)
+        self.parameters["iota"] = profile_to_parameters(value)
         self._iota = value
         _state.set_iota(fobj)
         del fobj  # deallocate
@@ -228,14 +223,26 @@ class MinimizationState(State):
             Header string for the parameter file, by default ""
         """
         logger.debug("Saving state")
-        self.save_statefile()
         iters = self.get_iterations()
         outid = self.get_outputlevel()
+
+        self.save_statefile()
+        # name hardcoded in pygvec/state.F90:save_statefile & state/restart.f90:WriteStateToASCII
+        self.statefile = (
+            Path(self.rundir)
+            / f"{self.parameters['ProjectName']}_State_{outid:04}_{iters:08}.dat"
+        )
+
+        path = (
+            Path(self.rundir)
+            / f"{self.parameters['ProjectName']}_parameters_{outid:04}_{iters:08}.ini"
+        )
         write_parameter_file_ini(
-            flatten_parameters(self._parameter_dict),
-            self._parameter_dict["ProjectName"] + f"_parameters_{outid:04}_{iters:08}.ini",
+            flatten_parameters(self.parameters),
+            path,
             header=header,
         )
+        self.parameterfile = path
 
     def _get_new_iota(self, iota_tol: float):
         """Fit an iota B-spline according to iota_geom and iota_curr for the current constraint mode

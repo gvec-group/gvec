@@ -361,7 +361,7 @@ class AbstractRun(ABC):
 
             self._run_stage()
             if self.curr_constraint:
-                self._state_parameters["iota"] = self.state._parameter_dict["iota"]
+                self._state_parameters["iota"] = self.state.parameters["iota"]
             if (
                 self.max_force > self._state_parameters["minimize_tol"]
                 and self._state_parameters["maxIter"] > 0
@@ -393,7 +393,7 @@ class AbstractRun(ABC):
         )
 
         shutil.copy(self.state.statefile, final_statefile)
-        parameters_final = self.state._parameter_dict
+        parameters_final = self.state.parameters
 
         parameters_final["maxIter"] = -1
         for key in parameters_final:
