@@ -29,6 +29,7 @@ from gvec.util import (
 from gvec.core.compute import fluxsurface_integral
 from gvec.core.state import State
 from gvec.core.state._binding import with_binding
+from gvec.config import ConfigABC
 from gvec.lib import _state, c_rProfile, t_rProfile_poly, t_rProfile_bspl
 
 
@@ -53,7 +54,7 @@ IOTA_MAXITER_PER_UPDATE = 1e12  # maximum number of fixed-boundary iterations pe
 # === Config class for picard_current === #
 
 
-class PicardCurrentConfig:
+class PicardCurrentConfig(ConfigABC):
     aliases = {"maxRestarts": "max_updates"}
 
     def __init__(
@@ -67,39 +68,6 @@ class PicardCurrentConfig:
         self.iota_tol = iota_tol
         self.max_updates = max_updates
         self.reset_LA = reset_LA
-
-    @classmethod
-    def from_dict(cls, config: Mapping | None):
-        if config is None:
-            return cls()
-
-        for key in config:
-            if key in cls.aliases:
-                warnings.warn(
-                    f"Config key {key} is deprecated. Use {cls.aliases[key]} instead.",
-                    DeprecationWarning,
-                )
-        config = {cls.aliases.get(k, k): v for k, v in config.items()}
-
-        return cls(**config)
-
-    def __getitem__(self, key):
-        if key in self.keys():
-            return getattr(self, key)
-        raise KeyError(key)
-
-    @classmethod
-    def default(cls, key):
-        import inspect
-
-        return inspect.signature(cls.__init__).parameters[key].default
-
-    @classmethod
-    def keys(cls):
-        return cls.__init__.__annotations__.keys()
-
-    def to_dict(self):
-        return {key: self[key] for key in self.keys()}
 
 
 # === MinimizationState class === #

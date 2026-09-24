@@ -32,5 +32,5 @@ from gvec.coils import CoilSet
 # submodules
 
 from gvec import core, scripts, plotting, util
-from gvec import errors, fourier, quantities, surface, vtk, gframe
+from gvec import coils, config, errors, fourier, quantities, surface, vtk, gframe
 # lib and _libpygvec are automatically generated, but stay hidden
