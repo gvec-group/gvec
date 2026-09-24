@@ -17,9 +17,6 @@ from gvec.core.state import State
 from gvec.core.minimize import MinimizationState
 from .abstract import (
     AbstractRun,
-    DEFAULT_MINIMIZE_TOL,
-    AUTO_PICARD_CURRENT_IOTA_TOL_TARGET,
-    DEFAULT_PICARD_CURRENT_MAXRESTARTS,
     DIAGNOSTICS_NPOINTS,
 )
 
@@ -83,11 +80,9 @@ class FixedBoundaryRun(AbstractRun):
                 parameterfile=f"parameters_stage_{self.nth_stage:03d}_initial.ini",
                 statefile=self.state.statefile,
                 stdout_path=Path("stdout.txt") if self.redirect_gvec_stdout else None,
+                I_tor=self._state_parameters.get("I_tor", None),
+                picard_current=self._state_parameters.get("picard_current", None),
             )
-            iota_tol = self._state_parameters["picard_current"].get(
-                "iota_tol", AUTO_PICARD_CURRENT_IOTA_TOL_TARGET
-            )
-            minimize_target = self._state_parameters.get("minimize_tol", DEFAULT_MINIMIZE_TOL)
             if self.save_intermediate:
                 self.state.save(
                     f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n"
@@ -95,16 +90,7 @@ class FixedBoundaryRun(AbstractRun):
                     f"!pyGVEC v{gvec.__version__}\n",
                 )
             self.state.solve(
-                I_tor=self.I_tor if self.curr_constraint else None,
-                reset_LA=self._state_parameters["picard_current"].get("reset_LA", False),
-                iota_tol=iota_tol,
-                minimize_tol=minimize_target,
-                maxIter=self._state_parameters["maxIter"],
-                maxUpdates=self._state_parameters["picard_current"].get(
-                    "maxRestarts", DEFAULT_PICARD_CURRENT_MAXRESTARTS
-                ),
                 save_intermediate=self.save_intermediate,
-                picard_target=self._state_parameters["picard_current"].get("target", "auto"),
                 save_header=f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n",
             )
             self.state.save(
@@ -134,8 +120,8 @@ class FixedBoundaryRun(AbstractRun):
             self.logger.info(
                 f"rms Δiota: {self.state.rms_iota:.2e}"
                 + (
-                    f", iota_tol: {iota_tol:.2e}"
-                    if self._state_parameters["picard_current"] != "off"
+                    f", iota_tol: {self.state.picard_current.iota_tol:.2e}"
+                    if self.state.I_tor is not None
                     else ""
                 )
             )

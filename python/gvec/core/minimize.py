@@ -9,6 +9,8 @@ import logging
 from datetime import datetime
 from typing import Literal, Callable
 from pathlib import Path
+import warnings
+from collections.abc import Mapping
 
 import numpy as np
 import scipy
@@ -36,8 +38,8 @@ from gvec.lib import _state, c_rProfile, t_rProfile_poly, t_rProfile_bspl
 logger = logging.getLogger("gvec.state")
 
 AUTO_STAGE_IOTA_INIT_MAXITER = 10
-AUTO_STAGE_IOTA_INIT_IOTA_TOL = 1e-3
-AUTO_PICARD_CURRENT_IOTA_TOL = 1e-5
+AUTO_STAGE_IOTA_INIT_IOTA_TOL = 1e-3  # iota tolerance during the initial stage
+AUTO_PICARD_CURRENT_IOTA_TOL = 1e-5  # iota tolerance during the intermediate stage
 AUTO_MINIMIZE_TOL_MIN = 1e-3
 IOTA_BSPLINE_DEGREE = 5
 IOTA_SAMPLING_FACTOR = 4
@@ -48,17 +50,81 @@ IOTA_MIN_RHO = 1e-2  # ignore near-axis region for Δiota & Δfit, TODO: fix acc
 IOTA_MAXITER_PER_UPDATE = 1e12  # maximum number of fixed-boundary iterations per iota update
 
 
-# === MinimizationState Class === #
+# === Config class for picard_current === #
+
+
+class PicardCurrentConfig:
+    aliases = {"maxRestarts": "max_updates"}
+
+    def __init__(
+        self,
+        target: Literal["iota", "iota_and_force", "auto"] = "auto",
+        iota_tol: float = 1e-8,  # least-squares fit: limited to single precision!
+        max_updates: int = 50,
+        reset_LA: bool = False,
+    ):
+        self.target = target
+        self.iota_tol = iota_tol
+        self.max_updates = max_updates
+        self.reset_LA = reset_LA
+
+    @classmethod
+    def from_dict(cls, config: Mapping | None):
+        if config is None:
+            return cls()
+
+        for key in config:
+            if key in cls.aliases:
+                warnings.warn(
+                    f"Config key {key} is deprecated. Use {cls.aliases[key]} instead.",
+                    DeprecationWarning,
+                )
+        config = {cls.aliases.get(k, k): v for k, v in config.items()}
+
+        return cls(**config)
+
+    def __getitem__(self, key):
+        if key in self.keys():
+            return getattr(self, key)
+        raise KeyError(key)
+
+    @classmethod
+    def default(cls, key):
+        import inspect
+
+        return inspect.signature(cls.__init__).parameters[key].default
+
+    @classmethod
+    def keys(cls):
+        return cls.__init__.__annotations__.keys()
+
+    def to_dict(self):
+        return {key: self[key] for key in self.keys()}
+
+
+# === MinimizationState class === #
 
 
 class MinimizationState(State):
-    def __init__(self, parameterfile, statefile=None, stdout_path=None):
+    def __init__(
+        self,
+        parameterfile,
+        statefile=None,
+        stdout_path=None,
+        I_tor: Mapping | None = None,
+        picard_current: Mapping | None = None,
+    ):
         super().__init__(parameterfile, statefile, stdout_path)
         r_GP, r_w, t_n, t_w, z_n, z_w = self.get_integration_points()
 
         self.t_n = t_n
         self.z_n = z_n
 
+        if I_tor is not None:
+            self.I_tor = profile_from_parameters(I_tor)
+        else:
+            self.I_tor = None
+        self.picard_current = PicardCurrentConfig.from_dict(picard_current)
         self.iters_used = 0
         self.rms_iota = None
         self.delta_iota = None
@@ -67,6 +133,14 @@ class MinimizationState(State):
 
     def bind(self, force: bool = False):
         super().bind(force=force, init_for_minimize=True)
+
+    @classmethod
+    def new(cls, parameters: Mapping, rundir: str | Path | None = None, **kwargs):
+        picard_current = parameters.get("picard_current", None)
+        I_tor = parameters.get("I_tor", None)
+        return super().new(
+            parameters, rundir=rundir, picard_current=picard_current, I_tor=I_tor, **kwargs
+        )
 
     logger = logging.getLogger("gvec.state")
 
@@ -322,7 +396,8 @@ class MinimizationState(State):
         reset_LA: bool,
         save_intermediate: bool,
         save_header: str,
-        **kwargs_minimize,
+        logfinaliter: bool = False,
+        dt: float | None = None,
     ):
         """Runs a single current-minimization stage (e.g, one minimize tolerance and one iota tolerance)
 
@@ -344,6 +419,10 @@ class MinimizationState(State):
             If True, the state after each iota update is saved.
         save_header : str
             Header string for the saved parameter files.
+        logfinaliter : bool
+            Whether or not to log and write the final state after the minimization, by default False. Passed to _minimize()
+        dt: float | None
+            Initial step-size of the minimizer, optional. Passed to _minimize()
 
         Returns
         -------
@@ -364,11 +443,6 @@ class MinimizationState(State):
         iters_used_start = self.get_iterations()
         self.reset_descent()
         iters_used = 0
-        if "logfinaliter" in kwargs_minimize:
-            logfinaliter = kwargs_minimize["logfinaliter"]
-            del kwargs_minimize["logfinaliter"]
-        else:
-            logfinaliter = False
 
         iota_bspl = self.iota
 
@@ -384,10 +458,10 @@ class MinimizationState(State):
                 self._state.reset_LA()
 
             self._minimize(
+                dt=dt,
                 logfinaliter=logfinaliter,
                 maxIter=min(maxIter - iters_used, maxIter_per_update),
                 minimize_tol=minimize_tol,
-                **kwargs_minimize,
             )
 
             (iota_bspl, self.rms_iota, delta_iota, delta_I_tor_max, rms_iota_fit) = (
@@ -424,42 +498,31 @@ class MinimizationState(State):
 
     def _solve_with_current(
         self,
-        iota_tol: float,
-        minimize_tol: float,
-        maxIter: int,
-        maxUpdates: int,
-        reset_LA: bool,
-        target: Literal["iota", "iota_and_force", "auto"],
         save_intermediate: bool,
         save_header: str,
+        minimize_tol: float | None = None,
+        maxIter: int | None = None,
         **kwargs_minimize,
     ):
         """Fixed-boundary run with prescribed current profile.
 
         Parameters
         ----------
-        iota_tol : float
-            Tolerance on the iota-discrepancy.
-        minimize_tol : float | None
-            Tolerance on the norm of the forces for X1, X2 and lambda.
-        minimize_tol : float | None
-            Tolerance on the norm of the forces for X1, X2 and lambda.
-        maxUpdates : int
-            Maximum number of Picard iterations.
-        reset_LA : bool
-            If True, lambda is reset after an iota update.
-        target : Literal["iota", "iota_and_force", "auto"]
-            Optimization strategy for the Picard algorithm:
-            "iota" = aggressively optimize for iota regardless of the force tolerance;
-            "iota_and_force" = optimize for both iota and force tolerances;
-            "auto" = start with target "iota" and then switch to target "iota_and_force";
         save_intermediate : bool
             If True, the state after a Picard iteration is saved.
         save_header : str
             Header string for the saved parameter files.
+        maxIter : int | None, optional
+            Maximum number of iterations used for this minimization call, None (default) reads the value from the parameter dictionary.
+        minimize_tol : float | None, optional
+            Tolerance for the energy minimization, None (default) reads the value from the parameter dictionary.
         kwargs_minimize : dict
             Additional keyword arguments passed to the energy minimization routine.
         """
+        if maxIter is None:
+            maxIter = self.parameters["maxIter"]
+        if minimize_tol is None:
+            minimize_tol = self.parameters["minimize_tol"]
 
         t0 = time.time()
         log_minimize_target = np.log10(minimize_tol)
@@ -473,9 +536,9 @@ class MinimizationState(State):
 
         if n_stages > 1:
             iota_tols = np.ones(n_stages) * AUTO_PICARD_CURRENT_IOTA_TOL
-            iota_tols[-1] = iota_tol
+            iota_tols[-1] = self.picard_current.iota_tol
         else:
-            iota_tols = [iota_tol]
+            iota_tols = [self.picard_current.iota_tol]
         iota_tol = AUTO_STAGE_IOTA_INIT_IOTA_TOL
 
         iters_used_start = self.get_iterations()
@@ -487,14 +550,14 @@ class MinimizationState(State):
         self.rms_iota_fit_over_run = []
 
         # target iota only
-        if target == "iota" or target == "auto":
+        if self.picard_current.target == "iota" or self.picard_current.target == "auto":
             self._optimize_current(
                 maxIter=maxIter,
                 maxIter_per_update=min(AUTO_STAGE_IOTA_INIT_MAXITER, maxIter),
                 iota_tol=iota_tol,
                 minimize_tol=minimize_tols[0],
-                maxUpdates=maxUpdates,
-                reset_LA=reset_LA,
+                maxUpdates=self.picard_current.max_updates,
+                reset_LA=self.picard_current.reset_LA,
                 save_intermediate=save_intermediate,
                 save_header=save_header,
                 **kwargs_minimize,
@@ -505,7 +568,10 @@ class MinimizationState(State):
         # target iota and forces
         logger.debug(f"minmize tols {minimize_tols}")
         logger.debug(f"iota tols {iota_tols}")
-        if target == "iota_and_force" or target == "auto":
+        if (
+            self.picard_current.target == "iota_and_force"
+            or self.picard_current.target == "auto"
+        ):
             if iters_used < maxIter:
                 for minimize_tol, iota_tol in zip(minimize_tols, iota_tols):
                     logger.debug(f"minimize_tol:{minimize_tol}")
@@ -519,8 +585,8 @@ class MinimizationState(State):
                         maxIter_per_update=maxIter - iters_used,
                         iota_tol=iota_tol,
                         minimize_tol=minimize_tol,
-                        maxUpdates=maxUpdates,
-                        reset_LA=reset_LA,
+                        maxUpdates=self.picard_current.max_updates,
+                        reset_LA=self.picard_current.reset_LA,
                         save_intermediate=save_intermediate,
                         save_header=save_header,
                         **kwargs_minimize,
@@ -543,11 +609,6 @@ class MinimizationState(State):
 
     def solve(
         self,
-        iota_tol: float,
-        maxUpdates: int,
-        picard_target: Literal["iota", "iota_and_force", "auto"],
-        I_tor: Callable | None = None,
-        reset_LA: bool = False,
         save_intermediate: bool = False,
         save_header: str = "",
         **kwargs,
@@ -556,19 +617,6 @@ class MinimizationState(State):
 
         Parameters
         ----------
-        iota_tol : float
-            Tolerance on the iota-discrepancy. Only relevant during current optimization.
-        maxUpdates : int
-            Maximum number of Picard iterations. Only relevant during current optimization
-        target : Literal["iota", "iota_and_force", "auto"]
-            Optimization strategy for the Picard algorithm:
-            "iota" = aggressively optimize for iota regardless of the force tolerance;
-            "iota_and_force" = optimize for both iota and force tolerances;
-            "auto" = start with target "iota" and then switch to target "iota_and_force";
-        I_tor : Callable | None, optional
-            Function to evaluate Itor on rho**2. If None, a fixed iota run is performed.
-        reset_LA : bool, optional
-            If True lambda is reset, by default False
         save_intermediate : bool
             If True, the state after a Picard iteration is saved.
         save_header : str
@@ -579,26 +627,15 @@ class MinimizationState(State):
         ValueError
             If iota_target is unknown.
         """
-        if picard_target not in ["iota", "iota_and_force", "auto"]:
-            raise ValueError(
-                f"""Unknown picard_current["target"]: {picard_target}! target has to be "iota","iota_and_force" or "auto"."""
-            )
-
-        if I_tor is not None:
+        if self.I_tor is not None:
             logger.debug("minimize with current optimization")
-            self.I_tor = I_tor
             self._solve_with_current(
-                iota_tol=iota_tol,
-                maxUpdates=maxUpdates,
-                reset_LA=reset_LA,
-                target=picard_target,
                 save_intermediate=save_intermediate,
                 save_header=save_header,
                 **kwargs,
             )
         else:
             logger.debug("minimize with fixed iota")
-            self.I_tor = None
             self._minimize(**kwargs)
 
     # ==== Free Boundary ==== #

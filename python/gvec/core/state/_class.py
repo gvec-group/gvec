@@ -74,12 +74,12 @@ class State:
     # === Additional Constructors === #
 
     @classmethod
-    def new(cls, parameters: Mapping, rundir: str | Path | None = None):
+    def new(cls, parameters: Mapping, rundir: str | Path | None = None, **kwargs):
         if rundir is None:
             rundir = Path.cwd()
         parameterfile = Path(rundir) / "parameter.ini"
         gvec.util.write_parameters(parameters, parameterfile)
-        return cls(parameterfile)
+        return cls(parameterfile, **kwargs)
 
     # === Binding to the Fortran library === #
 

@@ -26,6 +26,7 @@ from gvec.core.compute import (
     table_of_quantities,
 )
 from gvec.core.run import run, FixedBoundaryRun, FixedBoundaryRun as Run
+from gvec.core.minimize import MinimizationState
 from gvec.coils import CoilSet
 
 # submodules
