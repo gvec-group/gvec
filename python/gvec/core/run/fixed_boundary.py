@@ -65,24 +65,21 @@ class FixedBoundaryRun(AbstractRun):
             shutil.rmtree(self.rundir)
         self.rundir.mkdir()
         self.logger.debug(f"Created run directory {self.rundir}")
-
-        gvec.util.write_parameter_file_ini(
-            gvec.util.flatten_parameters(self._state_parameters),
-            self.rundir / f"parameters_stage_{self.nth_stage:03d}_initial.ini",
-            header=f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n"
-            f"!Created at {datetime.now().isoformat()}\n"
-            f"!pyGVEC v{gvec.__version__}\n",
+        self.state = MinimizationState.new(
+            self._state_parameters,
+            rundir=self.rundir,
+            statefile=self.state.statefile,
+            stdout_path=Path("stdout.txt") if self.redirect_gvec_stdout else None,
+            header=[
+                "GVEC parameter file",
+                f"Auto-generated with `pygvec run` (stage {self.nth_stage})",
+                f"Created at {datetime.now().isoformat()}",
+                f"pyGVEC v{gvec.__version__}",
+            ],
         )
 
         with gvec.util.chdir(self.rundir):
             # write parameterfile & run GVEC
-            self.state = MinimizationState(
-                parameterfile=f"parameters_stage_{self.nth_stage:03d}_initial.ini",
-                statefile=self.state.statefile,
-                stdout_path=Path("stdout.txt") if self.redirect_gvec_stdout else None,
-                I_tor=self._state_parameters.get("I_tor", None),
-                picard_current=self._state_parameters.get("picard_current", None),
-            )
             if self.save_intermediate:
                 self.state.save(
                     f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n"
