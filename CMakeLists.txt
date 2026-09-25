@@ -160,27 +160,28 @@ ENDIF()
 SET(GVEC_COMPILE_FLAGS "")
 
 IF(CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
+  SET(GVEC_ADD_COMPILE_FLAGS_MACHINE "-march=native" CACHE STRING "additional machine dependent compile flags")
   SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fdefault-real-8 -fdefault-double-8 -fbackslash -ffree-line-length-0 -DGNU")
-  SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS}     -O3 -march=native -finline-functions") #gives segfault: -fstack-arrays
-  SET(CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -pg -O3 -march=native -finline-functions") #gives segfault: -fstack-arrays
+  SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS}     -O3 -finline-functions") #gives segfault: -fstack-arrays
+  SET(CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -pg -O3 -finline-functions") #gives segfault: -fstack-arrays
   SET(CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -g -O0 -ggdb3 -ffpe-trap=invalid -fbounds-check -finit-real=snan -fbacktrace -Wall -Wextra")
   SET(GVEC_COMPILE_FLAGS "-fPIC")
 
 ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
   # machine specific flags
   IF(${CMAKE_HOSTNAME} MATCHES "mpcdfcirunner")
-    SET(GVEC_ADD_COMPILE_FLAGS_MACHINE "-xCORE-AVX-I" CACHE STRING "additional machine dependent compile flags (for Intel)")
+    SET(GVEC_ADD_COMPILE_FLAGS_MACHINE "-xCORE-AVX-I" CACHE STRING "additional machine dependent compile flags")
   ELSEIF(${CMAKE_HOSTNAME} MATCHES "raven")
-    SET(GVEC_ADD_COMPILE_FLAGS_MACHINE "-xCORE-AVX512 -qopt-zmm-usage=high -align array64byte" CACHE STRING "additional machine dependent compile flags (for Intel)")
+    SET(GVEC_ADD_COMPILE_FLAGS_MACHINE "-xCORE-AVX512 -qopt-zmm-usage=high -align array64byte" CACHE STRING "additional machine dependent compile flags")
   ELSEIF(${CMAKE_HOSTNAME} MATCHES "marconi")
-    SET(GVEC_ADD_COMPILE_FLAGS_MACHINE "-axMIC-AVX512" CACHE STRING "additional machine dependent compile flags (for Intel)") # for BW and KNL
+    SET(GVEC_ADD_COMPILE_FLAGS_MACHINE "-axMIC-AVX512" CACHE STRING "additional machine dependent compile flags") # for BW and KNL
   ELSE()
-    SET(GVEC_ADD_COMPILE_FLAGS_MACHINE "-xHost" CACHE STRING "additional machine dependent compile flags (for Intel)")
+    SET(GVEC_ADD_COMPILE_FLAGS_MACHINE "-xHost" CACHE STRING "additional machine dependent compile flags")
   ENDIF()
 
   SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -r8 -i4 -traceback -warn all -shared-intel -DINTEL")
-  SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O3 ${GVEC_ADD_COMPILE_FLAGS_MACHINE} -qopt-report=5 -diag-disable=10397 -no-prec-div")
-  SET(CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -pg -O3 ${GVEC_ADD_COMPILE_FLAGS_MACHINE} -qopt-report0 -qopt-report-phase=vec -no-prec-div")
+  SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O3 -qopt-report=5 -diag-disable=10397 -no-prec-div")
+  SET(CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -pg -O3 -qopt-report0 -qopt-report-phase=vec -no-prec-div")
   SET(CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -g -O0 -fpe0 -traceback -check noarg_temp_created,noformat,nooutput_conversion,pointer -init=snan -init=arrays")
   IF(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS "2021.2")
     SET(CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} -check all,uninit") # crash with ifx; possibly related to netCDF
@@ -188,18 +189,21 @@ ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
   SET(GVEC_COMPILE_FLAGS "-assume bscc -fPIC")
 
 ELSEIF(CMAKE_Fortran_COMPILER_ID MATCHES "Cray")
+  SET(GVEC_ADD_COMPILE_FLAGS_MACHINE "" CACHE STRING "additional machine dependent compile flags")
   SET(CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -f free -s real64 -em -DCRAY")
   SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O2 -hfp3 -p . -rm")
   SET(CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -O2 -hfp3 -h profile_generate -p . -rm")
   SET(CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -O0 -eD -rm")
 
 ELSEIF(CMAKE_Fortran_COMPILER_ID MATCHES "PGI")
+  SET(GVEC_ADD_COMPILE_FLAGS_MACHINE "" CACHE STRING "additional machine dependent compile flags")
   SET(CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -fPIC")
   SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O3")
   SET(CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -O3")
   SET(CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -O0 -g")
 
 ELSEIF(CMAKE_Fortran_COMPILER_ID MATCHES "NVHPC")
+  SET(GVEC_ADD_COMPILE_FLAGS_MACHINE "" CACHE STRING "additional machine dependent compile flags")
   SET(CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -i4 -fPIC -traceback -Wall -DNVHPC")
   SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O3")
   SET(CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -pg -O3")
@@ -213,6 +217,9 @@ ELSEIF(CMAKE_Fortran_COMPILER_ID MATCHES "NVHPC")
 ELSE()
   MESSAGE(SEND_ERROR "Unknown compiler: ${CMAKE_Fortran_COMPILER_ID}")
 ENDIF()
+
+SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} ${GVEC_ADD_COMPILE_FLAGS_MACHINE}")
+SET(CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS_PROFILE} ${GVEC_ADD_COMPILE_FLAGS_MACHINE}")
 
 # =========================================================================
 # OpenMP
