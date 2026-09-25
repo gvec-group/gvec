@@ -136,7 +136,7 @@ class FreeBoundaryRun(AbstractRun):
             np.full(shape=(len(m), fb_updates), fill_value=np.nan),
         )
 
-        if self.curr_constraint:
+        if self.state.I_tor:
             diagnostics["iota"] = (
                 ("rho_iota", "updates"),
                 np.full(shape=(DIAGNOSTICS_NPOINTS, fb_updates), fill_value=np.nan),
@@ -411,8 +411,8 @@ class FreeBoundaryRun(AbstractRun):
             self.iters_used = self.state.get_iterations()
 
             # NOTE: always use self-consistent I_tor values
-            if self.curr_constraint:
-                self.I_tor_boundary = self.I_tor(1.0)
+            if self.state.I_tor:
+                self.I_tor_boundary = self.state.I_tor(1.0)
             else:
                 self.I_tor_boundary = (
                     self.state.evaluate("I_tor", rho=1.0).squeeze()["I_tor"].item()
@@ -554,8 +554,8 @@ class FreeBoundaryRun(AbstractRun):
                         self.xnorm = self.state.get_xnorm() / dt
                         self.gnorm = self.state.get_gnorm()
                         # NOTE: always use self consistent I_tor
-                        # if self.curr_constraint:
-                        #     self.I_tor_boundary = self.I_tor(1.0)
+                        # if self.state.I_tor:
+                        #     self.I_tor_boundary = self.state.I_tor(1.0)
                         # else:
                         self.I_tor_boundary = (
                             self.state.evaluate("I_tor", rho=1.0).squeeze()["I_tor"].item()
@@ -578,7 +578,7 @@ class FreeBoundaryRun(AbstractRun):
                         logger.info(f"Time for free boundary update: {t_fb_1 - t_fb_0:.4}s")
                         reset_minimizer = False
                         self.iters_used = self.state.get_iterations()
-                        if not self.curr_constraint:
+                        if self.state.I_tor is None:
                             self.I_tor_boundary = self.state.evaluate(
                                 "I_tor", rho=1.0
                             ).I_tor.item()
@@ -733,7 +733,7 @@ class FreeBoundaryRun(AbstractRun):
             "gnorm",
             "gnorm_mavg",
         ]
-        if self.curr_constraint:
+        if self.state.I_tor:
             fig_iota, ax_iota = plt.subplots()
             quantities.append("iota")
         diagnostics = self.diagnostics_stage
@@ -808,7 +808,7 @@ class FreeBoundaryRun(AbstractRun):
             )
 
             updates_offset += ds.updates.max()
-            if self.curr_constraint:
+            if self.state.I_tor:
                 max_iter = ds.updates.max()
                 for update in ds.updates:
                     ds_aux = ds.sel(updates=update)
@@ -825,7 +825,7 @@ class FreeBoundaryRun(AbstractRun):
                     color=f"C{ith_stage}",
                     label=r"final $\iota$ " + stage.replace("_", " "),
                 )
-        if self.curr_constraint:
+        if self.state.I_tor:
             ax_iota.set(xlabel=r"$\rho$", ylabel=r"$\iota$")
             _add_rationals_to_iota_plot(ax_iota, nfp=self.state.nfp)
             ax_iota.legend()
@@ -839,7 +839,7 @@ class FreeBoundaryRun(AbstractRun):
             ax.grid("on")
             ax.legend(ncol=2)
         out = ((fig_fb, axs_fb),)
-        if self.curr_constraint:
+        if self.state.I_tor:
             out += ((fig_iota, ax_iota),)
         return out
 

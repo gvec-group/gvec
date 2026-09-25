@@ -73,20 +73,6 @@ class AbstractRun(ABC):
 
         self.logger = logging.getLogger("gvec.run")
 
-        if "picard_current" not in self.parameters:
-            self.parameters["picard_current"] = "off"
-            self.curr_constraint = False
-
-        match self.parameters["picard_current"]:
-            case "off":
-                self.curr_constraint = False
-                self.parameters["picard_current"] = cidict()
-            case "auto":
-                self.curr_constraint = True
-                self.parameters["picard_current"] = cidict()
-            case cidict():
-                self.curr_constraint = True
-
         self.filetype = parameter_format
 
         project_dir = Path(f"{self.parameters['ProjectName']}_gvec_stages")
@@ -114,11 +100,6 @@ class AbstractRun(ABC):
 
         if "minimize_tol" not in self.parameters:
             self.parameters["minimize_tol"] = DEFAULT_MINIMIZE_TOL
-
-        if "I_tor" in self.parameters:
-            self.curr_constraint = True
-        else:
-            self.curr_constraint = False
 
         if "stages" in self.parameters:
             self.stages = self.parameters["stages"]
@@ -185,14 +166,9 @@ class AbstractRun(ABC):
                 self.stages[0] |= perturbation
                 self.stages[0]["boundary_perturb"] = True
 
-        # load I_tor profile (and set initial iota if not provided)
-        if self.curr_constraint:
-            self._set_I_tor(self.parameters)
-            self.iota_rms = None
-            if "iota" not in self.parameters:
-                self.parameters["iota"] = cidict({"type": "polynomial", "coefs": [0.0]})
-        else:
-            self.I_tor = None
+        # set initial iota if not provided
+        if "I_tor" in self.parameters and "iota" not in self.parameters:
+            self.parameters["iota"] = cidict(type="polynomial", coefs=[0.0])
 
         # account for the change in relative path of restart, hmap, etc. files
         for key, value in self.parameters.items():
@@ -230,21 +206,6 @@ class AbstractRun(ABC):
             project_dir / parameters_stages_name,
         )
 
-    def _set_I_tor(self, params: Mapping):
-        """Evaluate and set the target toroidal current profile at linearly spaced positions in rho.
-
-        Raises
-        ------
-        gvec.errors.InvalidParameterError
-            If an unknown profile type is provided.
-        """
-        profile = profile_from_parameters(params["I_tor"])
-        if abs(profile(0.0)) > 1e-8:
-            raise gvec.errors.InvalidParameterError(
-                f"Toroidal current profile not zero at magnetic axis! I_tor(rho=0): {profile(0.0)}"
-            )
-        self.I_tor = profile
-
     def _reset_params_to_original(self):
         """
         Reset the parameters to the original values. Except for `iota` and `maxIter`, which is limited by `totaliter`.
@@ -269,39 +230,18 @@ class AbstractRun(ABC):
             Dictionary specifying which parameters are to be changed from the original parameter set.
         """
         stage = cidict(stage)
-        set_I_tor = False
 
         for key, value in stage.lower_items():
             if key == "maxiter":
                 self._state_parameters[key] = min(self.totaliter - self.GVEC_iter_used, value)
-            if key == "picard_current":
-                match value:
-                    case "auto":
-                        self._state_parameters[key] = cidict()
-                        self.curr_constraint = True
-                        continue
-                    case "off":
-                        self.curr_constraint = False
-                        self._state_parameters[key] = cidict()
-                        continue
-                    case Mapping():
-                        self.curr_constraint = True
 
-            if key in ["iota", "pres", "sgrid", "i_tor"]:
+            if isinstance(value, Mapping):
                 if key not in self._state_parameters:
                     self._state_parameters[key] = cidict()
-                if key == "i_tor":
-                    set_I_tor = True
-                for subkey, subvalue in value.items():
-                    self._state_parameters[key][subkey] = subvalue
-            if key in self._state_parameters and isinstance(value, Mapping):
                 for subkey, subvalue in value.items():
                     self._state_parameters[key][subkey] = subvalue
             else:
                 self._state_parameters[key] = value
-
-        if set_I_tor:
-            self._set_I_tor(self._state_parameters)
 
     def run(
         self,
@@ -360,7 +300,7 @@ class AbstractRun(ABC):
             self._print_progress()
 
             self._run_stage()
-            if self.curr_constraint:
+            if self.state.I_tor:
                 self._state_parameters["iota"] = self.state.parameters["iota"]
             if (
                 self.max_force > self._state_parameters["minimize_tol"]
@@ -374,7 +314,7 @@ class AbstractRun(ABC):
         end_time = time.time()
 
         final_iota_str = ""
-        if self.curr_constraint:
+        if self.state.I_tor:
             final_iota_str += f"\n and rms Δiota = {self.state.rms_iota:.2e}"
 
         final_message = (
@@ -411,7 +351,9 @@ class AbstractRun(ABC):
             f"!Created at {datetime.now().isoformat()}\n"
             f"!pyGVEC v{gvec.__version__}\n",
         )
+        I_tor = self.state.I_tor
         self.state = gvec.State(final_parameter_file.absolute(), final_statefile.absolute())
+        self.state.I_tor = I_tor  # restore I_tor as it is required for plotting diagnostics
         if keep_intermediates is None:
             shutil.rmtree(self.project_dir)
             self.project_dir = None

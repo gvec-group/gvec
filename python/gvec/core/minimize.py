@@ -30,6 +30,7 @@ from gvec.core.compute import fluxsurface_integral
 from gvec.core.state import State
 from gvec.core.state._binding import with_binding
 from gvec.config import ConfigABC
+from gvec.errors import InvalidParameterError
 from gvec.lib import _state, c_rProfile, t_rProfile_poly, t_rProfile_bspl
 
 
@@ -69,6 +70,22 @@ class PicardCurrentConfig(ConfigABC):
         self.max_updates = max_updates
         self.reset_LA = reset_LA
 
+    @classmethod
+    def from_dict(cls, config: Mapping | Literal["auto", "off"] | None):
+        if config == "off":
+            warnings.warn(
+                "picard_current='off' is deprecated. Specify I_tor=None (default) to use a fixed iota profile.",
+                DeprecationWarning,
+            )
+            return cls()
+        elif config == "auto":
+            warnings.warn(
+                "picard_current='auto' is deprecated. Leave picard_current=None for default behavior.",
+                DeprecationWarning,
+            )
+            return cls()
+        return super().from_dict(config)
+
 
 # === MinimizationState class === #
 
@@ -80,8 +97,17 @@ class MinimizationState(State):
         statefile=None,
         stdout_path=None,
         I_tor: Mapping | None = None,
-        picard_current: Mapping | None = None,
+        picard_current: Mapping | Literal["auto", "off"] | None = None,
     ):
+        if picard_current == "off" and I_tor is not None:
+            raise InvalidParameterError(
+                "picard_current='off' is deprecated and incompatible with I_tor. Specify I_tor=None (default) to use a fixed iota profile."
+            )
+        elif picard_current == "auto" and I_tor is None:
+            raise InvalidParameterError(
+                "picard_current='auto' is deprecated and incompatible with I_tor=None. Specify a current profile I_tor to use picard_current='auto'."
+            )
+
         super().__init__(parameterfile, statefile, stdout_path)
         r_GP, r_w, t_n, t_w, z_n, z_w = self.get_integration_points()
 
@@ -90,6 +116,10 @@ class MinimizationState(State):
 
         if I_tor is not None:
             self.I_tor = profile_from_parameters(I_tor)
+            if abs(value := self.I_tor(0.0)) > 1e-8:
+                raise InvalidParameterError(
+                    f"Toroidal current profile is not zero at magnetic axis! I_tor(rho=0): {value}"
+                )
         else:
             self.I_tor = None
         self.picard_current = PicardCurrentConfig.from_dict(picard_current)
