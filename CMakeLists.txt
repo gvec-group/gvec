@@ -118,7 +118,7 @@ IF (NOT CMAKE_BUILD_TYPE)
       "Choose the type of build, options are: Debug / Release / Profile."
       FORCE)
   SET_PROPERTY(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Debug Release Profile)
-ENDIF (NOT CMAKE_BUILD_TYPE)
+ENDIF ()
 
 IF (CMAKE_BUILD_TYPE MATCHES "Debug")
   ADD_DEFINITIONS("-DDEBUG")
@@ -158,13 +158,16 @@ ENDIF()
 # =========================================================================
 
 SET(GVEC_COMPILE_FLAGS "")
+# assumed default flags:
+# RELEASE: -O3
+# DEBUG: -g
 
 IF(CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
   SET(GVEC_ADD_COMPILE_FLAGS_MACHINE "-march=native" CACHE STRING "additional machine dependent compile flags")
   SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fdefault-real-8 -fdefault-double-8 -fbackslash -ffree-line-length-0 -DGNU")
-  SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -O3 -finline-functions") #gives segfault: -fstack-arrays
+  SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -finline-functions") #gives segfault: -fstack-arrays
   SET(CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS_PROFILE} -pg -O3 -finline-functions") #gives segfault: -fstack-arrays
-  SET(CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS_DEBUG} -g -O0 -ggdb3 -ffpe-trap=invalid -fbounds-check -finit-real=snan -fbacktrace -Wall -Wextra")
+  SET(CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS_DEBUG} -O0 -ggdb3 -ffpe-trap=invalid -fbounds-check -finit-real=snan -fbacktrace -Wall -Wextra")
   SET(GVEC_COMPILE_FLAGS "-fPIC")
 
 ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
@@ -180,9 +183,9 @@ ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
   ENDIF()
 
   SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -r8 -i4 -traceback -warn all -shared-intel -DINTEL")
-  SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -O3 -qopt-report=5 -diag-disable=10397 -no-prec-div")
+  SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -qopt-report=5 -diag-disable=10397 -no-prec-div")
   SET(CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS_PROFILE} -pg -O3 -qopt-report0 -qopt-report-phase=vec -no-prec-div")
-  SET(CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS_DEBUG} -g -O0 -fpe0 -traceback -check noarg_temp_created,noformat,nooutput_conversion,pointer -init=snan -init=arrays")
+  SET(CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS_DEBUG} -O0 -fpe0 -traceback -check noarg_temp_created,noformat,nooutput_conversion,pointer -init=snan -init=arrays")
   IF(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS "2021.2")
     SET(CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} -check all,uninit") # crash with ifx; possibly related to netCDF
   ENDIF()
@@ -198,16 +201,16 @@ ELSEIF(CMAKE_Fortran_COMPILER_ID MATCHES "Cray")
 ELSEIF(CMAKE_Fortran_COMPILER_ID MATCHES "PGI")
   SET(GVEC_ADD_COMPILE_FLAGS_MACHINE "" CACHE STRING "additional machine dependent compile flags")
   SET(CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -fPIC")
-  SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -O3")
+  # SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE}")
   SET(CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS_PROFILE} -O3")
-  SET(CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS_DEBUG} -O0 -g")
+  SET(CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS_DEBUG} -O0")
 
 ELSEIF(CMAKE_Fortran_COMPILER_ID MATCHES "NVHPC")
   SET(GVEC_ADD_COMPILE_FLAGS_MACHINE "" CACHE STRING "additional machine dependent compile flags")
   SET(CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -i4 -fPIC -traceback -Wall -DNVHPC")
-  SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -O3")
+  # SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE}")
   SET(CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS_PROFILE} -pg -O3")
-  SET(CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS_DEBUG} -O0  -g ") # -C option fails for LEN(*) STRINGS
+  SET(CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS_DEBUG} -O0") # -C option fails for LEN(*) STRINGS
   IF(USE_OPENMP)
     SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -mp=multicore") # for now not using the gpu for OpenMP!
   ELSE()
@@ -220,6 +223,11 @@ ENDIF()
 
 SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} ${GVEC_ADD_COMPILE_FLAGS_MACHINE}")
 SET(CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS_PROFILE} ${GVEC_ADD_COMPILE_FLAGS_MACHINE}")
+
+MESSAGE(STATUS "CMAKE_Fortran_FLAGS is ${CMAKE_Fortran_FLAGS}")
+MESSAGE(STATUS "CMAKE_Fortran_FLAGS_RELEASE is ${CMAKE_Fortran_FLAGS_RELEASE}")
+MESSAGE(STATUS "CMAKE_Fortran_FLAGS_PROFILE is ${CMAKE_Fortran_FLAGS_PROFILE}")
+MESSAGE(STATUS "CMAKE_Fortran_FLAGS_DEBUG is ${CMAKE_Fortran_FLAGS_DEBUG}")
 
 # =========================================================================
 # OpenMP
