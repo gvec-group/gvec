@@ -210,7 +210,8 @@ ELSEIF(CMAKE_Fortran_COMPILER_ID MATCHES "NVHPC")
   SET(CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -i4 -fPIC -traceback -Wall -DNVHPC")
   # SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE}")
   SET(CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS_PROFILE} -pg -O3")
-  SET(CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS_DEBUG} -O0") # -C option fails for LEN(*) STRINGS
+  # -Mbounds (default for DEBUG) fails with NVHPC 23.11
+  SET(CMAKE_Fortran_FLAGS_DEBUG   "-g -O0") # -C option fails for LEN(*) STRINGS
   IF(USE_OPENMP)
     SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -mp=multicore") # for now not using the gpu for OpenMP!
   ELSE()
