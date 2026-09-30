@@ -8,6 +8,7 @@ This module provides functions for computing the G-Frame from a surface, cutting
 import logging
 from pathlib import Path
 from typing import Literal
+import warnings
 
 import numpy as np
 import xarray as xr
@@ -731,6 +732,7 @@ def construct_gframe_from_surface(
     boundary_coefficients: bool = False,
     writeFiles: bool = True,
     loglevel: Literal["WARNING", "INFO", "DEBUG"] | None = None,
+    logger: logging.Logger | None = None,
 ):
     """
     Construct a G-Frame from a surface given by its cartesian points.
@@ -770,6 +772,8 @@ def construct_gframe_from_surface(
         If True, write the GVEC parameters to file and the G-frame data to netcdf file.
     loglevel : Literal["WARNING", "INFO", "DEBUG"] | None, optional
         Set the loglevel for the gvec logger.
+    logger: logging.Logger, optional
+        Override the default logger with a custom logger. DEPRECATED!
 
     Returns
     -------
@@ -779,9 +783,16 @@ def construct_gframe_from_surface(
         Dictionary containing the G-frame data.
     """
 
-    logging_setup()
-    if loglevel is not None:
-        logger.setLevel(loglevel)
+    if logger is not None:
+        warnings.warn(
+            "The logger argument is deprecated and will be removed in future versions. Use loglevel instead.",
+            DeprecationWarning,
+        )
+    else:
+        logger = logging.getLogger(__name__)
+        logging_setup()
+        if loglevel is not None:
+            logger.setLevel(loglevel)
 
     if not (xyz_in.shape[0] // nfp) * nfp == xyz_in.shape[0]:
         raise ValueError(

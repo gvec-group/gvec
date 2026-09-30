@@ -59,7 +59,7 @@ class State:
             raise FileNotFoundError(f"State file {self.statefile} does not exist.")
         self.parameters = gvec.util.read_parameters(
             self.parameterfile, format="ini"
-        )  # read-only !!!
+        )  # usually read-only, but MinimizationState will modify it
 
     def __del__(self):
         logger.debug(f"Deleting state {self!r}")
@@ -74,12 +74,18 @@ class State:
     # === Additional Constructors === #
 
     @classmethod
-    def new(cls, parameters: Mapping, rundir: str | Path | None = None):
+    def new(
+        cls,
+        parameters: Mapping,
+        rundir: str | Path | None = None,
+        header: list[str] | str | None = None,
+        **kwargs,
+    ):
         if rundir is None:
             rundir = Path.cwd()
         parameterfile = Path(rundir) / "parameter.ini"
-        gvec.util.write_parameters(parameters, parameterfile)
-        return cls(parameterfile)
+        gvec.util.write_parameters(parameters, parameterfile, header=header)
+        return cls(parameterfile, **kwargs)
 
     # === Binding to the Fortran library === #
 

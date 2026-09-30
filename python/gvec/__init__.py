@@ -26,10 +26,11 @@ from gvec.core.compute import (
     table_of_quantities,
 )
 from gvec.core.run import run, FixedBoundaryRun, FixedBoundaryRun as Run
+from gvec.core.minimize import MinimizationState
 from gvec.coils import CoilSet
 
 # submodules
 
 from gvec import core, scripts, plotting, util
-from gvec import errors, fourier, quantities, surface, vtk, gframe
+from gvec import coils, config, errors, fourier, quantities, surface, vtk, gframe
 # lib and _libpygvec are automatically generated, but stay hidden

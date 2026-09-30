@@ -690,20 +690,33 @@ def write_parameters(
     parameters: Mapping,
     path: Path | str = "parameter.ini",
     format: Literal["ini", "yaml", "toml"] | None = None,
+    header: list[str] | str | None = None,
 ):
     import yaml
+    from gvec._version import __version__
+
+    if header is None:
+        header = [
+            "GVEC parameter file",
+            f"pyGVEC v{__version__}",
+        ]
 
     path = Path(path)
     # auto-detect format
     if format is None:
         format = path.suffix[1:]
+    if isinstance(header, str):
+        header = [header]
 
     if format == "ini":
         outputs = flatten_parameters(parameters)
+        header = "".join([f"!{line}\n" for line in header])
         write_parameter_file_ini(outputs, path)
     elif format == "yaml":
         outputs = stringify_mn_parameters(parameters)
         with open(path, "w") as file:
+            for line in header:
+                file.write(f"# {line}\n")
             # ToDo: specify style/flow?
             yaml.safe_dump(serialize(outputs), file, sort_keys=False)
     elif format == "toml":
@@ -714,7 +727,7 @@ def write_parameters(
         raise ValueError(f"Unknown parameter file format {format}")
 
 
-def format_toml(parameters: CaseInsensitiveDict):
+def format_toml(parameters: CaseInsensitiveDict, header: list[str] = []):
     """Format GVEC parameters as a TOML document.
 
     Parameters
@@ -731,7 +744,6 @@ def format_toml(parameters: CaseInsensitiveDict):
     """
     from tomlkit import document, comment, nl, array, table, aot, key as toml_key
     from tomlkit.exceptions import ConvertError
-    from gvec._version import __version__
 
     def add_params(doc, keys, parameters):
         if any(key in parameters for key in keys):
@@ -755,9 +767,10 @@ def format_toml(parameters: CaseInsensitiveDict):
     parameters: CaseInsensitiveDict = stringify_mn_parameters(parameters)
 
     doc = document()
-    doc.add(comment("GVEC parameter file"))
-    doc.add(comment(f"written by pyGVEC v{__version__}"))
-    doc.add(nl())
+    if header:
+        for line in header:
+            doc.add(comment(line))
+        doc.add(nl())
 
     MAIN_PARAMS = ["ProjectName", "nfp", "which_hmap", "PhiEdge"]
     for key in MAIN_PARAMS:

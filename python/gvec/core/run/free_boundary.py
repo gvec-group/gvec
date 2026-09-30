@@ -22,21 +22,12 @@ from .abstract import (
     AbstractRun,
     DEFAULT_MINIMIZE_TOL,
     DEFAULT_TOTALITER,
-    AUTO_PICARD_CURRENT_IOTA_TOL_TARGET,
-    DEFAULT_PICARD_CURRENT_MAXRESTARTS,
     DIAGNOSTICS_NPOINTS,
 )
 from gvec.util import write_parameter_file_ini, flatten_parameters, chdir
 from gvec.core.compute import ev2ft
 from gvec import fourier
 from gvec.lib import _state
-
-try:
-    import fbtools
-
-    has_fbtools = True
-except ImportError:
-    has_fbtools = False
 
 
 DEFAULT_FORCE_RATIO = 0.01
@@ -145,7 +136,7 @@ class FreeBoundaryRun(AbstractRun):
             np.full(shape=(len(m), fb_updates), fill_value=np.nan),
         )
 
-        if self.curr_constraint:
+        if self.state.I_tor:
             diagnostics["iota"] = (
                 ("rho_iota", "updates"),
                 np.full(shape=(DIAGNOSTICS_NPOINTS, fb_updates), fill_value=np.nan),
@@ -383,23 +374,20 @@ class FreeBoundaryRun(AbstractRun):
         self.rundir.mkdir()
         logger.debug(f"Created run directory {self.rundir}")
 
-        write_parameter_file_ini(
-            flatten_parameters(self._state_parameters),
-            self.rundir / f"parameters_stage_{self.nth_stage:03d}_initial.ini",
-            header=f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n"
-            f"!Created at {datetime.now().isoformat()}\n"
-            f"!pyGVEC v{gvec.__version__}\n",
+        self.state = MinimizationState.new(
+            self._state_parameters,
+            rundir=self.rundir,
+            statefile=self.state.statefile,
+            stdout_path=Path("stdout.txt") if self.redirect_gvec_stdout else None,
+            header=[
+                "GVEC parameter file",
+                f"Auto-generated with `pygvec run` (stage {self.nth_stage})",
+                f"Created at {datetime.now().isoformat()}",
+                f"pyGVEC v{gvec.__version__}",
+            ],
         )
         with chdir(self.rundir):
             # write parameterfile & run GVEC
-            self.state = MinimizationState(
-                parameterfile=f"parameters_stage_{self.nth_stage:03d}_initial.ini",
-                statefile=self.state.statefile,
-                stdout_path=Path("stdout.txt") if self.redirect_gvec_stdout else None,
-            )
-            iota_tol = self._state_parameters["picard_current"].get(
-                "iota_tol", AUTO_PICARD_CURRENT_IOTA_TOL_TARGET
-            )
             self.m_max, self.n_max = self.state.get_mn_max()
 
             # initial stepsize for the free-b minimization
@@ -414,15 +402,8 @@ class FreeBoundaryRun(AbstractRun):
                 )
 
             self.state.solve(
-                iota_tol=iota_tol,
                 minimize_tol=minimize_tol,
                 maxIter=self._state_parameters["maxIter"],
-                maxUpdates=self._state_parameters["picard_current"].get(
-                    "maxRestarts", DEFAULT_PICARD_CURRENT_MAXRESTARTS
-                ),
-                picard_target=self._state_parameters["picard_current"].get("target", "auto"),
-                I_tor=self.I_tor if self.curr_constraint else None,
-                reset_LA=self._state_parameters["picard_current"].get("reset_LA", False),
                 save_intermediate=self.save_intermediate,
                 save_header=f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n",
             )
@@ -430,8 +411,8 @@ class FreeBoundaryRun(AbstractRun):
             self.iters_used = self.state.get_iterations()
 
             # NOTE: always use self-consistent I_tor values
-            if self.curr_constraint:
-                self.I_tor_boundary = self.I_tor(1.0)
+            if self.state.I_tor:
+                self.I_tor_boundary = self.state.I_tor(1.0)
             else:
                 self.I_tor_boundary = (
                     self.state.evaluate("I_tor", rho=1.0).squeeze()["I_tor"].item()
@@ -552,18 +533,7 @@ class FreeBoundaryRun(AbstractRun):
                             dt=dt,
                             reset_minimizer=reset_minimizer,
                             blend_depth=blend_depth,
-                            iota_tol=iota_tol,
                             minimize_tol=minimize_tol,
-                            maxUpdates=self._state_parameters["picard_current"].get(
-                                "maxRestarts", DEFAULT_PICARD_CURRENT_MAXRESTARTS
-                            ),
-                            picard_target=self._state_parameters["picard_current"].get(
-                                "target", "auto"
-                            ),
-                            I_tor=self.I_tor if self.curr_constraint else None,
-                            reset_LA=self._state_parameters["picard_current"].get(
-                                "reset_LA", False
-                            ),
                             save_header=f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n"
                             + f"!free-boundary update {fb_update}\n",
                             save_intermediate=self.save_intermediate,
@@ -582,8 +552,8 @@ class FreeBoundaryRun(AbstractRun):
                         self.xnorm = self.state.get_xnorm() / dt
                         self.gnorm = self.state.get_gnorm()
                         # NOTE: always use self consistent I_tor
-                        # if self.curr_constraint:
-                        #     self.I_tor_boundary = self.I_tor(1.0)
+                        # if self.state.I_tor:
+                        #     self.I_tor_boundary = self.state.I_tor(1.0)
                         # else:
                         self.I_tor_boundary = (
                             self.state.evaluate("I_tor", rho=1.0).squeeze()["I_tor"].item()
@@ -606,7 +576,7 @@ class FreeBoundaryRun(AbstractRun):
                         logger.info(f"Time for free boundary update: {t_fb_1 - t_fb_0:.4}s")
                         reset_minimizer = False
                         self.iters_used = self.state.get_iterations()
-                        if not self.curr_constraint:
+                        if self.state.I_tor is None:
                             self.I_tor_boundary = self.state.evaluate(
                                 "I_tor", rho=1.0
                             ).I_tor.item()
@@ -649,19 +619,8 @@ class FreeBoundaryRun(AbstractRun):
                         "Minimizing fixed-boundary equilibrium for the final boundary ..."
                     )
                     self.state.solve(
-                        iota_tol=iota_tol,
                         minimize_tol=minimize_tol_min,
                         maxIter=self._state_parameters["maxIter"],
-                        maxUpdates=self._state_parameters["picard_current"].get(
-                            "maxRestarts", DEFAULT_PICARD_CURRENT_MAXRESTARTS
-                        ),
-                        I_tor=self.I_tor if self.curr_constraint else None,
-                        picard_target=self._state_parameters["picard_current"].get(
-                            "target", "auto"
-                        ),
-                        reset_LA=self._state_parameters["picard_current"].get(
-                            "reset_LA", False
-                        ),
                         save_header=f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n",
                     )
 
@@ -772,7 +731,7 @@ class FreeBoundaryRun(AbstractRun):
             "gnorm",
             "gnorm_mavg",
         ]
-        if self.curr_constraint:
+        if self.state.I_tor:
             fig_iota, ax_iota = plt.subplots()
             quantities.append("iota")
         diagnostics = self.diagnostics_stage
@@ -847,7 +806,7 @@ class FreeBoundaryRun(AbstractRun):
             )
 
             updates_offset += ds.updates.max()
-            if self.curr_constraint:
+            if self.state.I_tor:
                 max_iter = ds.updates.max()
                 for update in ds.updates:
                     ds_aux = ds.sel(updates=update)
@@ -864,7 +823,7 @@ class FreeBoundaryRun(AbstractRun):
                     color=f"C{ith_stage}",
                     label=r"final $\iota$ " + stage.replace("_", " "),
                 )
-        if self.curr_constraint:
+        if self.state.I_tor:
             ax_iota.set(xlabel=r"$\rho$", ylabel=r"$\iota$")
             _add_rationals_to_iota_plot(ax_iota, nfp=self.state.nfp)
             ax_iota.legend()
@@ -878,7 +837,7 @@ class FreeBoundaryRun(AbstractRun):
             ax.grid("on")
             ax.legend(ncol=2)
         out = ((fig_fb, axs_fb),)
-        if self.curr_constraint:
+        if self.state.I_tor:
             out += ((fig_iota, ax_iota),)
         return out
 
@@ -934,13 +893,12 @@ def _get_B2_fp(
         Squared exterior field at the GVEC integration points flattened in GVEC order.
     """
 
-    if has_fbtools:
+    try:
         from fbtools.exterior_vacuum_field import get_B_ext_plasma
-    else:
-        logger.error(
-            "Could not import 'fbtools'! Please make sure the package is installed. Aborting Bext calulation."
-        )
-        return
+    except ImportError as e:
+        raise ImportError(
+            "Could not import fbtools. Was free-boundary gvec (`gvec[free_boundary]`) installed?"
+        ) from e
 
     theta = np.linspace(0, 2 * np.pi, ntheta, endpoint=False)
     theta += 0.5 * theta[1]

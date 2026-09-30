@@ -17,9 +17,6 @@ from gvec.core.state import State
 from gvec.core.minimize import MinimizationState
 from .abstract import (
     AbstractRun,
-    DEFAULT_MINIMIZE_TOL,
-    AUTO_PICARD_CURRENT_IOTA_TOL_TARGET,
-    DEFAULT_PICARD_CURRENT_MAXRESTARTS,
     DIAGNOSTICS_NPOINTS,
 )
 
@@ -68,26 +65,21 @@ class FixedBoundaryRun(AbstractRun):
             shutil.rmtree(self.rundir)
         self.rundir.mkdir()
         self.logger.debug(f"Created run directory {self.rundir}")
-
-        gvec.util.write_parameter_file_ini(
-            gvec.util.flatten_parameters(self._state_parameters),
-            self.rundir / f"parameters_stage_{self.nth_stage:03d}_initial.ini",
-            header=f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n"
-            f"!Created at {datetime.now().isoformat()}\n"
-            f"!pyGVEC v{gvec.__version__}\n",
+        self.state = MinimizationState.new(
+            self._state_parameters,
+            rundir=self.rundir,
+            statefile=self.state.statefile,
+            stdout_path=Path("stdout.txt") if self.redirect_gvec_stdout else None,
+            header=[
+                "GVEC parameter file",
+                f"Auto-generated with `pygvec run` (stage {self.nth_stage})",
+                f"Created at {datetime.now().isoformat()}",
+                f"pyGVEC v{gvec.__version__}",
+            ],
         )
 
         with gvec.util.chdir(self.rundir):
             # write parameterfile & run GVEC
-            self.state = MinimizationState(
-                parameterfile=f"parameters_stage_{self.nth_stage:03d}_initial.ini",
-                statefile=self.state.statefile,
-                stdout_path=Path("stdout.txt") if self.redirect_gvec_stdout else None,
-            )
-            iota_tol = self._state_parameters["picard_current"].get(
-                "iota_tol", AUTO_PICARD_CURRENT_IOTA_TOL_TARGET
-            )
-            minimize_target = self._state_parameters.get("minimize_tol", DEFAULT_MINIMIZE_TOL)
             if self.save_intermediate:
                 self.state.save(
                     f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n"
@@ -95,16 +87,7 @@ class FixedBoundaryRun(AbstractRun):
                     f"!pyGVEC v{gvec.__version__}\n",
                 )
             self.state.solve(
-                I_tor=self.I_tor if self.curr_constraint else None,
-                reset_LA=self._state_parameters["picard_current"].get("reset_LA", False),
-                iota_tol=iota_tol,
-                minimize_tol=minimize_target,
-                maxIter=self._state_parameters["maxIter"],
-                maxUpdates=self._state_parameters["picard_current"].get(
-                    "maxRestarts", DEFAULT_PICARD_CURRENT_MAXRESTARTS
-                ),
                 save_intermediate=self.save_intermediate,
-                picard_target=self._state_parameters["picard_current"].get("target", "auto"),
                 save_header=f"!Auto-generated with `pygvec run` (stage {self.nth_stage})\n",
             )
             self.state.save(
@@ -128,16 +111,12 @@ class FixedBoundaryRun(AbstractRun):
         quantities = ["F_r_avg"]
 
         # diagnostics
-        if self.curr_constraint:
+        if self.state.I_tor:
             quantities += ["iota", "I_tor"]
 
             self.logger.info(
                 f"rms Δiota: {self.state.rms_iota:.2e}"
-                + (
-                    f", iota_tol: {iota_tol:.2e}"
-                    if self._state_parameters["picard_current"] != "off"
-                    else ""
-                )
+                f", iota_tol: {self.state.picard_current.iota_tol:.2e}"
             )
         rho_eval = np.linspace(0, 1, DIAGNOSTICS_NPOINTS)
 
@@ -172,7 +151,7 @@ class FixedBoundaryRun(AbstractRun):
                 )
             )
 
-            if self.curr_constraint:
+            if self.state.I_tor:
                 diag_stage["iota"] = ev.iota
                 diag_stage["I_tor"] = ev.I_tor
                 diag_stage["n_updates"] = self.state.nth_update
@@ -323,7 +302,7 @@ class FixedBoundaryRun(AbstractRun):
         import matplotlib.pyplot as plt
 
         diagnostics = self.diagnostics_stage
-        if self.curr_constraint:
+        if self.state.I_tor:
             fig, axs = plt.subplots(3, 1, figsize=(10, 5), layout="constrained", sharex=True)
         else:
             fig, axs = plt.subplots(2, 1, figsize=(10, 5), tight_layout=True, sharex=True)
@@ -363,7 +342,7 @@ class FixedBoundaryRun(AbstractRun):
         axf.legend(bbox_to_anchor=(1.0, 0.5), loc="center left")
         axs[-1].set(xlabel="GVEC iteration")
 
-        if self.curr_constraint:
+        if self.state.I_tor:
             # rms iota
             for stage in diagnostics:
                 ds_aux = diagnostics[stage]
