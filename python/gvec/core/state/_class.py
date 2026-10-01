@@ -66,10 +66,7 @@ class State:
         if _binding.bound_state is self:
             self.unbind()
         if self._stdout is not None:
-            if isinstance(self._stdout, str) or isinstance(self._stdout, Path):
-                pass
-            else:
-                self._stdout.close()
+            self._stdout.close()
 
     # === Additional Constructors === #
 

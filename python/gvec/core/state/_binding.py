@@ -86,7 +86,10 @@ def bind(self, force: bool = False, init_for_minimize: bool = False):
     elif isinstance(self._stdout, tempfile._TemporaryFileWrapper):
         outfile = self._stdout.name
     else:
-        outfile = Path(self._stdout).absolute()
+        outfile = Path(self._stdout)
+        outfile.touch()
+        self._stdout = Path(self._stdout).open(mode="r")
+        outfile = outfile.absolute()
     _binding.redirect_stdout(outfile)
     logger.debug(f"Redirected stdout to {outfile}")
 
