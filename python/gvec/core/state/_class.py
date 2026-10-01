@@ -33,7 +33,7 @@ class State:
         self,
         parameterfile: str | Path,
         statefile: str | Path | None = None,
-        stdout_path: str | None = None,
+        stdout_path: str | Path | None = None,
     ):
         self.parameterfile: Path = Path(parameterfile).absolute()
         self.statefile: Path | None = Path(statefile).absolute() if statefile else None
@@ -41,7 +41,7 @@ class State:
         if stdout_path is None:
             self._stdout: tempfile.NamedTemporaryFile | None = None
         else:
-            self._stdout = stdout_path
+            self._stdout = Path(stdout_path)
 
         with open(parameterfile, "r") as f:
             content = f.readlines()

@@ -11,6 +11,7 @@ import tempfile
 import gvec.util
 from gvec.errors import catch_gvec_errors
 from gvec.lib import _binding, _run, _state, _globals, t_sfl_boozer, c_rProfile
+from pathlib import Path
 
 # === Globals === #
 
@@ -81,8 +82,13 @@ def bind(self, force: bool = False, init_for_minimize: bool = False):
     _binding.redirect_abort()  # redirect 'abort' to raise a 'RuntimeError'
     if self._stdout is None:
         self._stdout = tempfile.NamedTemporaryFile(mode="r", prefix="gvec-stdout-")
-    _binding.redirect_stdout(self._stdout.name)
-    logger.debug(f"Redirected stdout to {self._stdout.name}")
+        outfile = self._stdout.name
+    elif isinstance(self._stdout, tempfile._TemporaryFileWrapper):
+        outfile = self._stdout.name
+    else:
+        outfile = Path(self._stdout).absolute()
+    _binding.redirect_stdout(outfile)
+    logger.debug(f"Redirected stdout to {outfile}")
 
     MAXLEN = _globals.maxlen
     with open(self.parameterfile, "r") as f:
