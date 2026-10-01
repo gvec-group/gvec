@@ -411,12 +411,9 @@ class FreeBoundaryRun(AbstractRun):
             self.iters_used = self.state.get_iterations()
 
             # NOTE: always use self-consistent I_tor values
-            if self.state.I_tor:
-                self.I_tor_boundary = self.state.I_tor(1.0)
-            else:
-                self.I_tor_boundary = (
-                    self.state.evaluate("I_tor", rho=1.0).squeeze()["I_tor"].item()
-                )
+            self.I_tor_boundary = (
+                self.state.evaluate("I_tor", rho=1.0).squeeze()["I_tor"].item()
+            )
 
             # Call to BIEST
             (B2, B_plas_ext, B_coils, B_ext_2) = _get_B2_fp(
@@ -552,9 +549,6 @@ class FreeBoundaryRun(AbstractRun):
                         self.xnorm = self.state.get_xnorm() / dt
                         self.gnorm = self.state.get_gnorm()
                         # NOTE: always use self consistent I_tor
-                        # if self.state.I_tor:
-                        #     self.I_tor_boundary = self.state.I_tor(1.0)
-                        # else:
                         self.I_tor_boundary = (
                             self.state.evaluate("I_tor", rho=1.0).squeeze()["I_tor"].item()
                         )
