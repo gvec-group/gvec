@@ -69,7 +69,8 @@ class FixedBoundaryRun(AbstractRun):
             self._state_parameters,
             rundir=self.rundir,
             statefile=self.state.statefile,
-            stdout_path=self.rundir / "stdout.txt" if self.redirect_gvec_stdout else None,
+            stdout_path=self.rundir / "stdout.txt",
+            redirect_stdout=self.redirect_gvec_stdout,
             header=[
                 "GVEC parameter file",
                 f"Auto-generated with `pygvec run` (stage {self.nth_stage})",

@@ -34,10 +34,12 @@ class State:
         parameterfile: str | Path,
         statefile: str | Path | None = None,
         stdout_path: str | Path | None = None,
+        redirect_stdout: bool = True,
     ):
         self.parameterfile: Path = Path(parameterfile).absolute()
         self.statefile: Path | None = Path(statefile).absolute() if statefile else None
 
+        self.redirect_stdout = redirect_stdout
         if stdout_path is None:
             self._stdout: tempfile.NamedTemporaryFile | None = None
         else:
@@ -65,7 +67,7 @@ class State:
         logger.debug(f"Deleting state {self!r}")
         if _binding.bound_state is self:
             self.unbind()
-        if self._stdout is not None:
+        if self._stdout is not None and self.redirect_stdout:
             self._stdout.close()
 
     # === Additional Constructors === #

@@ -80,18 +80,19 @@ def bind(self, force: bool = False, init_for_minimize: bool = False):
     logger.debug(f"Binding state {self!r} to the fortran library.")
 
     _binding.redirect_abort()  # redirect 'abort' to raise a 'RuntimeError'
-    if self._stdout is None:
-        self._stdout = tempfile.NamedTemporaryFile(mode="r", prefix="gvec-stdout-")
-        outfile = self._stdout.name
-    elif isinstance(self._stdout, tempfile._TemporaryFileWrapper):
-        outfile = self._stdout.name
-    else:
-        outfile = Path(self._stdout)
-        outfile.touch()
-        self._stdout = Path(self._stdout).open(mode="r")
-        outfile = outfile.absolute()
-    _binding.redirect_stdout(outfile)
-    logger.debug(f"Redirected stdout to {outfile}")
+    if self.redirect_stdout:
+        if self._stdout is None:
+            self._stdout = tempfile.NamedTemporaryFile(mode="r", prefix="gvec-stdout-")
+            outfile = self._stdout.name
+        elif isinstance(self._stdout, tempfile._TemporaryFileWrapper):
+            outfile = self._stdout.name
+        else:
+            outfile = Path(self._stdout)
+            outfile.touch()
+            self._stdout = Path(self._stdout).open(mode="r")
+            outfile = outfile.absolute()
+        _binding.redirect_stdout(outfile)
+        logger.debug(f"Redirected stdout to {outfile}")
 
     MAXLEN = _globals.maxlen
     with open(self.parameterfile, "r") as f:

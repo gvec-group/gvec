@@ -96,6 +96,7 @@ class MinimizationState(State):
         parameterfile,
         statefile=None,
         stdout_path=None,
+        redirect_stdout=True,
         I_tor: Mapping | None = None,
         picard_current: Mapping | Literal["auto", "off"] | None = None,
     ):
@@ -108,7 +109,7 @@ class MinimizationState(State):
                 "picard_current='auto' is deprecated and incompatible with I_tor=None. Specify a current profile I_tor to use picard_current='auto'."
             )
 
-        super().__init__(parameterfile, statefile, stdout_path)
+        super().__init__(parameterfile, statefile, stdout_path, redirect_stdout)
         r_GP, r_w, t_n, t_w, z_n, z_w = self.get_integration_points()
 
         self.t_n = t_n
