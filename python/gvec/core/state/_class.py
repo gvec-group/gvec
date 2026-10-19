@@ -117,7 +117,7 @@ class State:
 
     @property
     def stdout(self) -> str:
-        if self._stdout is None:
+        if not self.redirect_stdout or self._stdout is None or isinstance(self._stdout, Path):
             return ""
         if _binding.bound_state is self:
             _binding.flush_stdout()

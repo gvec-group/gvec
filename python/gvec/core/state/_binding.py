@@ -7,11 +7,11 @@
 import functools
 import logging
 import tempfile
+from pathlib import Path
 
 import gvec.util
 from gvec.errors import catch_gvec_errors
 from gvec.lib import _binding, _run, _state, _globals, t_sfl_boozer, c_rProfile
-from pathlib import Path
 
 # === Globals === #
 
@@ -84,13 +84,13 @@ def bind(self, force: bool = False, init_for_minimize: bool = False):
         if self._stdout is None:
             self._stdout = tempfile.NamedTemporaryFile(mode="r", prefix="gvec-stdout-")
             outfile = self._stdout.name
-        elif isinstance(self._stdout, tempfile._TemporaryFileWrapper):
+        elif isinstance(self._stdout, Path):
+            self._stdout = self._stdout.absolute()
+            outfile = self._stdout
+            self._stdout.touch(exist_ok=True)  # ensure the file exists
+            self._stdout = self._stdout.open(mode="r")
+        else:  # opened file-like object
             outfile = self._stdout.name
-        else:
-            outfile = Path(self._stdout)
-            outfile.touch()
-            self._stdout = Path(self._stdout).open(mode="r")
-            outfile = outfile.absolute()
         _binding.redirect_stdout(outfile)
         logger.debug(f"Redirected stdout to {outfile}")
 
