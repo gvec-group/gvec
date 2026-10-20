@@ -716,95 +716,26 @@ class FreeBoundaryRun(AbstractRun):
         else:
             self.max_force = np.inf
 
-    def plot_diagnostics_minimization(self):
+    def plot_diagnostics_minimization(self, quantities: list[str] | None = None):
+        fig_fb, axs_fb = self.plot_diagnostics_stages(quantities=quantities)
+        out = ((fig_fb, axs_fb),)
+
+        if self.state.I_tor:
+            out += (self.plot_diagnostics_iota(),)
+        return out
+
+    def plot_diagnostics_iota(self, **kwargs):
         import matplotlib.pyplot as plt
         from gvec.plotting.plots1d import _add_rationals_to_iota_plot
 
-        fig_fb, axs_fb = plt.subplots(5, 1, figsize=(10, 10), layout="constrained", sharex=True)
-        quantities = [
-            "free_boundary_target",
-            "free_boundary_target_mavg",
-            "Fnorm_X1_b",
-            "Fnorm_X2_b",
-            "resolved_force_ratio",
-            "xnorm",
-            "xnorm_mavg",
-            "gnorm",
-            "gnorm_mavg",
-        ]
-        if self.state.I_tor:
-            fig_iota, ax_iota = plt.subplots()
-            quantities.append("iota")
         diagnostics = self.diagnostics_stage
-
+        fig_iota, ax_iota = plt.subplots(**kwargs)
         updates_offset = 0
         for ith_stage, stage in enumerate(diagnostics):
-            ds = xr.Dataset(diagnostics[stage])[quantities].dropna(dim="updates")
+            ds = xr.Dataset(diagnostics[stage]).dropna(dim="updates")
             # skip the setup stage with zero free boundary updates.
             if len(ds.updates) == 0:
                 continue
-
-            axs_fb[0].semilogy(
-                ds.updates + updates_offset,
-                ds.free_boundary_target,
-                color=f"C{ith_stage}",
-                label="value " + stage.replace("_", " "),
-            )
-            axs_fb[0].semilogy(
-                ds.updates + updates_offset,
-                ds.free_boundary_target_mavg,
-                color=f"C{ith_stage}",
-                linestyle="-.",
-                label="mov. avg. " + stage.replace("_", " "),
-            )
-
-            axs_fb[1].semilogy(
-                ds.updates + updates_offset,
-                ds.Fnorm_X1_b,
-                color=f"C{ith_stage}",
-                label=r"$X^1$ " + stage.replace("_", " "),
-            )
-            axs_fb[1].semilogy(
-                ds.updates + updates_offset,
-                ds.Fnorm_X2_b,
-                "--",
-                color=f"C{ith_stage}",
-                label=r"$X^2$ " + stage.replace("_", " "),
-            )
-            axs_fb[2].semilogy(
-                ds.updates + updates_offset,
-                ds.resolved_force_ratio,
-                color=f"C{ith_stage}",
-                label=stage.replace("_", " "),
-            )
-
-            axs_fb[3].semilogy(
-                ds.updates + updates_offset,
-                ds.xnorm,
-                color=f"C{ith_stage}",
-                label="value " + stage.replace("_", " "),
-            )
-            axs_fb[3].semilogy(
-                ds.updates + updates_offset,
-                ds.xnorm_mavg,
-                color=f"C{ith_stage}",
-                linestyle="-.",
-                label="mov. avg. " + stage.replace("_", " "),
-            )
-
-            axs_fb[4].semilogy(
-                ds.updates + updates_offset,
-                ds.gnorm,
-                color=f"C{ith_stage}",
-                label="value " + stage.replace("_", " "),
-            )
-            axs_fb[4].semilogy(
-                ds.updates + updates_offset,
-                ds.gnorm_mavg,
-                color=f"C{ith_stage}",
-                linestyle="-.",
-                label="mov. avg. " + stage.replace("_", " "),
-            )
 
             updates_offset += ds.updates.max()
             if self.state.I_tor:
@@ -824,23 +755,62 @@ class FreeBoundaryRun(AbstractRun):
                     color=f"C{ith_stage}",
                     label=r"final $\iota$ " + stage.replace("_", " "),
                 )
-        if self.state.I_tor:
-            ax_iota.set(xlabel=r"$\rho$", ylabel=r"$\iota$")
-            _add_rationals_to_iota_plot(ax_iota, nfp=self.state.nfp)
-            ax_iota.legend()
-        axs_fb[0].set(ylabel="free boundary target")
-        axs_fb[1].set(ylabel=r"$\left\|\hat{\mathbf{F}}_\text{b}\right\|^\text{max}$")
-        axs_fb[2].set(ylabel="resolved force ratio")
-        axs_fb[3].set(ylabel="xnorm")
-        axs_fb[4].set(ylabel="gnorm", xlabel="free boundary update")
 
-        for ax in axs_fb:
+        ax_iota.set(xlabel=r"$\rho$", ylabel=r"$\iota$")
+        _add_rationals_to_iota_plot(ax_iota, nfp=self.state.nfp)
+        ax_iota.legend()
+
+        return (fig_iota, ax_iota)
+
+    def plot_diagnostics_stages(self, quantities: list[str] | None = None):
+        import matplotlib.pyplot as plt
+
+        if quantities is None:
+            quantities = [
+                "free_boundary_target",
+                "xnorm",
+                "gnorm",
+                "resolved_force_ratio",
+                "dt",
+            ]
+        fig, axs = plt.subplots(
+            len(quantities),
+            figsize=(10, 2 * len(quantities)),
+            layout="constrained",
+            sharex=True,
+        )
+        updates_offset = 0
+        for i, stage in enumerate(self.diagnostics_stage):
+            ds = xr.Dataset(self.diagnostics_stage[stage]).dropna(dim="updates")
+            for quantity, ax in zip(quantities, axs.flat):
+                ax.semilogy(
+                    ds.updates + updates_offset,
+                    ds[quantity],
+                    color=f"C{i}",
+                    label=stage,
+                )
+                if (quantity + "_mavg") in ds:
+                    ax.semilogy(
+                        ds.updates + updates_offset,
+                        ds[quantity + "_mavg"],
+                        color=f"C{i + 1}",
+                        linestyle="--",
+                        label=stage + " mavg",
+                    )
+            updates_offset = updates_offset + max(ds.updates)
+
+        for quantity, ax in zip(quantities, axs.flat):
+            ax.set(ylabel=quantity.replace("_", " "))
             ax.grid("on")
-            ax.legend(ncol=2)
-        out = ((fig_fb, axs_fb),)
-        if self.state.I_tor:
-            out += ((fig_iota, ax_iota),)
-        return out
+        axs[0].legend(
+            bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
+            loc="lower left",
+            ncols=4,
+            mode="expand",
+            borderaxespad=0.0,
+        )
+        axs[-1].set(xlabel="free boundary update")
+        return (fig, axs)
 
     def plot_diagnostics_fixed_boundary(self):
         import matplotlib.pyplot as plt
