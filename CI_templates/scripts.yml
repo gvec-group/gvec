@@ -11,6 +11,12 @@
 .before_script_modules:
   before_script:
     - source CI_templates/helpers.bash
+    # early detection of incompatible hardware
+    - if [[ "${CI_RUNNER_TAGS}" =~ gpu-amd ]] && [[ "${CMP_MODE}" = Release ]] && [[ "${CURR_CMP}" =~ ifx|ifort ]]; then
+        echo "ERROR:" "GPU-AMD runner cannot run RELEASE mode for Intel compilers on AMD hardware. Retrying...";
+        exit 137;
+      fi
+    # Setup Environment
     - start_details setup-env "Setup Environment"
     - echo ${CMAKE_HOSTNAME} ${SETUP_SCRIPT} ${CURR_CMP}
     - if [ ${SETUP_SCRIPT} != "none" ]; then source ./CI_setup/${CMAKE_HOSTNAME}_setup_${SETUP_SCRIPT}; fi
@@ -190,6 +196,7 @@
 
 .script_run:
   script:
+    # PREPARE RUN
     - start_details pre-run "Prepare Run"
     - export PYTEST_DIR_OPTS="--builddir=build_${BUILDNAME} --rundir=CIrun_${CASENAME}"
     - echo ${PYTEST_EXEC_CMD} --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --run-prefix "${RUN_PRFX}" --dry-run
