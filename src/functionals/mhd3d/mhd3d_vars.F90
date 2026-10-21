@@ -20,6 +20,7 @@ USE MODgvec_Sol_Var_MHD3D,ONLY: t_sol_var_MHD3D
 USE MODgvec_hmap
 USE MODgvec_rProfile_base, ONLY: c_rProfile
 USE MODgvec_boundaryFromFile , ONLY: t_boundaryFromFile
+USE MODgvec_free_b_minimizer_base, ONLY: c_free_b_minimizer
 
 IMPLICIT NONE
 PUBLIC
@@ -96,6 +97,31 @@ CLASS(c_rProfile), ALLOCATABLE   :: iota_profile
 CLASS(c_rProfile), ALLOCATABLE   :: pres_profile
 CLASS(c_rProfile), ALLOCATABLE   :: Phi_profile
 CLASS(c_rProfile), ALLOCATABLE   :: chi_profile
+
+! FREE_BOUNDARY
+REAL(wp), ALLOCATABLE :: Bext_squared(:) !! external magnetic field
+LOGICAL               :: FreeBoundary
+REAL(wp), ALLOCATABLE :: Force_b_X1(:) !! Force on X1 at the boundary
+REAL(wp), ALLOCATABLE :: Force_b_X2(:) !! Force on X2 at the boundary
+REAL(wp), ALLOCATABLE :: Precond_b_X1(:) !! Preconditioner on X1 at the boundary
+REAL(wp), ALLOCATABLE :: Precond_b_X2(:) !! Preconditioner on X2 at the boundary
+LOGICAL               :: precond_boundary
+REAL(wp)              :: beta1 !! decay rate for the free boundary update using ADAM / moment GD
+REAL(wp)              :: beta2 !! decay rate for the free boundary update using ADAM
+CHARACTER(24)         :: free_b_minimizer_type
+CLASS(c_free_b_minimizer), ALLOCATABLE :: free_b_minimizer
+REAL(wp)              :: Fnorm_X1_b_IP !! L2 norm of the forces on X1 at the boundary, calculated from the integration points
+REAL(wp)              :: Fnorm_X2_b_IP !! L2 norm of the forces on X2 at the boundary, calculated from the integration points
+REAL(wp)              :: Fnorm_X1_b_modes !! L2 norm of the forces on X1 at the boundary, after projection onto the modes
+REAL(wp)              :: Fnorm_X2_b_modes !! L2 norm of the forces on X1 at the boundary, after projection onto the modes
+REAL(wp)              :: epsilon_spectral
+INTEGER               :: Q_spectral
+REAL(wp)              :: spectral_width
+REAL(wp)              :: xnorm_fb !! L2 norm of the change in the boundary dofs
+REAL(wp)              :: gnorm_fb !! L2 norm of the free-boundary gradient
+REAL(wp), ALLOCATABLE :: mode_scale_X1(:) !! expected mode scaling of X1 ~ exp(-sqrt(m**2+n**2))
+REAL(wp), ALLOCATABLE :: mode_scale_X2(:) !! expected mode scaling of X2 ~ exp(-sqrt(m**2+n**2))
+
 !===================================================================================================================================
 
 END MODULE MODgvec_MHD3D_Vars

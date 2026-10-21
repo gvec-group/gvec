@@ -12,11 +12,10 @@ from pathlib import Path
 
 import xarray as xr
 
-from gvec.lib import t_sfl_boozer
+from gvec.lib import t_sfl_boozer, MAXLEN
 import gvec.util
 
 from . import _binding
-from ._binding import flush_stdout
 
 # === Globals === #
 
@@ -34,11 +33,25 @@ class State:
         self,
         parameterfile: str | Path,
         statefile: str | Path | None = None,
+        stdout_path: str | Path | None = None,
+        redirect_stdout: bool = True,
     ):
         self.parameterfile: Path = Path(parameterfile).absolute()
         self.statefile: Path | None = Path(statefile).absolute() if statefile else None
 
-        self._stdout: tempfile.NamedTemporaryFile | None = None
+        self.redirect_stdout = redirect_stdout
+        if stdout_path is None:
+            self._stdout: tempfile.NamedTemporaryFile | None = None
+        else:
+            self._stdout = Path(stdout_path)
+
+        with open(parameterfile, "r") as f:
+            content = f.readlines()
+            if any([len(line) > MAXLEN for line in content]):
+                raise ValueError(
+                    f"Parameter file {parameterfile} contains lines longer than {MAXLEN} characters."
+                )
+
         self._children: list[t_sfl_boozer] = []
         self.parameters: gvec.util.CaseInsensitiveDict = None
 
@@ -48,24 +61,30 @@ class State:
             raise FileNotFoundError(f"State file {self.statefile} does not exist.")
         self.parameters = gvec.util.read_parameters(
             self.parameterfile, format="ini"
-        )  # read-only !!!
+        )  # usually read-only, but MinimizationState will modify it
 
     def __del__(self):
         logger.debug(f"Deleting state {self!r}")
         if _binding.bound_state is self:
             self.unbind()
-        if self._stdout is not None:
+        if self._stdout is not None and self.redirect_stdout:
             self._stdout.close()
 
     # === Additional Constructors === #
 
     @classmethod
-    def new(cls, parameters: Mapping, rundir: str | Path | None = None):
+    def new(
+        cls,
+        parameters: Mapping,
+        rundir: str | Path | None = None,
+        header: list[str] | str | None = None,
+        **kwargs,
+    ):
         if rundir is None:
             rundir = Path.cwd()
         parameterfile = Path(rundir) / "parameter.ini"
-        gvec.util.write_parameters(parameters, parameterfile)
-        return cls(parameterfile)
+        gvec.util.write_parameters(parameters, parameterfile, header=header)
+        return cls(parameterfile, **kwargs)
 
     # === Binding to the Fortran library === #
 
@@ -98,10 +117,10 @@ class State:
 
     @property
     def stdout(self) -> str:
-        if self._stdout is None:
+        if not self.redirect_stdout or self._stdout is None or isinstance(self._stdout, Path):
             return ""
         if _binding.bound_state is self:
-            flush_stdout()
+            _binding.flush_stdout()
         self._stdout.seek(0)
         return self._stdout.read()
 
@@ -121,6 +140,12 @@ class State:
         get_integration_points,
         get_radial_gridpoints,
         get_mn_max,
+        _get_angle_integration_points,
+        _get_X1_n_modes,
+        _get_X2_n_modes,
+        clockwise_zeta,
+        winding_nr,
+        get_intersection_planes,
     )
 
     # === Evaluation Methods === #

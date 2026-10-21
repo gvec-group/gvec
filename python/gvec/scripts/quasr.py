@@ -74,6 +74,8 @@ from gvec.util import logging_setup, chdir, read_parameters, write_parameters
 from gvec import gframe, run, State
 from gvec.coils import Coil, CoilSet, trace_fieldlines, intersection_planes_from_state
 
+logger = logging.getLogger(__name__)
+
 # === Argument Parser === #
 
 parser = argparse.ArgumentParser(
@@ -220,12 +222,12 @@ def get_json_from_quasr(configuration: int, filename: str | Path = None):
     return filename
 
 
-def get_surface_from_json_file(filename: Path | str):
+def get_surface_from_json_file(filename: Path | str, index: int):
     """Get the boundary surface as a SIMSOPT Surface object from a QUASR JSON file."""
     from simsopt._core import load
 
     surfaces, coils = load(filename)
-    return surfaces[-1]
+    return surfaces[index]
 
 
 def get_xyz_from_surface(nt: int, nz: int, surface):
@@ -473,8 +475,6 @@ def load_quasr(
     tol: float = 1e-8,
     nt: int = 81,
     nz: int = 81,
-    quiet: bool = True,
-    verbose: int = 0,
     name: str = None,
     save_boundary: bool = True,
     cutoff: int = -1,
@@ -482,7 +482,7 @@ def load_quasr(
     clean: int = 0,
     stellsym: bool = False,
     boundary_coefficients: bool = False,
-    logger: logging.Logger | None = None,
+    surf_index: int = -1,
 ):
     """Load a QUASR configuration and convert it to a G-Frame and boundary for use with GVEC.
 
@@ -494,13 +494,13 @@ def load_quasr(
         If configuration is a string or Path, specifies the boundary file format.
         Either a netCDF file containing boundary data or a SIMSOPT JSON file of the boundary (e.g. QUASR configuration).
     tol : float, optional
-        _description_, by default 1e-8
+        Tolerance for determining minimal necessary (M, N) for the output Fourier modes of X1,X2, by default 1e-8
     nt : int, optional
-        _description_, by default 81
+        Number of theta points, by default 81
     nz : int, optional
-        _description_, by default 81
+        Number of zeta points, by default 81
     quiet : bool, optional
-        _description_, by default True
+        Suppressed logging, by default True
     verbose : int, optional
         verbosity level: 1 for info, 2 for debug, by default 0
     name : str, optional
@@ -519,8 +519,9 @@ def load_quasr(
         If set, imposes stellarator symmetry for the input surface. Use this with great care! By default False
     boundary_coefficients : bool, optional
         Write the boundary data as fourier coefficients in the parameter file instead of points in the netCDF file.
-    logger : Logger | None, optional
-        If None a new logger will be created.
+    surf_index : int, optional
+        Index of the surface to select as the equilibrium boundary from the quasr-json file.
+        Deafault is the last one, i.e. `surf_index=-1`.
 
     Returns
     -------
@@ -529,16 +530,6 @@ def load_quasr(
     dict_out : dict
         Dictionary containing the G-frame data.
     """
-    if logger is None:
-        logging_setup()
-        logger = logging.getLogger(__name__)
-    if quiet:
-        logging.disable()
-    elif verbose >= 2:
-        logger.setLevel(logging.DEBUG)
-    elif verbose == 1:
-        logger.setLevel(logging.INFO)
-
     if isinstance(configuration, int):
         filetype = "json"
         logger.info("Downloading QUASR configuration")
@@ -555,7 +546,7 @@ def load_quasr(
     match filetype:
         case "json":
             logger.info("Loading SIMSOPT surface")
-            surface = get_surface_from_json_file(filename)
+            surface = get_surface_from_json_file(filename, index=surf_index)
             nfp = surface.nfp
             xyz = get_xyz_from_surface(nt, nz, surface)
             name_aux = str(filename.stem)
@@ -588,7 +579,6 @@ def load_quasr(
         impose_stell_symmetry=stellsym,
         boundary_coefficients=boundary_coefficients,
         cutoff_gframe=cutoff,
-        logger=logger,
     )
 
     return parameters_out, gframe_out
@@ -605,7 +595,6 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
     check_args(parser, args)
 
     logging_setup()
-    logger = logging.getLogger(__name__)
     if args.quiet:
         logging.disable()
     elif args.verbose >= 2:
@@ -635,8 +624,6 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         tol=args.tol,
         nt=args.nt,
         nz=args.nz,
-        quiet=args.quiet,
-        verbose=args.verbose,
         name=name,
         save_boundary=args.save_xyz,
         cutoff=args.cutoff,
@@ -644,7 +631,6 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         clean=args.clean,
         stellsym=args.stellsym,
         boundary_coefficients=args.boundary_coefficients,
-        logger=logger,
     )
 
 

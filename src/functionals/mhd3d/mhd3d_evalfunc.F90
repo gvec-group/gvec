@@ -20,7 +20,7 @@ MODULE MODgvec_MHD3D_evalFunc
 
   PRIVATE
   PUBLIC::InitializeMHD3D_EvalFunc, InitProfilesGP, &
-          EvalEnergy, EvalForce, EvalAux, EvalTotals, FinalizeMHD3D_EvalFunc
+          EvalEnergy, EvalForce, EvalAux, EvalTotals, FinalizeMHD3D_EvalFunc, chiPrime_GP
 
   !evaluations at radial gauss points, size(base%s%nGP_str:base%s%nGP_end)
   REAL(wp),ALLOCATABLE :: pres_GP(:)      !! mass profile
@@ -68,6 +68,16 @@ MODULE MODgvec_MHD3D_evalFunc
   REAL(wp),ALLOCATABLE :: Gh11(:,:)     !! hmap  G_{11}
   REAL(wp),ALLOCATABLE :: Gh22(:,:)     !! hmap  G_{22}
 
+  ! Free boundary  vars
+  REAL(wp), ALLOCATABLE :: X1_boundary(:)
+  REAL(wp), ALLOCATABLE :: X2_boundary(:)
+  REAL(wp), ALLOCATABLE :: X1_prefactor_spec_cond(:)
+  REAL(wp), ALLOCATABLE :: X2_prefactor_spec_cond(:)
+
+  REAL(wp), ALLOCATABLE :: dX1_dthet_boundary(:)
+  REAL(wp), ALLOCATABLE :: dX2_dthet_boundary(:)
+
+
   INTEGER                         :: nGP
   INTEGER                         :: nGP_str, nGP_end !< for MPI
   INTEGER                         :: mn_IP
@@ -98,7 +108,7 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE InitializeMHD3D_evalFunc()
 ! MODULES
-  USE MODgvec_MHD3D_Vars,ONLY:X1_base,X2_base,LA_base,PrecondType
+  USE MODgvec_MHD3D_Vars,ONLY:X1_base,X2_base,LA_base,PrecondType, FreeBoundary
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -138,6 +148,11 @@ SUBROUTINE InitializeMHD3D_evalFunc()
            g_tt,g_tz,g_zz,g_t1,g_t2,g_z1,g_z2, &
            Jh_dq1,Jh_dq2,gtt_dq1,gtt_dq2,gtz_dq1,gtz_dq2,gzz_dq1,gzz_dq2, &
            Gh11,Gh22, mold=J_h)
+
+  IF(FreeBoundary)THEN
+    ALLOCATE(X1_boundary(1:mn_IP))
+    ALLOCATE(X2_boundary, dX1_dthet_boundary, dX2_dthet_boundary, X1_prefactor_spec_cond, X2_prefactor_spec_cond, mold=X1_boundary)
+  END IF
 
   IF(PrecondType.GT.0)THEN
     !WHEN CHANGED TO ALLGATHERV COMM IN BUILDPRECOND, THIS ALLOCATE WILL BE THE SAME.
@@ -231,7 +246,7 @@ SUBROUTINE EvalAux(dofs_in,JacCheck)
 ! MODULES
   USE MODgvec_MPI             , ONLY: par_AllReduce
   USE MODgvec_Globals         , ONLY: n_warnings_occured,myRank
-  USE MODgvec_MHD3D_vars      , ONLY: X1_base,X2_base,LA_base,hmap,hmap_auxvar
+  USE MODgvec_MHD3D_vars      , ONLY: X1_base,X2_base,LA_base,hmap,hmap_auxvar, FreeBoundary
   USE MODgvec_sol_var_MHD3D   , ONLY: t_sol_var_MHD3D
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -273,6 +288,13 @@ SUBROUTINE EvalAux(dofs_in,JacCheck)
                                   dy_dthet_IP_GP=dX2_dthet, &
                                    dy_dzeta_IP_GP=dX2_dzeta )
   CALL X2_base%evalDOF((/DERIV_S,0/)   , dofs_in%X2, dX2_ds    )
+
+  IF(FreeBoundary) THEN
+    X1_boundary        = X1_base%f%evalDOF_IP(         0,dofs_in%X1(X1_Base%s%nBase,:))
+    dX1_dthet_boundary = X1_base%f%evalDOF_IP(DERIV_THET,dofs_in%X1(X1_Base%s%nBase,:))
+    X2_boundary        = X2_base%f%evalDOF_IP(         0,dofs_in%X2(X2_Base%s%nBase,:))
+    dX2_dthet_boundary = X2_base%f%evalDOF_IP(DERIV_THET,dofs_in%X2(X2_Base%s%nBase,:))
+  END IF
 
   __PERFOFF('EvalDOF_1')
 
@@ -535,6 +557,7 @@ SUBROUTINE EvalForce(dofs_in,callEvalAux,JacCheck,F_MHD3D,noBC)
   USE MODgvec_MPI,           ONLY : par_IReduce,par_IBcast,par_Wait,req1,req2,req3,par_Barrier,par_BCast
   USE MODgvec_MHD3D_Vars,    ONLY : X1_base,X2_base,LA_base,hmap,mu_0,PrecondType
   USE MODgvec_MHD3D_Vars,    ONLY : X1_BC_type,X2_BC_type,LA_BC_type
+  USE MODgvec_MHD3D_Vars,    ONLY : FreeBoundary, Force_b_X1, Force_b_X2 ! free boundary vars
   USE MODgvec_sol_var_MHD3D, ONLY : t_sol_var_MHD3D
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -559,6 +582,8 @@ SUBROUTINE EvalForce(dofs_in,callEvalAux,JacCheck,F_MHD3D,noBC)
   REAL(wp)  ::    dW(1:mn_IP,nGP_str:nGP_end)        != p+1/2*B^2=p(s)+|Phi'(s)|^2 (b^alpha *g_{alpha,beta} *b^beta)/(2 *detJ^2)
   REAL(wp),DIMENSION(1:mn_IP,nGP_str:nGP_end)  :: btt_sJ,btz_sJ,bzz_sJ,  & != b^theta*b^theta/detJ, b^theta*b^zeta/detJ,b^zeta*b^zeta/detJ
                                                   coefY,coefY_thet,coefY_zeta,coefY_s
+  REAL(wp)  :: F_b_X1(1:X1_base%f%modes)
+  REAL(wp)  :: F_b_X2(1:X2_base%f%modes)
 !===================================================================================================================================
 !  SWRITE(UNIT_stdOut,'(4X,A)',ADVANCE='NO')'COMPUTE FORCE...'
 #if MPIDEBUG==1
@@ -842,6 +867,12 @@ SUBROUTINE EvalForce(dofs_in,callEvalAux,JacCheck,F_MHD3D,noBC)
 #endif
   __PERFOFF('reduce_solution_X1')
 
+  IF(MPIroot.AND.(FreeBoundary))THEN
+    CALL EvalBoundaryForce(dofs_in,F_b_X1,F_b_X2)
+    Force_b_X1 = F_MHD3D%X1(X1_base%s%nBase,:)+F_b_X1(:)
+    Force_b_X2 = F_MHD3D%X2(X2_base%s%nBase,:)+F_b_X2(:)
+  END IF
+
   __PERFON('apply_precond')
 !$OMP PARALLEL DO &
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE) SHARED(modes_str,modes_end,F_MHD3D,X1_BC_type,X1_base) PRIVATE(iMode)
@@ -1080,8 +1111,9 @@ END SUBROUTINE ApplyBC_Fstrong
 SUBROUTINE BuildPrecond()
 ! MODULES
   USE MODgvec_MPI,        ONLY : par_AllReduce
-  USE MODgvec_MHD3D_Vars, ONLY : X1_base,X2_base,LA_base
+  USE MODgvec_MHD3D_Vars, ONLY : X1_base,X2_base,LA_base, hmap
   USE MODgvec_MHD3D_Vars, ONLY : X1_BC_Type,X2_BC_Type,LA_BC_type
+  USE MODgvec_MHD3D_Vars, ONLY : FreeBoundary, Bext_squared, Precond_b_X1, Precond_b_X2
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -1097,6 +1129,10 @@ SUBROUTINE BuildPrecond()
 !  REAL(wp),DIMENSION(nGP_str:nGP_end)   :: DLA_tt, DLA_tz, DLA_zz
 
   REAL(wp),ALLOCATABLE        :: D_mn(:),P_BCaxis(:,:), P_BCedge(:,:) !only needed on MPIroot
+
+  ! free boundary
+  INTEGER :: i_mn
+  REAL(wp) :: DX1_nn, DX2_nn, dJh_dq1, dJh_dq2, qloc(3)
 !===================================================================================================================================
 
 
@@ -1106,6 +1142,25 @@ SUBROUTINE BuildPrecond()
   !WHEN COMM CHANGED TO GATHER, ZEROING NOT NEEDED ANYMORE
   D_buf=0.0_wp
   smn_IP=1.0_wp/REAL(mn_IP,wp)
+  IF (FreeBoundary) THEN
+    ! Includes one part of the radial preconditioner for the free boundary term:
+    ! <B_ext/2 * dJh/dq1 dX2/dtheta> Y_1*Y_1 - <B_ext/2 * dJh/dq2 dX1/dtheta>Y_2*Y_2
+    DX1_nn = 0.0_wp
+    DX2_nn = 0.0_wp
+    !$OMP PARALLEL DO       &
+    !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED)    &
+    !$OMP   REDUCTION(+:DX1_nn,DX2_nn) PRIVATE(i_mn,qloc,dJh_dq1,dJh_dq2)
+    DO i_mn=1,mn_IP
+      qloc(  1:3) = (/ X1_boundary(i_mn), X2_boundary(i_mn),zeta_IP(i_mn)/)
+      dJh_dq1 = hmap%eval_Jh_dq(qloc, (/1.0_wp,0.0_wp,0.0_wp/))
+      dJh_dq2 = hmap%eval_Jh_dq(qloc, (/0.0_wp,1.0_wp,0.0_wp/))
+      DX1_nn = DX1_nn + Bext_squared(i_mn)*dJh_dq1*dX2_dthet_boundary(i_mn)
+      DX2_nn = DX2_nn + Bext_squared(i_mn)*dJh_dq2*dX1_dthet_boundary(i_mn)
+    END DO
+    !$OMP END PARALLEL DO
+    DX1_nn = -0.5*smn_IP*DX1_nn
+    DX2_nn =  0.5*smn_IP*DX2_nn
+  END IF
 
 !$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED)   &
@@ -1229,6 +1284,11 @@ SUBROUTINE BuildPrecond()
         END DO !i=0,deg
         iGP=iGP+(degGP+1)
       END DO !iElem=1,nElems
+
+      IF (FreeBoundary) THEN
+        Precond_b_X1(iMode)=precond_X1(iMode)%get_element(nBase,nBase) + DX1_nn*norm_mn
+      END IF
+
       !ACCOUNT FOR BOUNDARY CONDITIONS!
       P_BCaxis=0.0_wp; P_BCedge=0.0_wp
       tBC = X1_BC_Type(BC_AXIS,iMode)
@@ -1244,8 +1304,10 @@ SUBROUTINE BuildPrecond()
           CALL Precond_X1(iMode)%set_element( i,j,P_BCaxis(i,j))
         END DO; END DO !j,i
       END IF !nDOF_BCaxis>0
+
       tBC = X1_BC_Type(BC_EDGE,iMode)
       nD  = X1_base%s%nDOF_BC(tBC)
+
       IF(nD.GT.0)THEN
         !save nBase-deg:nBase rows
         DO i=nBase-deg,nBase; DO j=MAX(1,i-deg),nBase
@@ -1260,7 +1322,6 @@ SUBROUTINE BuildPrecond()
     END DO !iMode
 !$OMP END PARALLEL DO
     __PERFOFF('modes_loop_1')
-
     DEALLOCATE(P_BCaxis,P_BCedge)
   END SELECT !TYPE X1
 
@@ -1306,6 +1367,11 @@ SUBROUTINE BuildPrecond()
         END DO !i=0,deg
         iGP=iGP+(degGP+1)
       END DO !iElem=1,nElems
+
+      IF(FreeBoundary) THEN
+        Precond_b_X2(iMode)=precond_X2(iMode)%get_element(nBase,nBase) + DX2_nn*norm_mn
+      END IF
+
       !ACCOUNT FOR BOUNDARY CONDITIONS!
       P_BCaxis=0.0_wp; P_BCedge=0.0_wp
       tBC = X2_BC_Type(BC_AXIS,iMode)
@@ -1321,8 +1387,10 @@ SUBROUTINE BuildPrecond()
           CALL Precond_X2(iMode)%set_element( i,j,P_BCaxis(i,j))
         END DO; END DO !j,i
       END IF !nDOF_BCaxis>0
+
       tBC = X2_BC_Type(BC_EDGE,iMode)
       nD  = X2_base%s%nDOF_BC(tBC)
+
       IF(nD.GT.0)THEN
         !save nBase-deg:nBase rows
         DO i=nBase-deg,nBase; DO j=MAX(1,i-deg),nBase
@@ -1334,6 +1402,7 @@ SUBROUTINE BuildPrecond()
           CALL Precond_X2(iMode)%set_element( i,j,P_BCedge(i,j) )
         END DO; END DO !j,i
       END IF !nDOF_BCedge>0
+
     END DO !iMode
 !$OMP END PARALLEL DO
     __PERFOFF('modes_loop_2')
@@ -1483,6 +1552,89 @@ END SUBROUTINE ApplyPrecond
 
 
 !===================================================================================================================================
+!>   TEST: Free-boundary term at s=1.
+!!
+!!   Compute the "force" on the free-moving boundary from the external vacuum field.
+!!     int_thet int_zeta 1/2|Bvac|^2 (Y^2 X^1_thet -Y^1 X^2_thet) J_h dthet dzeta
+!!   Remark:In strong form, the boundary term would be a jump in B^2...
+!!          however, the gradient of the energy functional is a force from the weak form,
+!!          so the inner contribution (1/2B^2 + mu0*p) is already in the force computed above (and is set to zero for fixed boundary)
+!!
+!!  Makes use of the fact that spline coefficient at position nBase (s=1)  is interpolatory!
+!===================================================================================================================================
+SUBROUTINE EvalBoundaryForce(dofs_in,F_b_X1,F_b_X2)
+! MODULES
+  USE MODgvec_MHD3D_Vars, ONLY: X1_base,X2_base,LA_base,hmap,Phi_profile,chi_profile, Bext_squared,epsilon_spectral,Q_spectral
+  USE MODgvec_MHD3D_Vars, ONLY: Fnorm_X1_b_IP, Fnorm_X2_b_IP, Fnorm_X1_b_modes, Fnorm_X2_b_modes, spectral_width ! DIAGNOSTICS
+  USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: dofs_in         !! input solution
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp),INTENT(OUT)  :: F_b_X1(1:X1_base%f%modes) !! force on X1 at the boundary from the exterior
+  REAL(wp),INTENT(OUT)  :: F_b_X2(1:X2_base%f%modes) !! force on X2 at the  boundary from the exterior
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER   :: i_mn, i_modes, q, p
+  REAL(wp)  :: qloc(3), spectral_width_numerator, spectral_width_denominator, epsilon_m
+  REAL(wp),DIMENSION(1:mn_IP)  :: J_h_boundary,coefY, X1_condensed, X2_condensed, I_spectral
+!===================================================================================================================================
+  q = 1
+  p = Q_spectral-q
+
+  ASSOCIATE(m_X1 => X1_base%f%Xmn(1,:), m_X2 => X2_base%f%Xmn(1,:))
+    spectral_width_denominator = 0.0_wp
+    spectral_width_numerator = 0.0_wp
+
+    ! SUM in do loop to exclude m=0
+    DO i_modes=1,X1_base%f%modes
+      IF (m_X1(i_modes).NE.0) THEN
+        spectral_width_numerator = spectral_width_numerator + m_X1(i_modes)**(q+p)*dofs_in%X1(X1_Base%s%nBase,i_modes)**2
+        spectral_width_denominator = spectral_width_denominator + m_X1(i_modes)**(p)*dofs_in%X1(X1_Base%s%nBase,i_modes)**2
+      END IF
+    END DO
+
+    ! SUM in do loop to exclude m=0
+    DO i_modes=1,X2_base%f%modes
+      IF (m_X2(i_modes).NE.0) THEN
+        spectral_width_numerator = spectral_width_numerator + m_X2(i_modes)**(q+p)*dofs_in%X2(X2_Base%s%nBase,i_modes)**2
+        spectral_width_denominator = spectral_width_denominator + m_X2(i_modes)**(p)*dofs_in%X2(X2_Base%s%nBase,i_modes)**2
+      END IF
+    END DO
+
+    ! set to lower bound = 1, excludes m=0 and m=1 modes
+    spectral_width = spectral_width_numerator / spectral_width_denominator
+
+    ! corresponds to X and Y in Spectral Condensation paper:
+    ! X = SUM_mn  m^p*(m^q-M) X1_mn cos(theta-Nfp*n*zeta)
+    ! Y = SUM_mn  m^p*(m^q-M) X2_mn sin(theta-Nfp*n*zeta)
+    X1_prefactor_spec_cond = m_X1**p*(m_X1**q-spectral_width)
+    X2_prefactor_spec_cond = m_X2**p*(m_X2**q-spectral_width)
+    X1_condensed = X1_base%f%evalDOF_IP(0,X1_prefactor_spec_cond*dofs_in%X1(X1_Base%s%nBase,:))
+    X2_condensed = X2_base%f%evalDOF_IP(0,X2_prefactor_spec_cond*dofs_in%X2(X2_Base%s%nBase,:))
+    I_spectral = X1_condensed*dX1_dthet_boundary + X2_condensed*dX2_dthet_boundary
+
+    epsilon_m = epsilon_spectral / spectral_width_denominator
+
+    DO i_mn=1,mn_IP
+      qloc(  1:3) = (/ X1_boundary(i_mn), X2_boundary(i_mn),zeta_IP(i_mn)/)
+      J_h_boundary( i_mn) = hmap%eval_Jh(qloc)
+    END DO
+
+    coefY(:) = -0.5*Bext_squared(:)*J_h_boundary(:)*dX2_dthet_boundary(:) - epsilon_m*dX1_dthet_boundary(:)*I_spectral(:)
+    Fnorm_X1_b_IP = SUM(coefY**2)
+    CALL X1_base%f%projectIPtoDOF(.FALSE.,dthet_dzeta,   0,coefY(     :),F_b_X1(:))
+    Fnorm_X1_b_modes = SUM(F_b_X1**2)
+    coefY(:) =  0.5*Bext_squared(:)*J_h_boundary(:)*dX1_dthet_boundary(:) - epsilon_m*dX2_dthet_boundary(:)*I_spectral(:)
+    Fnorm_X2_b_IP = SUM(coefY**2)
+    CALL X2_base%f%projectIPtoDOF(.FALSE.,dthet_dzeta,   0,coefY(     :),F_b_X2(:))
+    Fnorm_X2_b_modes = SUM(F_b_X2**2)
+  END ASSOCIATE
+END SUBROUTINE EvalBoundaryForce
+
+!===================================================================================================================================
 !> Finalize Module
 !!
 !===================================================================================================================================
@@ -1546,6 +1698,15 @@ SUBROUTINE FinalizeMHD3D_EvalFunc()
   SDEALLOCATE(gzz_dq2)
   SDEALLOCATE(Gh11)
   SDEALLOCATE(Gh22)
+
+  SDEALLOCATE(X1_boundary)
+  SDEALLOCATE(X2_boundary)
+  SDEALLOCATE(dX1_dthet_boundary)
+  SDEALLOCATE(dX2_dthet_boundary)
+  SDEALLOCATE(X1_prefactor_spec_cond)
+  SDEALLOCATE(X2_prefactor_spec_cond)
+
+
 
 
 

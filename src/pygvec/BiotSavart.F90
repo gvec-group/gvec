@@ -102,4 +102,36 @@ SUBROUTINE BiotSavart_VectorPotential(n_positions, xyz, n_points, n_segments, co
     A = prefactor*A
 END SUBROUTINE BiotSavart_VectorPotential
 
+!================================================================================================================================!
+!> Evaluate the magnetic field of a set of current loops (coils) discretized via line-segments.
+!================================================================================================================================!
+SUBROUTINE BiotSavart_CoilSet(n_coils, coil_points_offsets,n_points_per_coil, n_coil_points, coil_points, coil_currents, n_positions, xyz, B )
+    USE MODgvec_Globals, ONLY: wp
+    ! INPUT VARIABLES -------------------------!
+    INTEGER,  INTENT(IN) :: n_coils !! number of coils
+    INTEGER,  INTENT(IN) :: coil_points_offsets(n_coils+1) !! indicator where one coil starts and an other ends
+    INTEGER,  INTENT(IN) :: n_points_per_coil(n_coils) !! number of discretization points per coil
+    INTEGER,  INTENT(IN) :: n_coil_points !! total number of discretization points
+
+    ! coil points are ordered so that, coil_points(:,coil_points_offsets(i)+1:coil_points_offsets(i+1)) corresponds to the i-th coil.
+    REAL(wp), INTENT(IN) :: coil_points(3,n_coil_points) !! x,y,z, vertices for all coils
+    REAL(wp), INTENT(IN) :: coil_currents(n_coils) !! I_coil * mu_0/(2*pi) for each coil
+    INTEGER,  INTENT(IN) :: n_positions        !! number of positions where the magnetic field is evaluated
+    REAL(wp), INTENT(IN) :: xyz(3,n_positions) !! x,y,z positions where the magnetic field is evaluated
+    ! OUTPUT VARIABLES -------------------------!
+    REAL(wp), INTENT(INOUT) :: B(3,n_positions) !! magnetic field at positions xyz
+    ! LOCAL VARIABLES -------------------------!
+    INTEGER :: i, start_idx, end_idx
+    REAL(wp) :: B_aux(3,n_positions)
+    ! CODE --------------------------------------------------------------------------------------------------------------------------!
+    B = 0.0_wp
+    DO i = 1,n_coils
+        B_aux = 0.0_wp
+        start_idx = coil_points_offsets(i)+1
+        end_idx = coil_points_offsets(i+1)
+        CALL BiotSavart(n_positions,xyz, n_points_per_coil(i), coil_points(:,start_idx:end_idx), coil_currents(i),B_aux)
+        B = B + B_aux
+    END DO
+END SUBROUTINE BiotSavart_CoilSet
+
 END MODULE MODgvec_BiotSavart

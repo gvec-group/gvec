@@ -3,14 +3,17 @@ from pathlib import Path
 
 try:
     import numpy as np
-
     import xarray as xr
+    from numpy.polynomial import Polynomial
+    from scipy.interpolate import BSpline
+
     import gvec
-    from gvec.core.state import State
-except ImportError:
-    pytest.skip("Import Error", allow_module_level=True)
+    from gvec import State
+    from gvec.core.minimize import MinimizationState
+except ImportError as e:
+    pytest.skip(f"Import Error: {e}", allow_module_level=True)
 
-
+EXAMPLES = Path(__file__).parent / "../examples"
 tol = 1e-12
 
 
@@ -89,48 +92,54 @@ def c_poly():
     return [1, 2, 3, -1, -2, -3]
 
 
-@pytest.fixture(scope="module", params=["poly", "bspl"])
-def testfile_aux(request, testcaserundir, c_poly):
+@pytest.fixture(scope="session")
+def testcase():
+    return "ellipstell_lowres"
+
+
+@pytest.fixture()
+def woutfile(testcase):
+    return EXAMPLES / testcase / "wout_d23p4_tm.nc"
+
+
+@pytest.fixture()
+def parameters(testcase, woutfile):
+    params = gvec.util.read_parameters(EXAMPLES / testcase / "parameter.ini")
+    if woutfile.exists():
+        params["vmecwoutFile"] = woutfile.absolute()
+    return params
+
+
+@pytest.fixture(params=["poly", "bspl"])
+def teststate(request, c_poly, testcase, tmp_path):
     """prepare the testcase parameters"""
-    params_gvec = {"iota_scale": 1, "pres_scale": 1}
+    parameters = gvec.util.read_parameters(EXAMPLES / testcase / "parameter.ini")
     deg = len(c_poly) - 1
     if request.param == "poly":
-        paramfile = "parameter_poly.ini"
-        params_gvec["pres_coefs"] = c_poly
-        params_gvec["pres_type"] = "polynomial"
-        params_gvec["iota_coefs"] = c_poly
-        params_gvec["iota_type"] = "polynomial"
+        parameters["pres"] = {"type": "polynomial", "coefs": c_poly}
+        parameters["iota"] = {"type": "polynomial", "coefs": c_poly}
     elif request.param == "bspl":
-        paramfile = "parameter_bspl.ini"
         c_bspl = np.zeros(deg + 1)
         knots = np.concatenate([np.zeros(deg + 1), np.ones(deg + 1)])
         for j in range(deg + 1):
             c_bspl[j] = poly2bspl_coeff(c_poly, j, knots)
-        params_gvec = gvec.util.bspl2gvec("pres", knots=knots, coefs=c_bspl, params=params_gvec)
-        params_gvec = gvec.util.bspl2gvec("iota", knots=knots, coefs=c_bspl, params=params_gvec)
-    gvec.util.adapt_parameter_file(
-        testcaserundir / "parameter.ini", testcaserundir / paramfile, **params_gvec
-    )
-    yield (testcaserundir / paramfile)
+        parameters["pres"] = {"type": "bspline", "knots": knots, "coefs": c_bspl}
+        parameters["iota"] = {"type": "bspline", "knots": knots, "coefs": c_bspl}
+    parameters["iota"]["scale"] = 1
+    parameters["pres"]["scale"] = 1
+    return State.new(parameters, tmp_path)
 
 
 @pytest.fixture()
-def teststate(testfile_aux):
-    return State(testfile_aux)
-
-
-@pytest.fixture(scope="module")
-def vmecfiles():
-    testcase = "w7x_from_vmec_initLA_F"
-    path_example = Path(__file__).parent / "../examples/" / testcase
-    return (path_example / "parameter.ini", path_example / "wout_d23p4_tm.nc")
+def teststate_min(teststate):
+    return MinimizationState(teststate.parameterfile, teststate.statefile)
 
 
 # === Tests === #
 @pytest.mark.parametrize("type", ["p", "iota"])
 def test_eval_profile(teststate, type, c_poly):
     rho = np.linspace(0, 1, 100)
-    ref_poly = np.polynomial.Polynomial(c_poly)
+    ref_poly = Polynomial(c_poly)
     ref_poly_vals = ref_poly(rho**2)
     gvec_profile = teststate.evaluate_profile(type, rho=rho)
     np.testing.assert_allclose(gvec_profile, ref_poly_vals)
@@ -139,7 +148,7 @@ def test_eval_profile(teststate, type, c_poly):
 @pytest.mark.parametrize("type", ["p", "iota"])
 def test_eval_profile_prime(teststate, type, c_poly):
     rho = np.linspace(0, 1, 100)
-    ref_poly = np.polynomial.Polynomial(c_poly)
+    ref_poly = Polynomial(c_poly)
     ref_poly_vals = ref_poly.deriv(m=1)(rho**2) * 2 * rho
     gvec_profile = teststate.evaluate_profile(type, rho=rho, deriv=1)
     np.testing.assert_allclose(gvec_profile, ref_poly_vals)
@@ -148,7 +157,7 @@ def test_eval_profile_prime(teststate, type, c_poly):
 @pytest.mark.parametrize("type", ["p", "iota"])
 def test_eval_profile_n_deriv(teststate, type, c_poly):
     rho = np.linspace(0, 1, 100)
-    ref_poly = np.polynomial.Polynomial(c_poly)
+    ref_poly = Polynomial(c_poly)
 
     # derivatives of s=rho**2 with respect to rho
     ds1 = 2 * rho
@@ -177,7 +186,7 @@ def test_eval_profile_iota_vs_phi_and_chi(teststate, c_poly):
     this is a test for the anti-derivative.
     """
     rho = np.linspace(1.0e-16, 1.0, 131)
-    ref_poly = np.polynomial.Polynomial(c_poly)
+    ref_poly = Polynomial(c_poly)
     ref_poly_vals = ref_poly(rho**2)
     eval_iota = teststate.evaluate_profile("iota", rho=rho)
     np.testing.assert_allclose(eval_iota, ref_poly_vals, atol=tol)
@@ -192,7 +201,7 @@ def test_eval_rho2_profile_iota_vs_phi_and_chi(teststate, c_poly):
     this is a test for the anti-derivative.
     """
     rho2 = np.linspace(1.0e-16, 1.0, 129)
-    ref_poly = np.polynomial.Polynomial(c_poly)
+    ref_poly = Polynomial(c_poly)
     ref_poly_vals = ref_poly(rho2)
     eval_iota = teststate.evaluate_rho2_profile("iota", rho2=rho2)
     np.testing.assert_allclose(eval_iota, ref_poly_vals, atol=tol)
@@ -201,40 +210,85 @@ def test_eval_rho2_profile_iota_vs_phi_and_chi(teststate, c_poly):
     np.testing.assert_allclose(eval_dchids / eval_dphids, ref_poly_vals, atol=tol)
 
 
+# NOTE: the get_iota_fobj method is not actually used and has issues with ifx in DEBUG mode
+# def test_get_iota_fobj(teststate_min):
+#     iota_fobj = teststate_min._get_iota_fobj()
+#     # f90wrap apparently doesn't know which implementation the returned object is
+#     assert isinstance(iota_fobj, gvec.lib.c_rProfile)
+#     r = 0.1
+#     v1 = iota_fobj.eval_at_rho(r)
+#     v2 = teststate_min.evaluate_profile("iota", rho=r)
+#     np.testing.assert_allclose(v1, v2, atol=1e-12)
+
+
+def test_get_iota(teststate_min):
+    derivs = [1, 2, 3]
+    iota_profile = teststate_min.iota
+    typ = teststate_min.parameters["iota"]["type"]
+    assert typ in ["polynomial", "bspline"]
+    if typ == "polynomial":
+        assert isinstance(iota_profile, Polynomial)
+        derivatives = [iota_profile.deriv(m=d) for d in derivs]
+    elif typ == "bspline":
+        assert isinstance(iota_profile, BSpline)
+        derivatives = [iota_profile.derivative(nu=d) for d in derivs]
+
+    rho2 = np.linspace(0, 1, 101)
+    python_values = iota_profile(rho2)
+    fortran_values = teststate_min.evaluate_rho2_profile("iota", rho2)
+    np.testing.assert_allclose(python_values, fortran_values, atol=1e-16)
+    for d, deriv in zip(derivs, derivatives):
+        python_values = deriv(rho2)
+        fortran_values = teststate_min.evaluate_rho2_profile("iota", rho2, deriv=d)
+        np.testing.assert_allclose(python_values, fortran_values, atol=1e-16)
+
+
+def test_set_iota(teststate_min):
+    # set a new iota profile and check that it is updated correctly
+    new_iota = Polynomial([1, 2, 3])
+    teststate_min.iota = new_iota
+    assert teststate_min.iota == new_iota
+
+    rho2 = np.linspace(0, 1, 101)
+    python_values = new_iota(rho2)
+    fortran_values = teststate_min.evaluate_rho2_profile("iota", rho2)
+    np.testing.assert_allclose(python_values, fortran_values, atol=1e-16)
+
+
 @pytest.mark.parametrize("BC_type_axis", ["not_a_knot", "1st_deriv", "2nd_deriv"])
 @pytest.mark.parametrize("BC_type_edge", ["not_a_knot", "1st_deriv", "2nd_deriv"])
 @pytest.mark.parametrize("n_points", [4, 5, 6, 11])
-def test_interpolation(testcaserundir, c_poly, BC_type_axis, BC_type_edge, n_points):
+def test_interpolation(parameters, c_poly, BC_type_axis, BC_type_edge, n_points, tmp_path):
     pres_scale = 1500
-    params_gvec = {"iota_scale": 1, "pres_scale": pres_scale}
     cubic_poly_c = c_poly[:4]
-    paramfile = "parameter_interpolation.ini"
 
-    cubic_poly = np.polynomial.Polynomial(cubic_poly_c)
+    cubic_poly = Polynomial(cubic_poly_c)
     rho2_vals = np.linspace(0, 1, n_points)
     P_vals = cubic_poly(rho2_vals)
     iota_vals = cubic_poly(rho2_vals)
 
-    params_gvec["pres_type"] = "interpolation"
-    params_gvec["pres_rho2"] = rho2_vals
-    params_gvec["pres_vals"] = P_vals
-    params_gvec["pres_BC_type_axis"] = BC_type_axis
-    params_gvec["pres_BC_type_edge"] = BC_type_edge
-
-    params_gvec["iota_type"] = "interpolation"
-    params_gvec["iota_rho2"] = rho2_vals
-    params_gvec["iota_vals"] = iota_vals
-    params_gvec["iota_BC_type_axis"] = BC_type_axis
-    params_gvec["iota_BC_type_edge"] = BC_type_edge
+    parameters["pres"] = dict(
+        type="interpolation",
+        rho2=rho2_vals,
+        vals=P_vals,
+        scale=pres_scale,
+        BC_type_axis=BC_type_axis,
+        BC_type_edge=BC_type_edge,
+    )
+    parameters["iota"] = dict(
+        type="interpolation",
+        rho2=rho2_vals,
+        vals=iota_vals,
+        scale=1,
+        BC_type_axis=BC_type_axis,
+        BC_type_edge=BC_type_edge,
+    )
 
     rho2 = np.linspace(0, 1, 200)
     P = pres_scale * cubic_poly(rho2)
     iota = cubic_poly(rho2)
 
-    gvec.util.adapt_parameter_file(
-        testcaserundir / "parameter.ini", testcaserundir / paramfile, **params_gvec
-    )
-    state = State(testcaserundir / paramfile)
+    state = State.new(parameters, tmp_path)
     P_p_interpol = state.evaluate_rho2_profile("p", rho2_vals, deriv=0)
     iota_p_interpol = state.evaluate_rho2_profile("iota", rho2_vals, deriv=0)
 
@@ -273,15 +327,23 @@ def test_interpolation(testcaserundir, c_poly, BC_type_axis, BC_type_edge, n_poi
         np.testing.assert_allclose(dP_interpol_dss[-1] / pres_scale, 0, atol=tol)
         np.testing.assert_allclose(diota_interpol_dss[-1], 0, atol=tol)
 
+    # compare fortran and python implementation of the interpolation
+    iota_params = parameters["iota"]
+    iota_profile = gvec.util.profile_from_parameters(iota_params)
+    np.testing.assert_allclose(iota_profile(rho2), iota_interpol)
 
-def test_vmec_profile_init(vmecfiles):
-    wout = xr.load_dataset(vmecfiles[1])
+
+@pytest.mark.parametrize("testcase", ["w7x_from_vmec_initLA_F"])
+def test_vmec_profile_init(woutfile, parameters, tmp_path):
+    """test whether the (fortran) profile implementation works when reading the profiles from a VMEC wout file."""
+    wout = xr.load_dataset(woutfile)
     phi = wout.phi
     P_vmec = wout.presf
     iota_vmec = -1 * wout.iotaf
     rho_wout = np.sqrt((phi - phi[0]) / (phi[-1] - phi[0]))  # Normalized toroidal flux
 
-    state = State(vmecfiles[0])
+    state = State.new(parameters, tmp_path)
+
     P_gvec = state.evaluate_profile("p", rho_wout, deriv=0)
     dP_dr_gvec = state.evaluate_profile("p", 0, deriv=1)
     iota_gvec = state.evaluate_profile("iota", rho_wout, deriv=0)
@@ -293,32 +355,32 @@ def test_vmec_profile_init(vmecfiles):
     np.testing.assert_allclose(dP_dr_gvec, 0, atol=tol)
 
 
+@pytest.mark.parametrize("testcase", ["w7x_from_vmec_initLA_F"])
 @pytest.mark.parametrize("profile_type", ["pres", "iota"])
-def test_vmec_with_custom_profile(testcaserundir, vmecfiles, c_poly, profile_type):
-    wout = xr.load_dataset(vmecfiles[1])
+def test_vmec_with_custom_profile(woutfile, parameters, c_poly, profile_type, tmp_path):
+    wout = xr.load_dataset(woutfile)
     phi = wout.phi
     rho_wout = np.sqrt((phi - phi[0]) / (phi[-1] - phi[0]))  # Normalized toroidal flux
 
-    params = {"vmecwoutFile": vmecfiles[1]}
+    parameters[profile_type] = {}
     if profile_type == "pres":
         var = "p"
         scale = 1
-        params["init_with_profile_pressure"] = "T"
-        params["pres_scale"] = scale
+        parameters["init_with_profile_pressure"] = "T"
     else:
         var = "iota"
         scale = -1
-        params["init_with_profile_iota"] = "T"
-        params["iota_scale"] = scale
+        parameters["init_with_profile_iota"] = "T"
+    parameters[profile_type]["scale"] = scale
+    parameters[profile_type]["coefs"] = c_poly
+    parameters[profile_type]["type"] = "polynomial"
 
-    params[f"{profile_type}_coefs"] = c_poly
-    params[f"{profile_type}_type"] = "polynomial"
-    param_file = testcaserundir / f"parameter_vmec_custom_{profile_type}.ini"
-    gvec.util.adapt_parameter_file(vmecfiles[0], param_file, **params)
+    state = State.new(parameters, tmp_path)
+
     rho = np.linspace(0, 1, 100)
-    ref_poly = np.polynomial.Polynomial(c_poly)
+    ref_poly = Polynomial(c_poly)
     profile_true = scale * ref_poly(rho**2)
-    state = State(param_file)
+
     profile_gvec = state.evaluate_profile(var, rho, deriv=0)
     profile_gvec_at_vmec = state.evaluate_profile(var, rho_wout, deriv=0)
 

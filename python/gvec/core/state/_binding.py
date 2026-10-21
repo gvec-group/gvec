@@ -7,10 +7,11 @@
 import functools
 import logging
 import tempfile
+from pathlib import Path
 
 import gvec.util
 from gvec.errors import catch_gvec_errors
-from gvec.lib import _binding, _run, _state, _globals, t_sfl_boozer
+from gvec.lib import _binding, _run, _state, _globals, t_sfl_boozer, c_rProfile
 
 # === Globals === #
 
@@ -56,7 +57,7 @@ def with_binding(method):
 # === Binding to the Fortran library === #
 
 
-def bind(self, force: bool = False):
+def bind(self, force: bool = False, init_for_minimize: bool = False):
     """Bind this State object to the Fortran library. Allocate & initialize everything."""
     global bound_state
     if bound_state is self:
@@ -79,10 +80,19 @@ def bind(self, force: bool = False):
     logger.debug(f"Binding state {self!r} to the fortran library.")
 
     _binding.redirect_abort()  # redirect 'abort' to raise a 'RuntimeError'
-    if self._stdout is None:
-        self._stdout = tempfile.NamedTemporaryFile(mode="r", prefix="gvec-stdout-")
-    _binding.redirect_stdout(self._stdout.name)
-    logger.debug(f"Redirected stdout to {self._stdout.name}")
+    if self.redirect_stdout:
+        if self._stdout is None:
+            self._stdout = tempfile.NamedTemporaryFile(mode="r", prefix="gvec-stdout-")
+            outfile = self._stdout.name
+        elif isinstance(self._stdout, Path):
+            self._stdout = self._stdout.absolute()
+            outfile = self._stdout
+            self._stdout.touch(exist_ok=True)  # ensure the file exists
+            self._stdout = self._stdout.open(mode="r")
+        else:  # opened file-like object
+            outfile = self._stdout.name
+        _binding.redirect_stdout(outfile)
+        logger.debug(f"Redirected stdout to {outfile}")
 
     MAXLEN = _globals.maxlen
     with open(self.parameterfile, "r") as f:
@@ -99,14 +109,19 @@ def bind(self, force: bool = False):
                 _state.init(self.parameterfile.name)
                 if self.statefile is not None:
                     logger.debug("Read state from statefile")
-                    if not self.statefile.is_absolute():
-                        statefile = self.statefile.relative_to(self.rundir)
+                    if init_for_minimize:
+                        # initialize a GVEC state as during a GVEC run
+                        logger.debug("Initialize solution from statefile for minimization")
+                        _state.initsolution(self.statefile.absolute(), False)
                     else:
-                        statefile = self.statefile
-                    _state.readstate(statefile)
+                        if not self.statefile.is_absolute():
+                            statefile = self.statefile.relative_to(self.rundir)
+                        else:
+                            statefile = self.statefile
+                        _state.readstate(statefile)
                 else:
                     logger.debug("Initialize solution without statefile")
-                    _state.initsolution()
+                    _state.initsolution(do_writestate_in=False)
         except:
             logger.debug("Error during binding, attempting cleanup.")
             self.unbind(cleanup=True)
@@ -135,7 +150,7 @@ def unbind(self, cleanup: bool = False):
 
     with catch_gvec_errors():
         for child in self._children:
-            if isinstance(child, t_sfl_boozer):
+            if isinstance(child, (t_sfl_boozer, c_rProfile)):
                 logger.debug(f"Unbinding child {child!r} from the fortran library.")
                 del child
             else:

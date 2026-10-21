@@ -113,3 +113,10 @@ def compute_FD(f: np.ndarray, pos, coefs, axis=0):
     for roll, c in zip(pos[1:], coefs[1:]):
         df += np.roll(f, -roll, axis=axis) * c
     return df
+
+
+def compute_hfactor(M, N, K):
+    hM = 2 * np.pi / (2 * M + 1)
+    hN = 2 * np.pi / (2 * N + 1)
+    hK = 1.0 / K
+    return hM, hN, hK

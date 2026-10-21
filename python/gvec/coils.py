@@ -17,7 +17,6 @@ from gvec.core.compute import CoordinateSpec
 from gvec.core.state import State
 from gvec.lib import _biotsavart as _BS
 from gvec.util import logging_setup
-from gvec.core.compute import volume_integral
 
 try:
     from joblib import Parallel, delayed, parallel_config
@@ -381,12 +380,34 @@ class CoilSet(Coil, Mapping):
         if coil_names is None:
             coil_names = [f"coil_{i}" for i in range(len(coils))]
         coils_dict = {}
-        counter = 0
-        for coil_name, coil in zip(coil_names, coils):
+
+        # names with _f indicate variables needed for the fortran part
+        # NOTE: using a wrapped fortran type resulted in issues with multiprocessing.
+        # all relevant arrays for the fortran evaluation of the B-field are saved here.
+        # this avoids a loop over the coil-set dict which improves performance in the fieldline tracing
+        # TODO: inefficient memory usage as coil-points are basically stored twice
+        self._coil_points_f = np.asfortranarray(
+            np.concatenate([coil.coil_points for coil in coils], axis=1)
+        )
+        self._n_coils_f = len(coils)
+        self._coil_currents_f = np.empty(self._n_coils_f)
+        self._n_points_f = self._coil_points_f.shape[1]
+        self._n_points_per_coil_f = np.empty(self._n_coils_f)
+        self._coil_points_offsets_f = np.zeros(self._n_coils_f + 1)
+        self._n_coil_points_f = np.sum(self._coil_points_f.shape[1])
+
+        for i, (coil_name, coil) in enumerate(zip(coil_names, coils)):
             if not isinstance(coil, Coil):
-                raise TypeError(f"Entry {counter} in coils is not of type Coil!")
+                raise TypeError(f"Entry {i} in coils is not of type Coil!")
             coils_dict[coil_name] = coil
-            counter += 1
+            self._coil_currents_f[i] = coil.prefactor
+            self._n_points_per_coil_f[i] = coil.n_points
+        self._coil_points_offsets_f[1:] = np.cumsum(self._n_points_per_coil_f)
+
+        self._coil_currents_f = np.asfortranarray(self._coil_currents_f)
+        self._coil_points_offsets_f = np.asfortranarray(self._coil_points_offsets_f)
+        self._n_points_per_coil_f = np.asfortranarray(self._n_points_per_coil_f)
+
         self.coils = coils_dict
 
     @classmethod
@@ -454,29 +475,13 @@ class CoilSet(Coil, Mapping):
             raise ValueError(
                 f"pos.ndim > 2! Expected array of shape (3,n_positions), but got shape {pos.shape}."
             )
-
-        n_positions = pos.shape[1]
-        B_aux = np.asfortranarray(np.zeros(pos.shape))
         ds = xr.Dataset(
             data_vars=dict(B=(("xyz", "points"), np.zeros(pos.shape))),
             coords={"xyz": ("xyz", ["x", "y", "z"])},
         )
-
         ds["pos"] = pos
-        for coil_name in self.coils:
-            coil = self.coils[coil_name]
-            _BS.biotsavart(
-                n_positions=n_positions,
-                xyz=np.asfortranarray(pos),
-                n_points=coil.n_points,
-                coil_points=np.asfortranarray(coil.coil_points),
-                prefactor=coil.prefactor,
-                b=B_aux,
-            )
-            ds.B[:, :] += B_aux
-            B_aux *= 0.0
         ds.B.attrs = dict(long_name="magnetic coil field", symbol=r"\mathbf{B}_C")
-
+        ds.B[:, :] += self._eval_B_direct(pos)
         if stacked:
             ds = _unstack_BS_ds(ds)
 
@@ -555,20 +560,18 @@ class CoilSet(Coil, Mapping):
             )
 
         n_positions = pos.shape[1]
-        B = np.zeros(pos.shape)
-        B_aux = np.asfortranarray(np.zeros(pos.shape))
-        for coil_name in self.coils:
-            coil = self.coils[coil_name]
-            _BS.biotsavart(
-                n_positions=n_positions,
-                xyz=np.asfortranarray(pos),
-                n_points=coil.n_points,
-                coil_points=np.asfortranarray(coil.coil_points),
-                prefactor=coil.prefactor,
-                b=B_aux,
-            )
-            B += B_aux
-            B_aux *= 0.0
+        B = np.asfortranarray(np.zeros(pos.shape))
+        _BS.biotsavart_coilset(
+            self._n_coils_f,
+            self._coil_points_offsets_f,
+            self._n_points_per_coil_f,
+            self._n_coil_points_f,
+            self._coil_points_f,
+            self._coil_currents_f,
+            n_positions,
+            np.asfortranarray(pos),
+            B,
+        )
         return B
 
     def plot(self, ax=None, show=True, **kwargs):
@@ -631,61 +634,13 @@ def intersection_planes_from_state(
     List[IntersectionPlane]
         List of IntersectionPlane objects.
     """
+    warn(
+        "intersection_planes_from_state is deprecated and will be removed in future updates! Consider using the new version with state.get_intersection_planes(...)",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
-    boundary = state.evaluate("pos", zeta=zetas, theta=128, rho=1.0).pos
-
-    planes = []
-    for zeta in boundary.zeta:
-        surf_point, e_q1, e_q2, e_q3 = state.evaluate_hmap_only(X1=0, X2=0, zeta=zeta)
-        e_q3 = e_q3[:, 0]
-        surf_normal_length = np.sqrt(np.dot(e_q3, e_q3))
-        if surf_normal_length <= 1e-12:  # RZ case
-            major_radius = state.evaluate("r_major", zeta=zeta).r_major.data
-            e_q1, e_q2, e_q3 = state.evaluate_hmap_only(X1=major_radius, X2=0, zeta=zeta)[1:]
-            e_q3 = e_q3[:, 0]
-            surf_normal_length = np.sqrt(np.dot(e_q3, e_q3))
-        surf_normal = e_q3 / surf_normal_length
-
-        surf_point = surf_point[:, 0]
-        e_q1 = e_q1[:, 0]
-        e_q2 = e_q2[:, 0]
-
-        boundary_x = boundary.sel(rho=1.0, xyz="x", zeta=zeta)
-        boundary_y = boundary.sel(rho=1.0, xyz="y", zeta=zeta)
-        boundary_z = boundary.sel(rho=1.0, xyz="z", zeta=zeta)
-
-        xlim = np.array([boundary_x.min().data, boundary_x.max().data])
-        ylim = np.array([boundary_y.min().data, boundary_y.max().data])
-        zlim = np.array([boundary_z.min().data, boundary_z.max().data])
-        dx = xlim[1] - xlim[0]
-        dy = ylim[1] - ylim[0]
-        dz = zlim[1] - zlim[0]
-
-        if abs(dx) < min_box_size:
-            xlim[0] -= min_box_size / 2
-            xlim[1] += min_box_size / 2
-
-        if abs(dy) < min_box_size:
-            ylim[0] -= min_box_size / 2
-            ylim[1] += min_box_size / 2
-
-        if abs(dz) < min_box_size:
-            zlim[0] -= min_box_size / 2
-            zlim[1] += min_box_size / 2
-
-        planes.append(
-            IntersectionPlane(
-                surf_normal=surf_normal,
-                surf_point=surf_point,
-                xlim=xlim,
-                ylim=ylim,
-                zlim=zlim,
-                e_q1=e_q1,
-                e_q2=e_q2,
-            )
-        )
-
-    return planes
+    return state.get_intersection_planes(zetas, min_box_size)
 
 
 class IntersectionPlane:
@@ -696,8 +651,8 @@ class IntersectionPlane:
         xlim: ArrayLike = np.inf,
         ylim: ArrayLike = np.inf,
         zlim: ArrayLike = np.inf,
-        e_q1: ArrayLike = None,
-        e_q2: ArrayLike = None,
+        grad_q1: ArrayLike = None,
+        grad_q2: ArrayLike = None,
     ):
         """Define a plane for Poincaré plots with a bounding box.
 
@@ -706,13 +661,17 @@ class IntersectionPlane:
         surf_normal : np.ndarray
             Surface normal of the plane.
         surf_point : np.ndarray
-            Point on the plane. If e_q1 and e_q2 are specified, this is assumed to be the origin.
+            Point on the plane. If grad_q1 and grad_q2 are specified, this is assumed to be the origin.
         xlim : ArrayLike, optional
             X limits of the bounding box, by default np.inf
         ylim : ArrayLike, optional
             Y limits of the bounding box, by default np.inf
         zlim : ArrayLike, optional
             Z limits of the bounding box, by default np.inf
+        grad_q1: ArrayLike, optional
+            First basis vector in the plane with expected shape (3,). Used for projecting xyz data onto X1.
+        grad_q2: ArrayLike, optional
+            Second basis vector in the plane with xpected shape (3,). Used for projecting xyz data onto X2.
         """
 
         self.surf_normal = surf_normal
@@ -720,15 +679,15 @@ class IntersectionPlane:
         self.xlim = xlim
         self.ylim = ylim
         self.zlim = zlim
-        self.e_q1 = e_q1
-        self.e_q2 = e_q2
+        self.grad_q1 = grad_q1
+        self.grad_q2 = grad_q2
 
     def transform_events_to_X1_X2(self, events):
-        if self.e_q1 is None or self.e_q2 is None:
+        if self.grad_q1 is None or self.grad_q2 is None:
             warn("Quantities not set, cannot transform events to X1 and X2.")
             return
-        X1 = np.dot((events - self.surf_point), self.e_q1)
-        X2 = np.dot((events - self.surf_point), self.e_q2)
+        X1 = np.dot((events - self.surf_point), self.grad_q1)
+        X2 = np.dot((events - self.surf_point), self.grad_q2)
         return (X1, X2)
 
     def __call__(self, t, R):
@@ -830,7 +789,8 @@ def trace_fieldlines(
         return solves
     else:
         dt = xr.DataTree()
-        for fieldline, output in enumerate(solves):
+        logger.debug("creating data-tree")
+        for fieldline, output in tqdm(enumerate(solves)):
             coords = {
                 "t": output.t,
                 "xyz": ["x", "y", "z"],
@@ -861,7 +821,7 @@ def trace_fieldlines(
                             ds_event.sel(xyz="z") <= event_aux.zlim[1]
                         )
                         ds[f"event_{i}"] = ds_event.where(mask_x & mask_y & mask_z)
-                        if hasattr(event_aux, "e_q1") and hasattr(event_aux, "e_q2"):
+                        if hasattr(event_aux, "grad_q1") and hasattr(event_aux, "grad_q2"):
                             X1, X2 = event_aux.transform_events_to_X1_X2(ds[f"event_{i}"])
                             ds[f"event_{i}_X1"] = ((f"time_event_{i}"), X1)
                             ds[f"event_{i}_X2"] = ((f"time_event_{i}"), X2)
@@ -871,6 +831,130 @@ def trace_fieldlines(
                 )
                 pass
             dt[f"fieldline_{fieldline}"] = ds
+        return dt
+
+
+def trace_fieldlines_RZphi(
+    starts_RZ: np.ndarray,
+    coils: CoilSet,
+    turns: int,
+    start_phi: float = 0.0,
+    phis: float | np.ndarray | list | None = None,
+    n_jobs: int = 1,
+    return_solves: bool = False,
+    verbosity: Literal["WARNING", "INFO", "DEBUG"] = "INFO",
+    **kwargs,
+):
+    """Trace magnetic fieldlines in RZphi
+
+    Parameters
+    ----------
+    starts_RZ : np.ndarray
+        Initial RZ positions of shape `[2,n_fieldlines]` at the `start_phi`.
+    coils : CoilSet
+        Coils set used for evaluating the magnetic field.
+    turns : int
+        Number of troidal turns to trace.
+    start_phi : float, optional
+        Initial starting phi position, by default 0.0
+    phis : float | np.ndarray | list | None, optional
+        phi positions where the fieldline is saved, by default None. Should be in `[0,2*pi)`
+    n_jobs : int, optional
+        Number of jobs for parallelization over fieldlines, by default 1.
+    return_solves : bool, optional
+        Whether to return a list of solve_ivp objects or an xarray datatree, by default False
+    verbosity : Literal[&quot;WARNING&quot;, &quot;INFO&quot;, &quot;DEBUG&quot;], optional
+        Level of the logger, by default "INFO"
+    """
+    logging_setup()
+    logger = getLogger("gvec_fieldlines")
+    logger.setLevel(verbosity)
+    if n_jobs > 1 and not has_joblib:
+        logger.warning(
+            "n_jobs > 1 but joblib not installed, parallelization over fieldlines is not possible. Falling back to n_jobs=1."
+        )
+        n_jobs = 1
+
+    e_rho = np.zeros(3)
+    e_phi = np.zeros(3)
+    B = np.zeros(3)
+    B_out = np.zeros(2)
+
+    def _push_cyl(t, R):
+        e_rho[:] = [np.cos(t), np.sin(t), 0]
+        e_phi[:] = [-np.sin(t), np.cos(t), 0]
+
+        B[:] = coils._eval_B_direct([R[0] * np.cos(t), R[0] * np.sin(t), R[1]])[:, 0]
+        B_rho = np.dot(B, e_rho)
+        B_phi = np.dot(B, e_phi)
+
+        B_out[:] = [R[0] * B_rho / B_phi, R[0] * B[2] / B_phi]
+        return B_out
+
+    if phis is None:
+        phis = np.array([0.0])
+    if any(phis >= 2 * np.pi):
+        raise ValueError(f"The provided Phis have to be >= 0 and < 2*pi. phis={phis}")
+    phis[phis == 0.0] = 2 * np.pi
+    phis = np.sort(phis)
+
+    time = 2 * np.pi * turns + start_phi
+    n_phis = len(phis)
+    t_evals = np.zeros(turns * n_phis)
+    offset = 0
+    for i in range(turns):
+        t_evals[offset : offset + n_phis] = i * 2 * np.pi + phis
+        offset += n_phis
+    t_evals = t_evals[np.where(t_evals >= start_phi)]
+
+    solves = []
+    logger.info("Tracing fieldlines using n_jobs=%d", n_jobs)
+    if n_jobs > 1:  # embarrassingly parallel over fieldlines
+        with parallel_config(n_jobs=n_jobs):
+            solves = ProgressParallel(total=starts_RZ.shape[1])(
+                delayed(solve_ivp)(
+                    fun=_push_cyl,
+                    y0=starts_RZ[:, i],
+                    t_span=[start_phi, time],
+                    t_eval=t_evals,
+                    **kwargs,
+                )
+                for i in range(starts_RZ.shape[1])
+            )
+    else:  # serial over fieldlines but still OMP parallelization for magnetic field evaluation
+        for i in tqdm(range(starts_RZ.shape[1])):
+            solve = solve_ivp(
+                fun=_push_cyl,
+                y0=starts_RZ[:, i],
+                t_span=[0, time],
+                t_eval=t_evals,
+                **kwargs,
+            )
+            solves.append(solve)
+    if return_solves:
+        return solves
+    else:
+        dt = xr.DataTree()
+        for fieldline, output in enumerate(solves):
+            try:
+                coords = {
+                    "phi": output.t,
+                    "RZ": ["R", "Z"],
+                }
+                ds = xr.Dataset(
+                    {
+                        "pos": (("RZ", "phi"), output.y),
+                    },
+                    coords=coords,
+                )
+                ds["n_phis"] = n_phis
+                ds["phis_input"] = phis
+                dt[f"fieldline_{fieldline}"] = ds
+            except ValueError:
+                logger.warning(
+                    f"ValueError when gathering data for fieldline {fieldline}. Maybe no intersection occurred."
+                )
+                pass
         return dt
 
 
@@ -889,10 +973,21 @@ def get_phi_edge_from_coils(state: State, coil_set: CoilSet | Coil):
     float
         Averaged total toroidal flux.
     """
-    ev = state.evaluate("pos", "B", "grad_zeta")
-    B_coils = coil_set.eval_mod_B(ev.pos)
+    # phi = int_C A.dl
 
-    Bn = xr.dot(B_coils.B, ev.grad_zeta, dim="xyz")
-    BnJac = Bn * ev.Jac
-    Psi_vol = volume_integral(BnJac) / (np.pi * 2)
-    return Psi_vol.item()
+    # number of toroidal integration points
+    nz = state.get_integration_points()[4]
+
+    # consider full boundary since it might not be in equilibrium with the coils
+    zeta = np.linspace(0, 2 * np.pi, nz * state.nfp, endpoint=False)
+    ev = state.evaluate("pos", "e_theta", "g_tt", rho=1.0, zeta=zeta).squeeze()
+    ev_coils = coil_set.eval_A(ev.pos)
+    l_norm = ev.e_theta / np.sqrt((ev.e_theta**2).sum(dim="xyz"))
+
+    # dl(i) = sqrt(g_ii) * du^i
+    Adl = xr.dot(ev_coils.A, l_norm, dim="xyz") * np.sqrt(ev.g_tt)
+    delta_zeta = zeta[1] - zeta[0]
+
+    # average toroidaly, integrate poloidaly
+    Psi = delta_zeta * (Adl * Adl.pol_weight).sum(dim=("pol", "tor")) / (2 * np.pi)
+    return Psi.item()

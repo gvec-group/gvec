@@ -142,11 +142,7 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         diagnostics.to_netcdf(args.diagnostics)
     if args.plots:
         try:
-            if np.sum(np.array(run_with_stages.n_runs_in_stage) > 0) >= 2 and args.plots >= 2:
-                fig_runs = run_with_stages.plot_diagnostics_run()
-                fig_runs.savefig(f"{run_with_stages._state_parameters['projectName']}_runs.png")
-
-            if run_with_stages.curr_constraint and args.plots >= 2:
+            if run_with_stages.state.I_tor is not None and args.plots >= 2:
                 fig_profiles = run_with_stages.plot_diagnostics_current_profiles()
                 fig_profiles.savefig(
                     f"{run_with_stages._state_parameters['projectName']}_profiles.png"

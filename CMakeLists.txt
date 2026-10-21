@@ -334,6 +334,7 @@ IF(COMPILE_GVEC)
   FILE(GLOB_RECURSE gvecF90 ./src/*.f
                             ./src/rungvec.F90
                             ./src/functionals/*.F90
+                            ./src/free_b_minimize/*.F90
                             ./src/analyze/*.F90
                             ./src/vmec/*.F90
                             ./src/restart/*.F90 )

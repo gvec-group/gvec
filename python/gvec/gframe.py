@@ -8,13 +8,16 @@ This module provides functions for computing the G-Frame from a surface, cutting
 import logging
 from pathlib import Path
 from typing import Literal
+import warnings
 
 import numpy as np
 import xarray as xr
 from scipy.optimize import root_scalar
 
-from gvec.util import logging_setup, write_parameters, linking_number, compute_FD
+from gvec.util import write_parameters, linking_number, logging_setup
 from gvec import fourier
+
+logger = logging.getLogger(__name__)
 
 
 def check_field_periodicity(xyz: np.ndarray, nfp: int, atol=1e-12):
@@ -728,6 +731,7 @@ def construct_gframe_from_surface(
     atol_field_periodicity: float = 1e-12,
     boundary_coefficients: bool = False,
     writeFiles: bool = True,
+    loglevel: Literal["WARNING", "INFO", "DEBUG"] | None = None,
     logger: logging.Logger | None = None,
 ):
     """
@@ -766,8 +770,10 @@ def construct_gframe_from_surface(
         Write the boundary data as fourier coefficients in the parameter file instead of pointing to the netCDF file.
     writeFiles : bool, optional
         If True, write the GVEC parameters to file and the G-frame data to netcdf file.
-    logger : logging.Logger, optional
-        Logger for logging messages. If None, a new logger is created.
+    loglevel : Literal["WARNING", "INFO", "DEBUG"] | None, optional
+        Set the loglevel for the gvec logger.
+    logger: logging.Logger, optional
+        Override the default logger with a custom logger. DEPRECATED!
 
     Returns
     -------
@@ -776,9 +782,17 @@ def construct_gframe_from_surface(
     dict_out : dict
         Dictionary containing the G-frame data.
     """
-    if logger is None:
-        logging_setup()
+
+    if logger is not None:
+        warnings.warn(
+            "The logger argument is deprecated and will be removed in future versions. Use loglevel instead.",
+            DeprecationWarning,
+        )
+    else:
         logger = logging.getLogger(__name__)
+        logging_setup()
+        if loglevel is not None:
+            logger.setLevel(loglevel)
 
     if not (xyz_in.shape[0] // nfp) * nfp == xyz_in.shape[0]:
         raise ValueError(
