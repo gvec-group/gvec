@@ -24,7 +24,7 @@ from .abstract import (
     DEFAULT_TOTALITER,
     DIAGNOSTICS_NPOINTS,
 )
-from gvec.util import write_parameter_file_ini, flatten_parameters, chdir
+from gvec.util import chdir
 from gvec.core.compute import ev2ft
 from gvec import fourier
 from gvec.lib import _state
@@ -40,7 +40,7 @@ DEFAULT_DIGITS_BIEST = 8
 DEFAULT_FB_TOLERANCE = 1e-8
 FORCE_RATIO_MINIMUM_FORCE = 1e-12
 DEFAULT_FTOL = 1e-5
-MOVING_AVERAGE_WINDOW = 10
+MOVING_AVERAGE_WINDOW = 20
 
 logger = logging.getLogger("gvec.run.free_boundary")
 
@@ -122,6 +122,7 @@ class FreeBoundaryRun(AbstractRun):
             "spectral_width",
             "dt",
             "resolved_force_ratio",
+            "force_balance_avg",
         ]:
             diagnostics[key] = (
                 "updates",
@@ -187,13 +188,18 @@ class FreeBoundaryRun(AbstractRun):
             Determines which entry in the allocated dataset is filled.
         """
 
-        free_boundary_target, force_balance, ev_gvec = self.state._free_boundary_target(B_ext_2)
+        free_boundary_target, force_balance, ev_gvec, force_balance_avg = (
+            self.state._free_boundary_target(B_ext_2)
+        )
         B_ext = B_coils + B_plas_ext
         B_jump = ev_gvec.B - B_ext
 
         diag_aux = self.diagnostics_stage[f"stage_{self.nth_stage}"]
         diag_aux.force_balance[:, :, update] = force_balance
         diag_aux.free_boundary_target[update] = free_boundary_target
+
+        diag_aux.force_balance_avg[update] = force_balance_avg
+
         Fnorm = self.state.get_Fnorm_boundary()
         if self.track_boundary_fields:
             # mu_0*K = n x [[B]]
@@ -228,15 +234,6 @@ class FreeBoundaryRun(AbstractRun):
                 update - min(MOVING_AVERAGE_WINDOW, update) : update + 1
             ]
         )
-        diag_aux.fdelta[update] = (
-            np.std(
-                diag_aux.free_boundary_target_mavg[
-                    update - min(MOVING_AVERAGE_WINDOW, update) : update + 1
-                ]
-            )
-            if update != 0
-            else np.nan
-        )
 
         diag_aux.xnorm_mavg[update] = np.mean(
             diag_aux.xnorm[update - min(MOVING_AVERAGE_WINDOW, update) : update + 1].dropna(
@@ -248,6 +245,21 @@ class FreeBoundaryRun(AbstractRun):
                 dim="updates"
             )
         )
+
+        if update > 0:
+            target = (
+                diag_aux.free_boundary_target[
+                    update - min(MOVING_AVERAGE_WINDOW, update) : update + 1
+                ]
+                .dropna(dim="updates")
+                .data
+            )
+            # linear fit over recent iterations
+            poly = np.polyfit(np.arange(len(target)), np.log(target), 1)
+            # get slope for ftol
+            diag_aux.fdelta[update] = np.abs(poly[0])
+        else:
+            diag_aux.fdelta[update] = np.inf
 
         self.fdelta = diag_aux.fdelta[update].item()
         self.xnorm_mavg = diag_aux.xnorm_mavg[update].item()
@@ -781,13 +793,18 @@ class FreeBoundaryRun(AbstractRun):
         )
         updates_offset = 0
         for i, stage in enumerate(self.diagnostics_stage):
-            ds = xr.Dataset(self.diagnostics_stage[stage]).dropna(dim="updates")
+            ds = xr.Dataset(self.diagnostics_stage[stage])[quantities].dropna(dim="updates")
+            if len(ds.updates) == 1:
+                marker = "x"
+            else:
+                marker = None
             for quantity, ax in zip(quantities, axs.flat):
                 ax.semilogy(
                     ds.updates + updates_offset,
                     ds[quantity],
                     color=f"C{i}",
                     label=stage,
+                    marker=marker,
                 )
                 if (quantity + "_mavg") in ds:
                     ax.semilogy(

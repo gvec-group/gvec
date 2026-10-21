@@ -727,7 +727,10 @@ class MinimizationState(State):
         free_boundary_target = fluxsurface_integral(
             abs(force_balance / B_avg) * ev_gvec.Jac
         ) / fluxsurface_integral(ev_gvec.Jac)
-        return free_boundary_target, force_balance, ev_gvec
+        avg_free_boundary_force_balance = fluxsurface_integral(
+            abs(force_balance) * ev_gvec.Jac
+        ) / fluxsurface_integral(ev_gvec.Jac)
+        return free_boundary_target, force_balance, ev_gvec, avg_free_boundary_force_balance
 
     @with_binding
     def _free_boundary_update(
