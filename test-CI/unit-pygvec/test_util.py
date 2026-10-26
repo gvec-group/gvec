@@ -334,6 +334,18 @@ def test_flip_parameters(func, transform):
         np.testing.assert_allclose(result, reference, err_msg=f"with variable X{i}")
 
 
+def test_compute_boundary_perturbation_removes_dropped_modes():
+    """A restart boundary mode left out of the new parameters is perturbed to zero."""
+    restart = {
+        "X1_b_cos": {(0, 0): 3.0, (1, 0): 0.5, (2, 1): 0.03},
+        "X1_b_sin": {(1, 1): 0.01},
+    }
+    new = {"X1_b_cos": {(0, 0): 3.0, (1, 0): 0.5}}
+    base, pert = util.compute_boundary_perturbation(restart, new)
+    assert dict(pert["X1pert_b_cos"]) == {(2, 1): -0.03}
+    assert dict(pert["X1pert_b_sin"]) == {(1, 1): -0.01}
+
+
 def test_boundary_direction():
     parameters = {
         "X1_b_cos": {
