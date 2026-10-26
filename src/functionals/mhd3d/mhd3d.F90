@@ -766,9 +766,9 @@ SUBROUTINE InitSolutionMHD3D(sf, RestartFile_in, do_WriteState_in)
       CALL par_Bcast(vars%dofs(0)%LA,0)
     END IF
 
-    CALL vars%dofs(-1)%set_to(vars%dofs(0))
-    CALL vars%dofs(-2)%set_to(vars%dofs(0))
-    CALL vars%dofs(-3)%set_to(vars%dofs(0))
+    CALL vars%dofs(-1)%set_to(vars%dofs(0)) ! last state
+    CALL vars%dofs(-2)%set_to(vars%dofs(0)) ! state at last logging interval
+    CALL vars%dofs(-3)%set_to(vars%dofs(0)) ! initial state
 
     JacCheck=2
     CALL InitProfilesGP() !evaluate profiles once at Gauss Points (on MPIroot + BCast)
