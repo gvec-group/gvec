@@ -415,3 +415,13 @@ def test_get_pest_angles_2D_rt(teststate):
     np.testing.assert_allclose(
         theta + LA, np.tile(theta_P.reshape(-1, 1), (1, rho.size)), atol=1e-12
     )
+
+
+def test_info(teststate):
+    from gvec.scripts.info import info
+
+    output = info(teststate)
+    assert isinstance(output, list)
+    assert len(output) > 0
+    assert all(isinstance(row, list) and len(row) == 3 for row in output)
+    assert any("frame_linking_number" in row for row in output)

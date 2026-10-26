@@ -614,6 +614,55 @@ class TestToGIST(BaseTestPost):
             assert data.shape == (nml["parameters"]["gridpoints"], 8)
 
 
+@pytest.mark.pygvec
+@pytest.mark.converter_stage
+class TestInfo(BaseTestPost):
+    exec = ["pygvec", "info"]
+
+    @pytest.fixture
+    def name(self):
+        return "info"
+
+    @pytest.fixture
+    def args(self):
+        return ["--raw"]
+
+    def test_post(
+        self,
+        testgroup,
+        testcase,
+        binpath,
+        runargs_prefix,
+        name,
+        args,
+        dryrun,
+        annotations,
+        artifact_pages_path,
+    ):
+        super().test_post(
+            testgroup,
+            testcase,
+            binpath,
+            runargs_prefix,
+            name,
+            args,
+            dryrun,
+            annotations,
+            artifact_pages_path,
+        )
+        if dryrun:
+            return
+
+        with open("stderr.txt") as file:
+            lines = file.readlines()
+            assert len(lines) == 0, f"non-empty stderr:\n{''.join(lines)}"
+
+        with open("stdout.txt") as file:
+            lines = file.readlines()
+            assert len(lines) > 0, "empty stdout"
+            assert "frame_linking_number" in "\n".join(lines)
+
+
 @pytest.mark.regression_stage
 def test_regression(
     testgroup,
