@@ -113,10 +113,11 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         if not gvec.util.check_boundary_direction(parameters):
             logger.info("input boundary is left-handed, flipping theta")
             parameters = gvec.util.flip_parameters_theta(parameters)
-    elif args.flip in ["pol", "both"]:
-        parameters = gvec.util.flip_parameters_theta(parameters)
-    elif args.flip in ["tor", "both"]:
-        parameters = gvec.util.flip_parameters_zeta(parameters)
+    else:
+        if args.flip in ["pol", "both"]:
+            parameters = gvec.util.flip_parameters_theta(parameters)
+        if args.flip in ["tor", "both"]:
+            parameters = gvec.util.flip_parameters_zeta(parameters)
 
     if not gvec.util.check_boundary_direction(parameters):
         logger.warning("output boundary is left-handed (increases clockwise)")
