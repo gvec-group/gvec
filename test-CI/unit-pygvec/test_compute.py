@@ -280,6 +280,19 @@ def test_boozer_init(teststate, rho, theta_B, zeta_B, radial_derivative):
     teststate.compute(ds, "X1")
 
 
+def test_boozer_dLA_dr_error(teststate, ev_boozer, radial_derivative):
+    """without radial derivative, radial derivatives of LA cannot be computed after a boozer transform"""
+    ds = ev_boozer.copy()
+    if radial_derivative:
+        # already present (finite differences), nothing to compute
+        teststate.compute(ds, "dLA_dr")
+        assert "dLA_dr" in ds
+    else:
+        with pytest.raises(ValueError, match="radial derivative of lambda"):
+            teststate.compute(ds, "dLA_dr")
+        assert "dLA_dr" not in ds
+
+
 def test_boozer(teststate, ev_boozer, radial_derivative):
     ds = ev_boozer.copy()
     np.testing.assert_allclose(ds.rho, [0.5, 1.0], **default_rtol_atol)
