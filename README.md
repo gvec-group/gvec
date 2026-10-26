@@ -9,6 +9,7 @@
 [![Zenodo](https://zenodo.org/badge/DOI/10.5281/zenodo.15026780.svg)](https://doi.org/10.5281/zenodo.15026780)
 [![GitLab Release](https://img.shields.io/gitlab/v/release/gvec-group%2Fgvec?gitlab_url=https%3A%2F%2Fgitlab.mpcdf.mpg.de&logo=gitlab)](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/releases)
 [![PyPI](https://img.shields.io/pypi/v/gvec?logo=PyPI&label=PyPI)](https://pypi.org/project/gvec/)
+[![Spack](https://img.shields.io/spack/v/py-gvec)](https://github.com/spack/spack-packages/blob/develop/repos/spack_repo/builtin/packages/py_gvec/package.py)
 
 [![License](https://img.shields.io/badge/license-MIT-green?logo=open-source-initiative)](./LICENSE.txt)
 [![python-version](https://img.shields.io/pypi/pyversions/gvec?logo=python)](https://pypi.org/project/gvec)
@@ -57,6 +58,10 @@ GVEC has a flexible coordinate frame, allowing it to represent boundary shapes b
 GVEC is available on [PyPI](https://pypi.org/project/gvec/):
 ```bash
 pip install gvec
+```
+or [Spack](https://spack.readthedocs.io/en/latest/):
+```bash
+spack install py-gvec
 ```
 
 For required libraries, other installation methods and more details see the documentation on [Installation](https://gvec.readthedocs.io/latest/user/install.html) and [Getting Started](https://gvec.readthedocs.io/latest/tutorials/getting-started.html).
