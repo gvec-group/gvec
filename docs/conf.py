@@ -180,7 +180,6 @@ exclude_patterns = [
     "generators",
     "_downloads",
     "build",
-    "tutorials/requirements.txt",
     "tutorials/notebooks/ruff.toml",
 ]
 
