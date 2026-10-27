@@ -333,24 +333,22 @@ class MinimizationState(State):
         sgrid = self.get_radial_gridpoints()
         sgrid[0] = 0.0
         sgrid[-1] = 1.0
-        Qs = ["iota", "iota_geom", "iota_curr_bar", "I_tor"]
         while True:
             knots = _linspace_sgrid(sgrid, self.knots_per_sgrid_element)
             knots = _add_knot_multiplicity(knots, IOTA_BSPLINE_DEGREE)
             rho = _linspace_sgrid(sgrid, IOTA_SAMPLING_FACTOR * self.knots_per_sgrid_element)
-            ev = self._evaluate_extrapolate_in_rho2(*Qs, rho=rho, theta="int", zeta="int")[Qs]
-            iota_target = ev.iota_geom + self.I_tor(rho**2) * ev.iota_curr_bar
+            ev = self._get_new_iota_evaluate(rho)
 
             # least-squares fit
             bspline = scipy.interpolate.make_lsq_spline(
-                rho**2, iota_target, knots**2, k=IOTA_BSPLINE_DEGREE
+                rho**2, ev.iota_target, knots**2, k=IOTA_BSPLINE_DEGREE
             )
             # enforce boundary conditions
-            bspline.c[0] = iota_target[0]
-            bspline.c[-1] = iota_target[-1]
+            bspline.c[0] = ev.iota_target[0]
+            bspline.c[-1] = ev.iota_target[-1]
 
             # check fit error
-            delta_iota_fit = iota_target - bspline(rho**2)
+            delta_iota_fit = ev.iota_target - bspline(rho**2)
             # ignore near-axis region as we CURRENTLY have accuracy problems there!!!
             delta_iota_fit = delta_iota_fit.sel(rho=slice(IOTA_MIN_RHO, None))
             rms_iota_fit = np.sqrt((delta_iota_fit**2).mean().item())
@@ -384,6 +382,36 @@ class MinimizationState(State):
         delta_Itor = ev.I_tor - self.I_tor(rho**2)
         delta_I_tor_max = np.abs(delta_Itor).max().item()
         return (bspline, rms_iota, delta_iota, delta_I_tor_max, rms_iota_fit)
+
+    def _get_new_iota_evaluate(self, rho):
+        """
+        Evaluate iota, I_tor and the target iota and extrapolate the on-axis values in rho^2 using quadratic extrapolation.
+        iota_curr_bar is singular at rho=0, so we extrapolate the final product and not iota_curr_bar itself.
+        """
+        Qev = ["iota", "iota_geom", "iota_curr_bar", "I_tor"]
+        Qout = ["iota", "I_tor", "iota_target"]
+        ev_kwargs = dict(theta="int", zeta="int", extrapolate=False)
+
+        rho_aux = np.sqrt([1e-8, 2e-8, 3e-8])
+        ev_aux = self.evaluate(*Qev, rho=rho_aux, **ev_kwargs)[Qev]
+        ev_aux["iota_target"] = (
+            ev_aux.iota_geom + self.I_tor(ev_aux.rho**2) * ev_aux.iota_curr_bar
+        )
+        ev_aux = ev_aux[Qout]
+        r1 = ev_aux.isel(rad=0)
+        r2 = ev_aux.isel(rad=1)
+        r3 = ev_aux.isel(rad=2)
+        on_axis = 3 * (r1 - r2) + r3
+        on_axis.rho[...] = 0.0
+
+        ev = self.evaluate(*Qev, rho=rho, **ev_kwargs)[Qev]
+        ev["iota_target"] = ev.iota_geom
+        ev["iota_target"][1:] += self.I_tor(ev.rho[1:] ** 2) * ev.iota_curr_bar[1:]
+        ev = ev[Qout]
+        for q in ev.data_vars:
+            if "rad" in ev[q].dims:
+                ev[q].loc[dict(rho=0.0)] = on_axis[q]
+        return ev
 
     def _optimize_current(
         self,
@@ -770,21 +798,6 @@ class MinimizationState(State):
 
         self.solve(logfinaliter=False, maxIter=maxIter, **minimize_kwargs)
         return dt
-
-    def _evaluate_extrapolate_in_rho2(self, *Qs, rho, theta, zeta):
-        rho_aux = np.sqrt([1e-8, 2e-8, 3e-8])
-        ev_aux = self.evaluate(*Qs, rho=rho_aux, theta=theta, zeta=zeta, extrapolate=False)
-        r1 = ev_aux.isel(rad=0)
-        r2 = ev_aux.isel(rad=1)
-        r3 = ev_aux.isel(rad=2)
-        on_axis = 3 * (r1 - r2) + r3
-        on_axis.rho[...] = 0.0
-
-        ev = self.evaluate(*Qs, rho=rho, theta=theta, zeta=zeta, extrapolate=False)
-        for q in ev.data_vars:
-            if "rad" in ev[q].dims:
-                ev[q].loc[dict(rho=0.0)] = on_axis[q]
-        return ev
 
     @with_binding
     def get_outputlevel(self):
