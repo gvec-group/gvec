@@ -899,7 +899,7 @@ def test_volume_integral(teststate, ev_rtz_int, ev_rtz):
         "elongation",
         "iota_avg",
         "iota_curr",
-        "iota_0",
+        "iota_geom",
         "I_tor",
         "I_pol",
         "B_theta_avg",
@@ -916,8 +916,8 @@ def test_integral_quantities(teststate, ev_rtz_int, quantity):
 
 def test_iota_curr(teststate, ev_rtz_int):
     ds = ev_rtz_int
-    compute(ds, "iota", "iota_curr", "iota_0", state=teststate)
-    np.testing.assert_allclose(ds.iota_curr + ds.iota_0, ds.iota)
+    compute(ds, "iota", "iota_curr", "iota_geom", state=teststate)
+    np.testing.assert_allclose(ds.iota_curr + ds.iota_geom, ds.iota)
 
 
 @pytest.mark.parametrize(
@@ -930,7 +930,7 @@ def test_iota_curr(teststate, ev_rtz_int):
         "elongation",
         "iota_avg",
         "iota_curr",
-        "iota_0",
+        "iota_geom",
         "I_tor",
         "I_pol",
         "B_theta_avg",

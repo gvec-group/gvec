@@ -24,7 +24,7 @@ from generate_parameter_list import format_parameter_list
 # -- Project information -----------------------------------------------------
 
 project = "GVEC"
-copyright = "2025 GVEC Contributors | Max Planck Institute for Plasma Physics"
+copyright = "2026 GVEC Contributors | Max Planck Institute for Plasma Physics"
 author = "Florian Hindenlang et al."
 
 try:
@@ -192,7 +192,6 @@ exclude_patterns = [
     "generators",
     "_downloads",
     "build",
-    "tutorials/requirements.txt",
     "tutorials/notebooks/ruff.toml",
 ]
 
@@ -312,3 +311,7 @@ myst_enable_extensions = [
 
 myst_dmath_allow_labels = True
 myst_heading_anchors = 3
+
+# maximum runtime per notebook cell.
+# increased to 2 min for free boundary, default is 30s
+nb_execution_timeout = 120

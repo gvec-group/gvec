@@ -9,6 +9,7 @@ from .util import (
     logging_setup,
     version_info,
     compute_FD,
+    compute_hfactor,
 )
 from .geometry import (
     axis_from_boundary,  # Needs docstrings
@@ -36,6 +37,8 @@ from .params import (
     serialize,
     adapt_parameter_file,
     bspl2gvec,  # should probably be moved
+    profile_from_parameters,
+    profile_to_parameters,
     flatten_parameters,
     get_boundary_from_statefile,
     parameters_from_vmec,

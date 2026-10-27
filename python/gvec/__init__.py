@@ -10,7 +10,7 @@ except ImportError:
 
 # toplevel API
 
-from gvec.core.state import State, load_state, find_state, find_states
+from gvec.core.state import State, load_state, find_state, find_states, load_intermediates
 from gvec.core.compute import (
     compute,
     evaluate,
@@ -25,10 +25,12 @@ from gvec.core.compute import (
     EvaluationsPEST,
     table_of_quantities,
 )
-from gvec.core.run import run, Run
+from gvec.core.run import run, FixedBoundaryRun, FixedBoundaryRun as Run
+from gvec.core.minimize import MinimizationState
+from gvec.coils import CoilSet
 
 # submodules
 
 from gvec import core, scripts, plotting, util
-from gvec import errors, fourier, quantities, surface, vtk, gframe
+from gvec import coils, config, errors, fourier, quantities, surface, vtk, gframe
 # lib and _libpygvec are automatically generated, but stay hidden

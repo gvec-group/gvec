@@ -405,7 +405,7 @@ def Evaluations(
                 raise ValueError("Integration points for theta do not align for X1, X2 and LA.")
             coords["theta"] = (
                 "pol",
-                np.linspace(0, 2 * np.pi, intp[0][2], endpoint=False),
+                state._get_angle_integration_points()[0],
             )
             coords["pol_weight"] = intp[0][3]
         case np.ndarray() | Sequence():
@@ -428,7 +428,7 @@ def Evaluations(
                 raise ValueError("Integration points for zeta do not align for X1, X2 and LA.")
             coords["zeta"] = (
                 "tor",
-                np.linspace(0, 2 * np.pi / nfp, intp[0][4], endpoint=False),
+                state._get_angle_integration_points()[1],
             )
             coords["tor_weight"] = intp[0][5]
         case np.ndarray() | Sequence():

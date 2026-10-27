@@ -40,7 +40,7 @@ requires-python = ">=3.10" # match-case, intrinsic typing union
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Programming Language :: Python :: 3.10", # Ubuntu 22.04
-    "Programming Language :: Python :: 3.11", # not routinely tested
+    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12", # Ubuntu 24.04
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14", # Ubuntu 26.04
@@ -63,8 +63,18 @@ Mirror = "https://github.com/gvec-group/gvec"
 Issues = "https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/issues"
 
 [project.optional-dependencies]
-dev = ["pytest"]
-examples = ["jupyter", "ipywidgets", "ipympl", "simsopt", "nbformat", "plotly<6.0"]
+free_boundary = [
+    "fbtools @ git+https://gitlab.mpcdf.mpg.de/nmpp-mhd-group/fhindenlang/fbtools.git",
+]
+examples = [
+    "jupyter",
+    "ipykernel",
+    "ipywidgets",
+    "ipympl",
+    "simsopt",
+    "nbformat",
+    "plotly<6.0",
+]
 
 [project.scripts]
 pygvec = "gvec.scripts.main:main"

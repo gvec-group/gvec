@@ -73,10 +73,15 @@ SUBROUTINE Init(parameterfile)
 END SUBROUTINE Init
 
 !================================================================================================================================!
-SUBROUTINE InitSolution()
+SUBROUTINE InitSolution(RestartFile_in, do_WriteState_in)
+  ! MODULES
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  CHARACTER(LEN=255), INTENT(IN), OPTIONAL  :: RestartFile_in
+  LOGICAL,            INTENT(IN), OPTIONAL  :: do_WriteState_in
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL enter_subregion("initialize solution")
-  CALL functional%InitSolution()
+  CALL functional%InitSolution(RestartFile_in, do_WriteState_in)
   CALL exit_subregion("initialize solution")
 END SUBROUTINE InitSolution
 
@@ -90,28 +95,364 @@ SUBROUTINE ReadState(statefile)
   CHARACTER(LEN=255) :: statefile
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL enter_subregion("read statefile")
-  ProjectName='POST_'//TRIM(StateFile(1:INDEX(StateFile,'_State_')-1))
+  ! ProjectName='POST_'//TRIM(StateFile(1:INDEX(StateFile,'_State_')-1))
   CALL RestartFromState(StateFile,functional%minimizer%vars%dofs(0))
   outputLevel=outputLevel_r
   CALL exit_subregion("read statefile")
 END SUBROUTINE ReadState
 
-!================================================================================================================================!
-SUBROUTINE minimize(dt_in)
+!===================================================================================================================================
+!> Perform minimization with the current state.
+!!
+!! This method is used for the in-memory restart.
+!===================================================================================================================================
+SUBROUTINE minimize(dt_in, logfinaliter, maxIter_in, minimize_tol)
   ! MODULES
   USE MODgvec_Globals,    ONLY: GetTime
   USE MODgvec_MHD3D_Vars, ONLY: maxIter
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   REAL(wp), OPTIONAL, INTENT(IN) :: dt_in
+  LOGICAL, OPTIONAL, INTENT(IN)  :: logfinaliter
+  INTEGER, OPTIONAL, INTENT(IN)  :: maxIter_in
+  REAL(wp), OPTIONAL, INTENT(IN) :: minimize_tol
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   REAL(wp) :: StartTime, EndTime
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   StartTime=GetTime()
-  CALL functional%minimize(dt_in)
+  CALL functional%minimize(dt_in, logfinaliter, maxIter_in, minimize_tol)
+  CLOSE (functional%minimizer%vars%logUnit)
+  functional%minimizer%vars%logUnit_open = .FALSE.
   EndTime=GetTime()
   SWRITE(Unit_stdOut,'(A,2(F8.2,A))') ' FUNCTIONAL MINIMISATION FINISHED! [',EndTime-StartTime,' sec ], corresponding to [', &
         (EndTime-StartTime)/REAL(MaxIter,wp)*1.e3_wp,' msec/iteration ]'
+  FLUSH(UNIT_stdOut)
 END SUBROUTINE minimize
 
+!===================================================================================================================================
+!> Wrapper to update the exterior magnetic field (B_ext)² for the free-boundary algorithm.
+!!
+!===================================================================================================================================
+SUBROUTINE set_Bext_squared(Bext_squared_in)
+  ! MODULES
+  USE MODgvec_Globals,    ONLY: wp
+  USE MODgvec_MHD3D_Vars, ONLY: Bext_squared
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  REAL(wp), INTENT(IN) :: Bext_squared_in(:) !! B_ext^2 at s=1 of size mn_IP
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  Bext_squared= Bext_squared_in
+END SUBROUTINE set_Bext_squared
+
+!===================================================================================================================================
+!> Wrapper to perform a free boundary update
+!!
+!===================================================================================================================================
+FUNCTION update_boundary(dt, reset_minimizer, blend_depth) RESULT(dt_out)
+  ! MODULES
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  REAL(wp), INTENT(IN)  :: dt
+  LOGICAL, INTENT(IN)      ::reset_minimizer
+  REAL(wp), INTENT(IN), OPTIONAL :: blend_depth
+  REAL(wp)                 :: dt_out
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  CALL functional%update_boundary(dt, reset_minimizer, blend_depth_in=blend_depth)
+END FUNCTION update_boundary
+
+FUNCTION get_iterations() RESULT(iters)
+  ! MODULES
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  INTEGER :: iters
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  IF (ALLOCATED(functional%minimizer)) THEN
+    iters = functional%minimizer%vars%iter
+  ELSE
+    iters = 0
+  END IF
+END FUNCTION get_iterations
+
+FUNCTION get_dt() RESULT(dt)
+  ! MODULES
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  REAL(wp) :: dt
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  IF (ALLOCATED(functional%minimizer)) THEN
+    dt = functional%minimizer%vars%dt
+  ELSE
+    dt = 0
+  END IF
+END FUNCTION get_dt
+
+SUBROUTINE set_dt(dt)
+  ! MODULES
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  REAL(wp), INTENT(IN) :: dt
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  IF (ALLOCATED(functional%minimizer)) THEN
+    functional%minimizer%vars%dt = dt
+  ELSE
+    CALL abort(__STAMP__, &
+      'ERROR: trying to set time-step but minimizer is not allocated!')
+  END IF
+END SUBROUTINE set_dt
+
+FUNCTION get_free_boundary_dt() RESULT(dt)
+  ! MODULES
+  USE MODgvec_MHD3D_Vars, ONLY: free_b_minimizer
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  REAL(wp) :: dt
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  IF (ALLOCATED(free_b_minimizer)) THEN
+    dt = free_b_minimizer%dt
+  ELSE
+    CALL abort(__STAMP__, &
+      'ERROR: trying to extract fixed boundary time-step but minimizer is not allocated!')
+  END IF
+END FUNCTION get_free_boundary_dt
+
+SUBROUTINE set_free_boundary_dt(dt)
+  ! MODULES
+  USE MODgvec_MHD3D_Vars, ONLY: free_b_minimizer
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  REAL(wp), INTENT(IN) :: dt
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  IF (ALLOCATED(free_b_minimizer)) THEN
+    free_b_minimizer%dt = dt
+  ELSE
+    CALL abort(__STAMP__, &
+      'ERROR: trying to set free boundary time-step but minimizer is not allocated!')
+  END IF
+END SUBROUTINE set_free_boundary_dt
+
+FUNCTION get_free_boundary_max_dt() RESULT(dt)
+  ! MODULES
+  USE MODgvec_MHD3D_Vars, ONLY: free_b_minimizer
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  REAL(wp) :: dt
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  IF (ALLOCATED(free_b_minimizer)) THEN
+    dt = free_b_minimizer%max_dt
+  ELSE
+    CALL abort(__STAMP__, &
+      'ERROR: trying to extract free boundary time-step but minimizer is not allocated!')
+  END IF
+END FUNCTION get_free_boundary_max_dt
+
+SUBROUTINE set_free_boundary_max_dt(dt)
+  ! MODULES
+  USE MODgvec_MHD3D_Vars, ONLY: free_b_minimizer
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  REAL(wp), INTENT(IN) :: dt
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  IF (ALLOCATED(free_b_minimizer)) THEN
+    free_b_minimizer%max_dt = dt
+  ELSE
+    CALL abort(__STAMP__, &
+      'ERROR: trying to set free boundary time-step but minimizer is not allocated!')
+  END IF
+END SUBROUTINE set_free_boundary_max_dt
+
+SUBROUTINE reset_descent()
+  ! MODULES
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  CALL functional%minimizer%reset()
+END SUBROUTINE reset_descent
+
+FUNCTION get_minimize_tol() RESULT(tol)
+  ! MODULES
+  USE MODgvec_MHD3D_Vars, ONLY: minimize_tol
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  REAL(wp) :: tol
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  tol = minimize_tol
+END FUNCTION get_minimize_tol
+
+FUNCTION get_outputlevel() RESULT(outid)
+  ! MODULES
+  USE MODgvec_Output_Vars, ONLY: outputLevel
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  INTEGER :: outid
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  outid = outputLevel
+END FUNCTION get_outputlevel
+
+FUNCTION get_X1_n_modes() RESULT(n_modes)
+  ! MODULES
+  USE MODgvec_MHD3D_Vars, ONLY: X1_base
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  INTEGER :: n_modes
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  n_modes = X1_base%f%modes
+END FUNCTION get_X1_n_modes
+
+FUNCTION get_X2_n_modes() RESULT(n_modes)
+  ! MODULES
+  USE MODgvec_MHD3D_Vars, ONLY: X2_base
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  INTEGER :: n_modes
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  n_modes = X2_base%f%modes
+END FUNCTION get_X2_n_modes
+
+FUNCTION get_spectral_width() RESULT(width)
+  ! MODULES
+  USE MODgvec_MHD3D_Vars, ONLY: spectral_width
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  REAL(wp) :: width
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  width = spectral_width
+END FUNCTION get_spectral_width
+
+FUNCTION get_gnorm() RESULT(gnorm)
+  ! MODULES
+  USE MODgvec_MHD3D_Vars, ONLY: gnorm_fb
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  REAL(wp) :: gnorm
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  gnorm = gnorm_fb
+END FUNCTION get_gnorm
+
+FUNCTION get_xnorm() RESULT(xnorm)
+  ! MODULES
+  USE MODgvec_MHD3D_Vars, ONLY: xnorm_fb
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  REAL(wp) :: xnorm
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  xnorm = xnorm_fb
+END FUNCTION get_xnorm
+
+SUBROUTINE get_boundary_forces(m_inout, n_inout, forces_inout)
+  ! MODULES
+  USE MODgvec_MHD3D_Vars, ONLY: Force_b_X1, Force_b_X2, X1_base, X2_base
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  INTEGER, INTENT(INOUT)  :: m_inout(X1_base%f%modes + X2_base%f%modes), n_inout(X1_base%f%modes + X2_base%f%modes)
+  REAL(wp), INTENT(INOUT) :: forces_inout(X1_base%f%modes + X2_base%f%modes)
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+
+  forces_inout = 0.0_wp
+  m_inout = -1
+  n_inout = 0
+
+  m_inout(:X1_base%f%modes) = X1_base%f%Xmn(1,:)
+  n_inout(:X1_base%f%modes) = X1_base%f%Xmn(2,:)
+
+  forces_inout(:X1_base%f%modes) = Force_b_X1
+
+  m_inout(X1_base%f%modes+1:) = X2_base%f%Xmn(1,:)
+  n_inout(X1_base%f%modes+1:) = X2_base%f%Xmn(2,:)
+
+  forces_inout(X1_base%f%modes+1:) = Force_b_X2
+END SUBROUTINE get_boundary_forces
+
+SUBROUTINE save_statefile()
+  ! MODULES
+  USE MODgvec_Analyze, ONLY: Analyze
+  USE MODgvec_Restart, ONLY: WriteState
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  ASSOCIATE(vars => functional%minimizer%vars)
+    CALL Analyze(vars%iter, vars%dofs(0), vars%force(0))
+    CALL WriteState(vars%dofs(0),vars%iter)
+  END ASSOCIATE
+END SUBROUTINE save_statefile
+
+!===================================================================================================================================
+!> Wrapper to get the iota profile object
+!===================================================================================================================================
+FUNCTION get_iota() RESULT(iota_fobj)
+  ! MODULES
+  USE MODgvec_rProfile_base, ONLY: c_rProfile
+  USE MODgvec_MHD3D_Vars, ONLY: iota_profile
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  CLASS(c_rProfile), ALLOCATABLE :: iota_fobj
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  iota_fobj = iota_profile
+END FUNCTION get_iota
+
+!===================================================================================================================================
+!> Wrapper to set the iota profile object
+!!
+!! Updates iota_profile, chi_profile and chiPrime_GP.
+!! Used in current-constraint.
+!===================================================================================================================================
+SUBROUTINE set_iota(iota_fobj)
+  ! MODULES
+  USE MODgvec_rProfile_base, ONLY: c_rProfile
+  USE MODgvec_MHD3D_evalFunc , ONLY: chiPrime_GP
+  USE MODgvec_MHD3D_Vars, ONLY: iota_profile, chi_profile, X1_base, Phi_edge
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  CLASS(c_rProfile), ALLOCATABLE, INTENT(IN) :: iota_fobj
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  INTEGER :: iGP, nGP
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  SDEALLOCATE(iota_profile)
+  SDEALLOCATE(chi_profile)
+
+  iota_profile = iota_fobj
+  chi_profile = iota_profile%antiderivative()
+  !iota= (dChi/ds) / (dPhi/ds) = dchi_ds / Phi_edge  => chi = Phi_edge * int(iota ds)
+  chi_profile%coefs = chi_profile%coefs*Phi_edge
+  nGP = X1_base%s%nGP
+  ASSOCIATE(s_GP => X1_base%s%s_GP)
+    DO iGP=1,nGP
+      chiPrime_GP(iGP) = chi_profile%eval_at_rho(s_GP(iGP), deriv=1)
+    END DO !iGP
+  END ASSOCIATE
+END SUBROUTINE set_iota
+
+!===================================================================================================================================
+!> Reset the lambda DoFs to zero or initialize from the current solution
+!===================================================================================================================================
+SUBROUTINE reset_LA()
+  ! MODULES
+  USE MODgvec_MHD3D_Vars, ONLY: init_LA
+  USE MODgvec_MHD3D, ONLY: Init_LA_from_Solution
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  IF (init_LA) THEN
+    CALL Init_LA_from_Solution(functional%minimizer%vars%dofs(0))
+  ELSE
+    functional%minimizer%vars%dofs(0)%LA = 0.0_wp
+  END IF
+END SUBROUTINE reset_LA
+
+!================================================================================================================================!
+!> Returns the theta and zeta integration points
+!================================================================================================================================!
+SUBROUTINE get_angle_integration_points(theta, ntheta, zeta, nzeta)
+  ! MODULES
+  USE MODgvec_MHD3D_Vars, ONLY: X1_base
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  INTEGER , INTENT(IN)    :: ntheta, nzeta
+  REAL(wp), INTENT(INOUT) :: theta(1:ntheta), zeta(1:nzeta)
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  theta = X1_base%f%thet_IP
+  zeta = X1_base%f%zeta_IP
+END SUBROUTINE get_angle_integration_points
+
+FUNCTION get_Fnorm_boundary() RESULT(Fnorms)
+  USE MODgvec_MHD3D_Vars, ONLY: Fnorm_X1_b_IP, Fnorm_X1_b_modes, Fnorm_X2_b_IP, Fnorm_X2_b_modes, Force_b_X1, Force_b_X2
+  REAL(wp) :: Fnorms(6)
+  Fnorms = SQRT((/Fnorm_X1_b_IP, Fnorm_X1_b_modes, Fnorm_X2_b_IP, Fnorm_X2_b_modes, SUM(Force_b_X1**2), SUM(Force_b_X2**2)/))
+END FUNCTION get_Fnorm_boundary
 
 !================================================================================================================================!
 !> Handle the selection of the base, based on the selection string
@@ -774,7 +1115,6 @@ SUBROUTINE evaluate_metric_derivs(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_d
   DEALLOCATE(hmap_xv)
 END SUBROUTINE
 
-
 !================================================================================================================================!
 !> evaluate second derivatives of the hmap
 !================================================================================================================================!
@@ -802,7 +1142,6 @@ SUBROUTINE evaluate_hmap_derivs(n, X1, X2, zeta, k_11, k_12, k_13, k_22, k_23, k
   !$OMP END PARALLEL DO
   DEALLOCATE(hmap_xv)
 END SUBROUTINE
-
 
 !================================================================================================================================!
 !> evaluate the jacobian determinant and its derivatives
@@ -894,7 +1233,6 @@ SUBROUTINE evaluate_rho2_profile(n_s, rho2, deriv, var, result)
   SDEALLOCATE(input_profile)
 END SUBROUTINE evaluate_rho2_profile
 
-
 !================================================================================================================================!
 !> evaluate 1D-radial profiles and their derivatives with respect to rho
 !================================================================================================================================!
@@ -981,7 +1319,6 @@ SUBROUTINE get_boozer(sfl_boozer)
   functional%minimizer%vars%dofs(0)%X1, functional%minimizer%vars%dofs(0)%X2, functional%minimizer%vars%dofs(0)%LA)
 END SUBROUTINE get_boozer
 
-
 !================================================================================================================================!
 !> Find the logical angles for given PEST angles on all specified surfaces.
 !================================================================================================================================!
@@ -1008,7 +1345,6 @@ SUBROUTINE find_pest_angles_2D(n_s, s, n_tz, tz_pest, tz_out)
   CALL find_pest_angles(n_s, LA_base%f, LA, n_tz, tz_pest, tz_out)
   DEALLOCATE(LA)
 END SUBROUTINE find_pest_angles_2D
-
 
 !================================================================================================================================!
 !> Evaluate LA or NU and all derivatives for a list of (theta, zeta) positions on all flux surfaces given by s

@@ -11,13 +11,20 @@ import warnings
 
 import numpy as np
 from numpy.typing import ArrayLike
+from numpy.polynomial import Polynomial
 
+# NOTE: this exception handling is relevenat for the CI pipeline, since some util methods are used without installing gvec and therefore scipy
 try:
-    from scipy.interpolate import BSpline
+    from scipy.interpolate import BSpline, make_interp_spline
 except ImportError:
     BSpline = None
 
 from .util import logger
+
+PARAMETER_SCALE_DEFAULT = 1.0
+PARAMETER_BC_VALS_DEFAULT = (0, 0)
+PARAMETER_BC_TYPE_DEFAULT = "not_a_knot"
+PROFILE_INTERPOLATION_RHO2_MIN = 1e-4
 
 
 class CaseInsensitiveDict(MutableMapping):
@@ -603,6 +610,14 @@ def flatten_parameters(parameters: Mapping) -> CaseInsensitiveDict:
             r"(x1|x2|la)(pert:?)?_[a|b]_(sin|cos)", key.lower()
         ):
             for subkey, subvalue in value.items():
+                if subkey in ["save_diagnostics", "track_boundary_fields"]:
+                    continue  # free boundary parameters not supported by fortran-GVEC
+                elif subkey == "coil_set":
+                    if hasattr(subvalue, "eval_B"):
+                        subvalue = "python class"
+                    else:
+                        subvalue = str(subkey)
+
                 output[f"{key}_{subkey}"] = subvalue
         else:
             output[key] = value
@@ -675,20 +690,33 @@ def write_parameters(
     parameters: Mapping,
     path: Path | str = "parameter.ini",
     format: Literal["ini", "yaml", "toml"] | None = None,
+    header: list[str] | str | None = None,
 ):
     import yaml
+    from gvec._version import __version__
+
+    if header is None:
+        header = [
+            "GVEC parameter file",
+            f"pyGVEC v{__version__}",
+        ]
 
     path = Path(path)
     # auto-detect format
     if format is None:
         format = path.suffix[1:]
+    if isinstance(header, str):
+        header = [header]
 
     if format == "ini":
         outputs = flatten_parameters(parameters)
+        header = "".join([f"!{line}\n" for line in header])
         write_parameter_file_ini(outputs, path)
     elif format == "yaml":
         outputs = stringify_mn_parameters(parameters)
         with open(path, "w") as file:
+            for line in header:
+                file.write(f"# {line}\n")
             # ToDo: specify style/flow?
             yaml.safe_dump(serialize(outputs), file, sort_keys=False)
     elif format == "toml":
@@ -699,7 +727,7 @@ def write_parameters(
         raise ValueError(f"Unknown parameter file format {format}")
 
 
-def format_toml(parameters: CaseInsensitiveDict):
+def format_toml(parameters: CaseInsensitiveDict, header: list[str] = []):
     """Format GVEC parameters as a TOML document.
 
     Parameters
@@ -716,7 +744,6 @@ def format_toml(parameters: CaseInsensitiveDict):
     """
     from tomlkit import document, comment, nl, array, table, aot, key as toml_key
     from tomlkit.exceptions import ConvertError
-    from gvec._version import __version__
 
     def add_params(doc, keys, parameters):
         if any(key in parameters for key in keys):
@@ -740,9 +767,10 @@ def format_toml(parameters: CaseInsensitiveDict):
     parameters: CaseInsensitiveDict = stringify_mn_parameters(parameters)
 
     doc = document()
-    doc.add(comment("GVEC parameter file"))
-    doc.add(comment(f"written by pyGVEC v{__version__}"))
-    doc.add(nl())
+    if header:
+        for line in header:
+            doc.add(comment(line))
+        doc.add(nl())
 
     MAIN_PARAMS = ["ProjectName", "nfp", "which_hmap", "PhiEdge"]
     for key in MAIN_PARAMS:
@@ -771,7 +799,15 @@ def format_toml(parameters: CaseInsensitiveDict):
     ]
     add_params(doc, MINIMIZER_PARAMS, parameters)
 
-    EXTRA_PARAMS = ["sgrid", "iota", "pres", "I_tor", "picard_current", "stages"]
+    EXTRA_PARAMS = [
+        "sgrid",
+        "iota",
+        "pres",
+        "I_tor",
+        "picard_current",
+        "stages",
+        "free_boundary",
+    ]
     DOF_PARAMS = [
         f"{Q}{pert}_{x}_{fun}"
         for Q in ["X1", "X2", "LA"]
@@ -815,6 +851,10 @@ def format_toml(parameters: CaseInsensitiveDict):
                         doc[key][subkey].add_line(indent="")
                 else:
                     doc[key][subkey] = subvalue
+
+    if "free_boundary" in parameters and isinstance(parameters["free_boundary"], Mapping):
+        add_section(doc, "Free Boundary")
+        doc["free_boundary"] = parameters["free_boundary"].serialize()
 
     if "stages" in parameters:
         add_section(doc, "Stages")
@@ -881,6 +921,70 @@ def bspl2gvec(
     params[f"{name}_type"] = "bspline"
 
     return params
+
+
+def profile_from_parameters(params: CaseInsensitiveDict) -> BSpline | Polynomial:
+    match params.get("type", "polynomial"):
+        case "polynomial":
+            coefs = np.array(params["coefs"])
+            coefs *= params.get("scale", PARAMETER_SCALE_DEFAULT)
+            return np.polynomial.Polynomial(coefs)
+
+        case "bspline":
+            coefs = np.array(params["coefs"], dtype=float)
+            coefs *= params.get("scale", PARAMETER_SCALE_DEFAULT)
+            knots = np.array(params["knots"], dtype=float)
+            deg = np.sum(knots == knots[0]) - 1
+            if not np.isclose(knots[0], 0.0) or not np.isclose(knots[-1], 1.0):
+                raise ValueError(
+                    f"Knots for B-spline profile must start at 0.0 and end at 1.0, but got {knots[0]} and {knots[-1]}"
+                )
+            return BSpline(knots, coefs, deg)
+
+        case "interpolation":
+            k = 3
+            vals = np.array(params["vals"], dtype=float)
+            rho2 = np.array(params["rho2"], dtype=float)
+            if min(np.sqrt(rho2)) > PROFILE_INTERPOLATION_RHO2_MIN:
+                rho2 = np.append([0.0], rho2)
+                vals = np.append([0.0], vals)
+            BC_vals = params.get("BC_vals", PARAMETER_BC_VALS_DEFAULT)
+            BC_type = [None, None]
+            knots = rho2.copy()
+            for i, key in enumerate(["axis", "edge"]):
+                match params.get(f"BC_type_{key}", PARAMETER_BC_TYPE_DEFAULT):
+                    case "not_a_knot":
+                        pass
+                    case "1st_deriv":
+                        BC_type[i] = [(1, BC_vals[i])]
+                    case "2nd_deriv":
+                        BC_type[i] = [(2, BC_vals[i])]
+                    case _:
+                        raise ValueError(f"Unknown BC_type_{key}: {params[f'BC_type_{key}']}")
+            if BC_type[0] is None:
+                knots = np.concatenate([knots[:1], knots[2:]])
+            if BC_type[1] is None:
+                knots = np.concatenate([knots[:-2], knots[-1:]])
+            knots = np.concatenate([np.zeros(k), knots, np.ones(k)])
+            return make_interp_spline(rho2, vals, k=k, t=knots, bc_type=BC_type)
+        case _:
+            raise ValueError(f"Unknown profile type: {params['type']}")
+
+
+def profile_to_parameters(profile: BSpline | Polynomial) -> CaseInsensitiveDict:
+    if isinstance(profile, np.polynomial.Polynomial):
+        return CaseInsensitiveDict(
+            type="polynomial",
+            coefs=profile.coef,
+        )
+    elif isinstance(profile, BSpline):
+        return CaseInsensitiveDict(
+            type="bspline",
+            coefs=profile.c,
+            knots=profile.t,
+        )
+    else:
+        raise TypeError(f"Unknown profile type: {type(profile)}")
 
 
 def get_boundary_from_statefile(filename: str | Path):

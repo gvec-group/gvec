@@ -56,7 +56,7 @@ def find_state(rundir: Path | str | None = None):
 
 
 def find_states(rundir: Path | str | None = None):
-    """Load a Sequence of State objects from a given run-directory."""
+    """LEGACY: Load a Sequence of State objects from a given run-directory."""
     if rundir is None:
         rundir = Path.cwd()
     else:
@@ -70,3 +70,83 @@ def find_states(rundir: Path | str | None = None):
         raise ValueError("No parameterfile found.")
     statefiles = sorted(rundir.glob("*State*.dat"))
     return [State(parameterfiles[0], statefile) for statefile in statefiles]
+
+
+def load_intermediates(rundir: Path | str | None = None):
+    """Load a Sequence of State objects from a given run-directory."""
+    if rundir is None:
+        rundir = Path.cwd()
+    else:
+        rundir = Path(rundir)
+    stages = sorted(rundir.glob("stage-*"))
+    states_out = {}
+    for stage in stages:
+        stage_states = []
+        parameterfiles = sorted(stage.glob("*_parameters_*.ini"))
+        statefiles = sorted(stage.glob("*State*"))
+        if len(parameterfiles) == 0:
+            raise ValueError("No parameterfile found.")
+        if len(statefiles) == 0:
+            raise ValueError("No statefile found")
+        for i_pf, params in enumerate(parameterfiles[:-1]):
+            iteration_start = _get_file_iteration(params)
+            iteration_end = _get_file_iteration(parameterfiles[i_pf + 1])
+            stage_states += _associate_statefiles(
+                statefiles, params, iteration_start, iteration_end
+            )
+        iteration_start = _get_file_iteration(parameterfiles[-1])
+        stage_states += _associate_statefiles(
+            statefiles, parameterfiles[-1], iteration_start, int(1e7)
+        )
+        states_out[stage.name] = stage_states
+    return states_out
+
+
+def _associate_statefiles(
+    statefiles: list[Path], params: Path, iteration_start: int, iteration_end: int
+):
+    """Helper function for find_states. Create a list of States associated with a set of parameters
+
+    Parameters
+    ----------
+    statefiles : list[Path]
+        List of possible statefiles
+    params : Path
+        Parameter file to associate to
+    iteration_start : int
+        minimum number of iterations
+    iteration_end : int
+        maximum number of iterations
+
+    Returns
+    -------
+    list[State]
+        List of states associated with the given parameter file.
+    """
+    states_out = []
+    for sf in statefiles:
+        iteration_sf = int(sf.name.split("_")[-1].split(".")[0])
+        if iteration_sf >= iteration_start and iteration_sf < iteration_end:
+            states_out.append(State(params, sf))
+        elif iteration_sf < iteration_start:
+            continue
+        else:
+            break
+    return states_out
+
+
+def _get_file_iteration(file_in: Path):
+    """Get the iteration number from a gvec state or parameter file.
+
+    Parameters
+    ----------
+    file_in : Path
+        Filepath to the state or parameter file
+
+    Returns
+    -------
+    int
+        Iteration number
+    """
+    # TODO: use some fancy re for this?
+    return int(file_in.name.split("_")[-1].split(".")[0])

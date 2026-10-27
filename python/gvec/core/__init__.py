@@ -5,4 +5,4 @@
 These modules provide the core functionality with the public API exposed directly via `gvec.run`, `gvec.State` etc. (see `gvec/__init__.py`).
 """
 
-from gvec.core import compute, run, state
+from gvec.core import compute, run, state, minimize

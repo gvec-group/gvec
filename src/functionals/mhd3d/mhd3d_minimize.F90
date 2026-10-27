@@ -29,12 +29,12 @@ MODULE MODgvec_MHD3D_minimize
         INTEGER   :: JacCheck !! switch for restarts, if detJ<0 JacCheck<=-1
         INTEGER   :: iter,nStepDecreased,nSkip_Jac,nSkip_dw
         INTEGER   :: lastoutputIter, logiter_ramp, logscreen
-        REAL(wp)  :: dt,deltaW, dW_allowed
+        REAL(wp)  :: dt,deltaW, dW_allowed, max_dt
         REAL(wp)  :: t_pseudo,Fnorm(3),Fnorm0(3),Fnorm_old(3),W_MHD3D_0
 
         ! Logging variables
         REAL(wp) :: min_dt_out,max_dt_out,min_dw_out,max_dw_out,sum_dW_out
-        LOGICAL  :: DoCheckDistance, DoCheckAxis
+        LOGICAL  :: DoCheckDistance, DoCheckAxis, logUnit_open
         INTEGER  :: outputIter, nlogScreen, logIter, logUnit, StartTimeArray(8)
 
         TYPE(t_sol_var_MHD3D), ALLOCATABLE :: dofs(:)      !! degrees of freedom at levels (k-1),(k),(k+1)
@@ -130,6 +130,7 @@ MODULE MODgvec_MHD3D_minimize
         END IF
         ASSOCIATE(vars=>sf%vars)
             vars%dt = dt_initial
+            vars%max_dt = dt_initial
             vars%dW_allowed = dW_allowed_in
 
             ALLOCATE(vars%dofs(-3:1))
@@ -173,7 +174,7 @@ MODULE MODgvec_MHD3D_minimize
             vars%JacCheck = 1
 
 
-
+            vars%logUnit_open = .FALSE.
             vars%restart_iter = .TRUE.
             vars%logger_is_initialized = .FALSE.
 
@@ -291,6 +292,8 @@ MODULE MODgvec_MHD3D_minimize
                 FILE     = TRIM(FileString) ,&
                 STATUS   = 'REPLACE'   ,&
                 ACCESS   = 'SEQUENTIAL' )
+            vars%logUnit_open = .TRUE.
+
             !header
             iLogDat=0
             WRITE(vars%logUnit,'(A)',ADVANCE="NO")'"#iterations","runtime(s)","min_dt","max_dt"'
@@ -333,6 +336,10 @@ MODULE MODgvec_MHD3D_minimize
         ! MODULES
         USE MODgvec_MHD3D_visu, ONLY: checkDistance
         USE MODgvec_MHD3D_visu, ONLY: checkPos
+        USE MODgvec_Output_Vars, ONLY: ProjectName,outputLevel
+        USE MODgvec_Globals,     ONLY: GETFREEUNIT
+
+
         IMPLICIT NONE
         !-------------------------------------------------------------------------------------------------------------------------------
         ! INPUT VARIABLES
@@ -346,10 +353,20 @@ MODULE MODgvec_MHD3D_minimize
         REAL(wp)            :: Pos(2,2),maxDist,avgDist,W_MHD3D
         INTEGER,PARAMETER   :: nLogDat=25
         REAL(wp)            :: LogDat(1:nLogDat)
+        CHARACTER(LEN=255)  :: fileString !! filename
         !=================================================================================================================================
         IF(.NOT.MPIroot) RETURN
         __PERFON('log_output')
         ASSOCIATE(vars=>sf%vars)
+            IF (.NOT.vars%logUnit_open) THEN
+                vars%logUnit=GETFREEUNIT()
+                WRITE(FileString,'("logMinimizer_",A,"_",I4.4,".csv")')TRIM(ProjectName),outputLevel
+                OPEN(UNIT     = vars%logUnit       ,&
+                    FILE     = TRIM(FileString) ,&
+                    STATUS   = 'OLD'   ,&
+                    ACCESS   = 'APPEND' )
+                vars%logUnit_open = .TRUE.
+            END IF
             CALL DATE_AND_TIME(values=TimeArray) ! get System time
             W_MHD3D=vars%dofs(0)%W_MHD3D
             IF(.NOT.quiet)THEN
@@ -416,7 +433,7 @@ MODULE MODgvec_MHD3D_minimize
     !! Iterates until the (force-)tolerance or the maximum number of iterations is reached.
     !! Also writes output files after set number of iterations
     !===================================================================================================================================
-    SUBROUTINE MinimizeMHD3D_descent(sf, abstol, maxIter_in)
+    SUBROUTINE MinimizeMHD3D_descent(sf, abstol, maxIter_in, logfinaliter_in)
         USE MODgvec_MHD3D_EvalFunc, ONLY: EvalAux, EvalForce, EvalEnergy
         USE MODgvec_Analyze, ONLY:analyze
         USE MODgvec_Restart, ONLY:WriteState
@@ -426,13 +443,22 @@ MODULE MODgvec_MHD3D_minimize
 
         REAL(wp), INTENT(IN) :: abstol !! tolerance on the forces. If reached terminaters the minimization
         INTEGER, INTENT(IN)  :: maxIter_in !! maximum number of iterations after which the iterations are terminated
+        LOGICAL, OPTIONAL, INTENT(IN) :: logfinaliter_in !! TRUE: write a statefile on the final iter. DEFAULT: TRUE
         !-----------------------------------------------------------------------------------------------------------------------------------
         ! OUTPUT VARIABLES
         CLASS(t_minimizer_mhd3d), INTENT(INOUT) :: sf !! minimizer
         !-----------------------------------------------------------------------------------------------------------------------------------
         ! LOCAL VARIABLES
         INTEGER :: maxIter !! maximum number of iterations
+        LOGICAL :: logfinaliter
         !=================================================================================================================================
+
+        IF (PRESENT(logfinaliter_in)) THEN
+            logfinaliter = logfinaliter_in
+        ELSE
+            logfinaliter = .TRUE.
+        END IF
+
         ASSOCIATE(vars=>sf%vars)
             maxIter = vars%iter + maxIter_in
             DO WHILE(vars%iter.LT.maxIter)
@@ -489,6 +515,7 @@ MODULE MODgvec_MHD3D_minimize
                         IF(ALL(vars%Fnorm.LE.abstol))THEN
                             CALL sf%Logging(.FALSE.)
                             SWRITE(UNIT_stdOut,'(4x,A)')'==>Iteration finished, |force| in relative tolerance'
+                            vars%iter=vars%iter+1
                             EXIT !DO LOOP
                         END IF
                         vars%iter=vars%iter+1
@@ -555,11 +582,13 @@ MODULE MODgvec_MHD3D_minimize
             END IF
             SWRITE(UNIT_stdOut,'(A)') "... DONE."
             SWRITE(UNIT_stdOut,fmt_sep)
-            IF(vars%lastoutputIter.NE.vars%iter)THEN
-                CALL Analyze(MIN(vars%iter,MaxIter), vars%dofs(0), vars%force(0))
-                CALL WriteState(vars%dofs(0),MIN(vars%iter,MaxIter))
+            IF (logfinaliter) THEN
+                IF(vars%lastoutputIter.NE.vars%iter)THEN
+                    CALL Analyze(MIN(vars%iter,MaxIter), vars%dofs(0), vars%force(0))
+                    CALL WriteState(vars%dofs(0),MIN(vars%iter,MaxIter))
+                END IF
+                CALL writeSFLoutfile(vars%dofs(0),MIN(vars%iter,MaxIter))
             END IF
-            CALL writeSFLoutfile(vars%dofs(0),MIN(vars%iter,MaxIter))
         END ASSOCIATE !vars
     END SUBROUTINE MinimizeMHD3D_descent
 

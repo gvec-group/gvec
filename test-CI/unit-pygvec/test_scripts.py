@@ -91,7 +91,7 @@ def test_help(mode):
 def test_run():
     parameters = gvec.util.read_parameters("parameter.ini")
     run = gvec.run(parameters)
-    assert isinstance(run, gvec.Run)
+    assert isinstance(run, gvec.FixedBoundaryRun)
 
 
 def test_run_recover_from_error():
@@ -176,21 +176,17 @@ def test_picard_auto():
     parameters["picard_current"] = "auto"
     ProjectName = "Test_auto"
     parameters["projectname"] = ProjectName
-    if "stages" in parameters:
-        with pytest.raises(ValueError):
-            run_with_stages = gvec.run(parameters)
-        del parameters["stages"]
-    run_with_stages = gvec.run(parameters)
-    diagnostics = run_with_stages.diagnostics_minimizer
+    run = gvec.run(parameters)
+    diagnostics = run.diagnostics_minimizer
     assert diagnostics.force_X1[-1].data <= 1e-4
     assert diagnostics.force_X2[-1].data <= 1e-4
     assert diagnostics.force_LA[-1].data <= 1e-4
 
     assert Path(f"{ProjectName}_State_final.dat").exists()
     assert Path(f"parameter_{ProjectName}_final.ini").exists()
-    rho = np.sqrt(np.linspace(0, 1, 101))
+    rho = np.sqrt(np.linspace(0, 1, 256))
     rho[0] = 1e-4
-    ev = run_with_stages.state.evaluate("I_tor", "iota_curr", rho=rho, theta="int", zeta="int")
+    ev = run.state.evaluate("I_tor", "iota_curr", rho=rho, theta="int", zeta="int")
     assert ev.iota_curr.max().data < 1e-6
 
 
@@ -212,8 +208,6 @@ def test_I_tor_types(ptype):
         return 6000 * (rho2 - rho2**3 / 3)
 
     I_tor = I_tor_tp(rho2)
-    if "stages" in parameters:
-        del parameters["stages"]
 
     match ptype:
         case "interpolation":
@@ -238,10 +232,10 @@ def test_I_tor_types(ptype):
     assert Path(f"{ProjectName}_State_final.dat").exists()
     assert Path(f"parameter_{ProjectName}_final.ini").exists()
 
-    rho = run.diagnostics_run.rho
-    diagnostics = run.diagnostics_run.isel(run=-1)
+    rho = run.diagnostics_stage[f"stage_{run.nth_stage}"].rho
+    diagnostics = run.diagnostics_stage[f"stage_{run.nth_stage}"]
 
-    np.testing.assert_allclose(I_tor_tp(rho**2), run.I_tor(rho**2))
+    np.testing.assert_allclose(I_tor_tp(rho**2), run.state.I_tor(rho**2))
     np.testing.assert_allclose(I_tor_tp(rho**2), diagnostics.I_tor, atol=1e-2)
     np.testing.assert_allclose(diagnostics.I_tor_delta, 0.0, atol=1e-2)
 
@@ -260,18 +254,17 @@ def test_maxRestarts():
     parameters["projectname"] = ProjectName
 
     parameters["stages"] = [
-        {"picard_current": {"maxRestarts": 0}},
         {
-            "picard_current": {"maxRestarts": 1, "target": "iota_and_force"},
+            "picard_current": {"maxRestarts": 1, "target": "iota"},
             "minimize_tol": 1e-4,
         },
-        {"picard_current": {"maxRestarts": 2}},
+        {"picard_current": {"maxRestarts": 2}, "target": "iota"},
     ]
     run_with_stages = gvec.run(parameters)
 
-    for n, runs in enumerate(run_with_stages.n_runs_in_stage):
-        assert n >= runs - 1, (
-            f"In stage {n} maxRestarts was violated! allowed restarts: {n + 1}, performed restarts: {runs}"
+    for n, stage in enumerate(run_with_stages.diagnostics_stage):
+        assert n + 1 >= run_with_stages.diagnostics_stage[stage].n_updates.item(), (
+            f"In stage {n} maxRestarts was violated! allowed restarts: {n + 1}, performed restarts: {run_with_stages.diagnostics_stage[stage].n_updates.item()}"
         )
 
 
@@ -294,7 +287,7 @@ def test_stages_without_current():
     assert (final_rundir / "stdout.txt").exists()
     with open(final_rundir / "stdout.txt", "r") as file:
         stdout = file.read()
-    assert "GVEC SUCESSFULLY FINISHED" in stdout
+    assert "Iteration finished, |force| in relative tolerance" in stdout
 
 
 @pytest.mark.parametrize("QUASR_ID", [112714])

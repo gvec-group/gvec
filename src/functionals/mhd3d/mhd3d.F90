@@ -18,7 +18,7 @@ MODULE MODgvec_MHD3D
   IMPLICIT NONE
 
   PRIVATE
-  PUBLIC t_functional_mhd3d
+  PUBLIC t_functional_mhd3d, AddBoundaryPerturbation, Init_LA_from_Solution
 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! TYPES
@@ -33,6 +33,7 @@ MODULE MODgvec_MHD3D
       PROCEDURE :: init         => InitMHD3D
       PROCEDURE :: initSolution => InitSolutionMHD3D
       PROCEDURE :: minimize     => MinimizeMHD3D
+      PROCEDURE :: update_boundary => update_boundary_MHD3D
       PROCEDURE :: free         => FinalizeMHD3D
   END TYPE t_functional_mhd3d
 
@@ -110,6 +111,7 @@ SUBROUTINE InitMHD3D(sf)
   doCheckDistance=GETLOGICAL("doCheckDistance",Proposal=.FALSE.)
   doCheckAxis=GETLOGICAL("doCheckAxis",Proposal=.TRUE.)
   !-----------
+  FreeBoundary = GETLOGICAL("FreeBoundary", Proposal=.FALSE.)
 
   fac_nyq = GETINT( "fac_nyq",Proposal=4)
 
@@ -303,7 +305,9 @@ SUBROUTINE InitMHD3D(sf)
   !boundary conditions (used in force, in init slightly changed)
   ASSOCIATE(modes        =>X1_base%f%modes, zero_odd_even=>X1_base%f%zero_odd_even)
   ALLOCATE(X1_BC_type(1:2,modes))
+
   X1_BC_type(BC_EDGE,:)=BC_TYPE_DIRICHLET
+
   DO imode=1,modes
     X1_BC_type(BC_AXIS,iMode)=X1X2_BCtype_axis(zero_odd_even(iMode))
     IF(X1_BC_type(BC_AXIS,iMode).EQ.0)THEN !AUTOMATIC, m-dependent BC, for m>deg, switch off all DOF up to deg+1
@@ -319,7 +323,9 @@ SUBROUTINE InitMHD3D(sf)
 
   ASSOCIATE(modes        =>X2_base%f%modes, zero_odd_even=>X2_base%f%zero_odd_even)
   ALLOCATE(X2_BC_type(1:2,modes))
+
   X2_BC_type(BC_EDGE,:)=BC_TYPE_DIRICHLET
+
   DO imode=1,modes
     X2_BC_type(BC_AXIS,iMode)=X1X2_BCtype_axis(zero_odd_even(iMode))
     IF(X2_BC_type(BC_AXIS,iMode).EQ.0)THEN ! AUTOMATIC, m-dependent BC, for m>deg, switch off all DOF up to deg+1
@@ -371,6 +377,7 @@ SUBROUTINE InitMHD3D(sf)
     X1_a=0.0_wp
     X2_a=0.0_wp
 
+
     IF((init_BC.EQ.0).OR.(init_BC.EQ.2))THEN !READ axis values from input file
       WRITE(UNIT_stdOut,'(4X,A)')'... read axis data for X1:'
       ASSOCIATE(modes=>X1_base%f%modes,sin_range=>X1_base%f%sin_range,cos_range=>X1_base%f%cos_range)
@@ -418,6 +425,15 @@ SUBROUTINE InitMHD3D(sf)
   END IF !MPIroot
 
   boundary_perturb = GETLOGICAL('boundary_perturb', Proposal=.FALSE.)
+  IF(boundary_perturb.OR.FreeBoundary) THEN
+    ALLOCATE(X1pert_b(1:X1_base%f%modes) )
+    ALLOCATE(X2pert_b(1:X2_base%f%modes) )
+  END IF
+
+  IF(FreeBoundary) THEN
+    CALL InitFreeBoundary(sf)
+  END IF ! free boundary
+
   boundary_perturb_type_str  = GETSTR("boundary_perturb_type", proposal="legacy")
   IF (boundary_perturb_type_str .EQ. "legacy") THEN
     boundary_perturb_type = BLEND_LEGACY
@@ -430,9 +446,8 @@ SUBROUTINE InitMHD3D(sf)
     TypeInfo="InvalidParameterError")
   END IF
   boundary_perturb_depth = GETREAL('boundary_perturb_depth', proposal=0.6_wp)
+
   IF(boundary_perturb)THEN
-    ALLOCATE(X1pert_b(1:X1_base%f%modes) )
-    ALLOCATE(X2pert_b(1:X2_base%f%modes) )
     X1pert_b=0.0_wp
     X2pert_b=0.0_wp
     !READ boudnary values from input file
@@ -473,6 +488,107 @@ SUBROUTINE InitMHD3D(sf)
   SWRITE(UNIT_stdOut,fmt_sep)
 
 END SUBROUTINE InitMHD3D
+
+SUBROUTINE InitFreeBoundary(sf)
+  USE MODgvec_ReadInTools, ONLY: GETREAL, GETINT, GETLOGICAL, GETSTR
+  USE MODgvec_MHD3D_Vars, ONLY: free_b_minimizer_type, free_b_minimizer, beta1, beta2
+  USE MODgvec_MHD3D_Vars, ONLY: Bext_squared, Force_b_X1, Force_b_X2, Precond_b_X1, Precond_b_X2, precond_boundary
+  USE MODgvec_MHD3D_Vars, ONLY: epsilon_spectral, Q_spectral
+  USE MODgvec_MHD3D_Vars, ONLY: X1_base, X2_base
+  USE MODgvec_MHD3D_Vars, ONLY: Precond_b_X1, Precond_b_X2
+  USE MODgvec_MHD3D_Vars, ONLY: mode_scale_X1, mode_scale_X2, gnorm_fb, xnorm_fb
+  USE MODgvec_free_b_minimizer_GD, ONLY: t_free_b_minimizer_GD
+  USE MODgvec_free_b_minimizer_mGD, ONLY: t_free_b_minimizer_mGD
+  USE MODgvec_free_b_minimizer_aGD, ONLY: t_free_b_minimizer_aGD
+  USE MODgvec_free_b_minimizer_ADAM, ONLY: t_free_b_minimizer_ADAM
+  USE MODgvec_free_b_minimizer_LBFGS, ONLY: t_free_b_minimizer_LBFGS
+  USE MODgvec_free_b_minimizer_BFGS, ONLY: t_free_b_minimizer_BFGS
+  USE MODgvec_free_b_minimizer_dBFGS, ONLY: t_free_b_minimizer_dBFGS
+  USE MODgvec_free_b_minimizer_SR1, ONLY: t_free_b_minimizer_SR1
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER  :: n_grad_steps, m_updates
+  REAL(wp) :: max_dt, M, dt
+  REAL(wp) :: mn_X1X2(2,X1_base%f%modes+X2_base%f%modes)
+!-----------------------------------------------------------------------------------------------------------------------------------
+  free_b_minimizer_type = GETSTR("free_boundary_minimizer_type", Proposal="GD")
+  Q_spectral = GETINT("free_boundary_Q_spectral", Proposal=5)
+  epsilon_spectral = GETREAL("free_boundary_epsilon_spectral",Proposal=0.001)
+  ALLOCATE(Bext_squared(1:X1_base%f%mn_IP))
+
+  ASSOCIATE(modes_X1 => X1_base%f%modes, modes_X2 => X2_base%f%modes)
+    ALLOCATE(Force_b_X1(1:modes_X1))
+    ALLOCATE(Force_b_X2(1:modes_X2))
+    precond_boundary = GETLOGICAL("free_boundary_precond_boundary", Proposal=.TRUE.)
+    ALLOCATE(Precond_b_X1(1:modes_X1))
+    ALLOCATE(Precond_b_X2(1:modes_X2))
+
+    Precond_b_X1 = 1.0_wp
+    Precond_b_X2 = 1.0_wp
+
+    ALLOCATE(mode_scale_X1(1:modes_X1))
+    ALLOCATE(mode_scale_X2(1:modes_X2))
+    gnorm_fb = 1e6
+    xnorm_fb = 1e6
+
+    mode_scale_X1 = EXP(-SQRT(REAL(X1_base%f%Xmn(1,:))**2+REAL(X1_base%f%Xmn(2,:))**2))
+    mode_scale_X2 = EXP(-SQRT(REAL(X2_base%f%Xmn(1,:))**2+REAL(X2_base%f%Xmn(2,:))**2))
+
+    SELECT CASE(free_b_minimizer_type)
+    CASE("GD")
+      dt = GETREAL("free_boundary_dt", Proposal=0.1_wp)
+      max_dt = GETREAL("free_boundary_max_dt", Proposal=1.0_wp)
+      free_b_minimizer = t_free_b_minimizer_GD(modes_X1 + modes_X2, dt=dt, max_dt=max_dt)
+    CASE("ADAM")
+      dt = GETREAL("free_boundary_dt", Proposal=1e-3_wp)
+      max_dt = GETREAL("free_boundary_max_dt", Proposal=1e-2_wp)
+      beta1 = GETREAL("free_boundary_beta1_adam", Proposal=0.9)
+      beta2 = GETREAL("free_boundary_beta2_adam", Proposal=0.999)
+      free_b_minimizer = t_free_b_minimizer_ADAM(modes_X1 + modes_X2, beta1, beta2, dt=dt, max_dt=max_dt)
+    CASE("mGD")
+      dt = GETREAL("free_boundary_dt", Proposal=0.1_wp)
+      max_dt = GETREAL("free_boundary_max_dt", Proposal=1.0_wp)
+      beta1 = GETREAL("free_boundary_beta_moment_GD", Proposal=0.9)
+      free_b_minimizer = t_free_b_minimizer_mGD(modes_X1 + modes_X2, beta1, dt=dt, max_dt=max_dt)
+    CASE("aGD")
+      dt = GETREAL("free_boundary_dt", Proposal=0.1_wp)
+      max_dt = GETREAL("free_boundary_max_dt", Proposal=0.1_wp)
+      free_b_minimizer = t_free_b_minimizer_aGD(modes_X1 + modes_X2, dt=dt, max_dt=max_dt)
+    CASE("BFGS")
+      precond_boundary = .FALSE.
+      n_grad_steps = GETINT("free_boundary_n_grad_steps", Proposal=0)
+      dt = GETREAL("free_boundary_dt", Proposal=0.1_wp)
+      max_dt = GETREAL("free_boundary_max_dt", Proposal=1.0_wp)
+      M = GETREAL("free_boundary_M_BFGS", Proposal=0.001_wp)
+      free_b_minimizer = t_free_b_minimizer_BFGS(modes_X1 + modes_X2, n_grad_steps=n_grad_steps, dt=dt, max_dt=max_dt,M=M)
+    CASE("dBFGS")
+      precond_boundary = .FALSE.
+      n_grad_steps = GETINT("free_boundary_n_grad_steps", Proposal=0)
+      dt = GETREAL("free_boundary_dt", Proposal=0.1_wp)
+      max_dt = GETREAL("free_boundary_max_dt", Proposal=1.0_wp)
+      M = GETREAL("free_boundary_M_BFGS", Proposal=0.001_wp)
+      free_b_minimizer = t_free_b_minimizer_dBFGS(modes_X1 + modes_X2, n_grad_steps=n_grad_steps, dt=dt, max_dt=max_dt,M=M)
+    CASE("SR1")
+      precond_boundary = .FALSE.
+      n_grad_steps = GETINT("free_boundary_n_grad_steps", Proposal=0)
+      dt = GETREAL("free_boundary_dt", Proposal=0.1_wp)
+      max_dt = GETREAL("free_boundary_max_dt", Proposal=1.0_wp)
+      free_b_minimizer = t_free_b_minimizer_SR1(modes_X1 + modes_X2, n_grad_steps=n_grad_steps,dt=dt, max_dt=max_dt)
+    CASE("lBFGS")
+      precond_boundary = .FALSE.
+      m_updates = GETINT("free_boundary_m_updates_lBFGS", Proposal=10)
+      dt = GETREAL("free_boundary_dt", Proposal=0.1_wp)
+      max_dt = GETREAL("free_boundary_max_dt", Proposal=1.0_wp)
+      free_b_minimizer = t_free_b_minimizer_LBFGS(modes_X1 + modes_X2, dt=dt, max_dt=max_dt, m_updates=m_updates)
+    CASE DEFAULT
+      CALL abort(__STAMP__,&
+    'unknown free_b_minimizer_type! Must be either GD (=gradient descent), ADAM, mGD (=moment GD), aGD (=accelerated gradient descent), BFGS, dBFGS (=damped BFGS), SR1 or lBFGS!')
+    END SELECT
+  END ASSOCIATE
+END SUBROUTINE InitFreeBoundary
 
 SUBROUTINE InitProfile(sf, var,var_profile)
   ! MODULES
@@ -585,7 +701,7 @@ END SUBROUTINE InitProfile
 !> Initialize Module
 !!
 !===================================================================================================================================
-SUBROUTINE InitSolutionMHD3D(sf)
+SUBROUTINE InitSolutionMHD3D(sf, RestartFile_in, do_WriteState_in)
 ! MODULES
   USE MODgvec_MHD3D_Vars     , ONLY: which_init,init_LA,boundary_perturb,boundary_perturb_depth,boundary_perturb_type
   USE MODgvec_Restart_vars   , ONLY: doRestart,RestartFile
@@ -599,19 +715,39 @@ SUBROUTINE InitSolutionMHD3D(sf)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
+  CHARACTER(LEN=255), INTENT(IN), OPTIONAL :: RestartFile_in ! for restart from State
+  LOGICAL,            INTENT(IN), OPTIONAL :: do_WriteState_in
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER              :: JacCheck
+  LOGICAL              :: doRestart_local, do_WriteState
+  CHARACTER(LEN=255)   :: RestartFile_local
 !===================================================================================================================================
   CALL par_barrier(beforeScreenOut="    INITIALIZE SOLUTION...",afterScreenOut="                           ...")
   CALL enter_subregion("init-solution")
+
+  ! allow for restart in the state
+  IF (PRESENT(RestartFile_in)) THEN
+    doRestart_local = .TRUE.
+    RestartFile_local = RestartFile_in
+  ELSE
+    doRestart_local = doRestart
+    RestartFile_local = RestartFile
+  END IF
+
+  IF (PRESENT(do_WriteState_in)) THEN
+    do_WriteState = do_WriteState_in
+  ELSE
+    do_WriteState = .TRUE.
+  END IF
+
   ASSOCIATE(vars=>sf%minimizer%vars)
     IF(MPIroot) THEN
-      IF(doRestart)THEN
+      IF(doRestart_local)THEN
         WRITE(UNIT_stdOut,'(4X,A)')'... restarting from file ... '
-        CALL RestartFromState(RestartFile,vars%dofs(0))
+        CALL RestartFromState(RestartFile_local,vars%dofs(0))
         CALL InitSolution(vars%dofs(0),-1) ! (re-)apply BC and init LA (if init_LA is true)
       ELSE
         CALL InitSolution(vars%dofs(0),which_init)
@@ -656,10 +792,19 @@ SUBROUTINE InitSolutionMHD3D(sf)
           TypeInfo="InitializationError")
       END SELECT
     END IF
-    CALL WriteState(vars%dofs(0),0)
+
+    CALL vars%dofs(-3)%set_to(vars%dofs(0)) ! initial valid solution should remain unchanged
+
+    IF (do_WriteState) THEN
+      CALL WriteState(vars%dofs(0),0)
+    END IF
+
     CALL EvalForce(vars%dofs(0),.FALSE.,JacCheck, vars%force(0))
     SWRITE(UNIT_stdOut,'(8x,A,3E11.4)')'|Force|= ',SQRT(vars%force(0)%norm_2())
-    CALL Analyze(0, vars%dofs(0), vars%force(0))
+
+    IF (do_WriteState) THEN
+      CALL Analyze(0, vars%dofs(0), vars%force(0))
+    END IF
   END ASSOCIATE !vars
   CALL exit_subregion("check-solution")
   CALL par_barrier(afterScreenOut="    ...DONE")
@@ -1186,29 +1331,144 @@ SUBROUTINE AddBoundaryPerturbation(U_init, depth, blend_type)
 
 END SUBROUTINE AddBoundaryPerturbation
 
+SUBROUTINE update_boundary_MHD3D(sf, dt_in, reset_minimizer, blend_depth_in)
+  USE MODgvec_MHD3D_Vars, ONLY: free_b_minimizer, FreeBoundary
+  USE MODgvec_MHD3D_Vars, ONLY: X1_b, X2_b, X1_base, X2_base, X1pert_b, X2pert_b ! for boundary perturbation
+  USE MODgvec_MHD3D_Vars, ONLY: Precond_b_X1, Precond_b_X2, precond_boundary
+  USE MODgvec_MHD3D_Vars, ONLY: Force_b_X1, Force_b_X2
+  USE MODgvec_MHD3D_Vars, ONLY: mode_scale_X1, mode_scale_X2, xnorm_fb, gnorm_fb ! abort criteria
+  USE MODgvec_MHD3D_evalFunc, ONLY : EvalForce, EvalEnergy
+
+  CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
+  REAL(wp), INTENT(IN)                     :: dt_in
+  LOGICAL, INTENT(IN)                      :: reset_minimizer
+  REAL(wp), INTENT(IN), OPTIONAL           :: blend_depth_in
+
+  INTEGER  :: step_decreases, JacCheck, max_step_decreases
+  LOGICAL  :: perform_update
+  REAL(wp) :: dt ! for  stepsize reduction
+  REAL(wp) :: Force_b_X1X2(X1_base%f%modes + X2_base%f%modes), X1X2pert_b(X1_base%f%modes + X2_base%f%modes)
+  REAL(wp) :: y_k(X1_base%f%modes + X2_base%f%modes), alpha_k, blend_depth
+
+  IF (.NOT.FreeBoundary) THEN
+    CALL abort(__STAMP__, &
+           'FreeBoundary is .FALSE. but tried to call update_boundary! Set FreeBoundary=T to allow a boundary update.')
+  END IF
+
+  IF (PRESENT(blend_depth_in)) THEN
+    blend_depth = blend_depth_in
+  ELSE
+    blend_depth = 0.6_wp
+  END IF
+
+  IF (reset_minimizer) THEN
+    CALL free_b_minimizer%reset()
+  END IF
+  dt = dt_in
+  free_b_minimizer%dt = dt_in
+  free_b_minimizer%dt_initial = dt_in
+  X1X2pert_b = 0.0_wp
+  Force_b_X1X2 = 0.0_wp
+  X1_b = 0.0_wp
+  X2_b = 0.0_wp
+
+  X1pert_b = 0.0_wp
+  X2pert_b = 0.0_wp
+
+  JacCheck = 2
+  perform_update = .TRUE.
+  step_decreases = 0
+  max_step_decreases = 130
+  ASSOCIATE(vars => sf%minimizer%vars)
+    CALL EvalForce(vars%dofs(0),.TRUE., vars%JacCheck,vars%force(0))
+    gnorm_fb = SQRT(SUM((Force_b_X1)**2)+SUM((Force_b_X2)**2))
+    IF (.NOT.precond_boundary) THEN
+      Force_b_X1X2(1:X1_base%f%modes) = Force_b_X1
+      Force_b_X1X2(X1_base%f%modes+1:) = Force_b_X2
+    ELSE
+      Force_b_X1X2(1:X1_base%f%modes) = Force_b_X1 / Precond_b_X1
+      Force_b_X1X2(X1_base%f%modes+1:) = Force_b_X2 / Precond_b_X2
+    END IF
+    X1X2pert_b = free_b_minimizer%get_update(-Force_b_X1X2)
+    X1pert_b(1:X1_base%f%modes) = X1X2pert_b(1:X1_base%f%modes)
+    X2pert_b(1:X2_base%f%modes) = X1X2pert_b(X1_base%f%modes+1:)
+    DO WHILE((perform_update.AND.(step_decreases.LE.max_step_decreases)))
+      X1_b = vars%dofs(0)%X1(X1_base%s%nBase,:)
+      X2_b = vars%dofs(0)%X2(X2_base%s%nBase,:)
+
+      CALL vars%temp_dofs(1)%set_to(vars%dofs(0))
+      CALL AddBoundaryPerturbation(vars%temp_dofs(1),blend_depth,1) ! blend with cosine
+
+      ! check for a valid step
+      vars%temp_dofs(1)%W_MHD3D = EvalEnergy(vars%temp_dofs(1),.TRUE.,JacCheck)
+
+      IF (JacCheck<0) THEN
+        step_decreases = step_decreases + 1
+        IF (step_decreases > max_step_decreases) THEN
+          CALL abort(__STAMP__, &
+           ' ... during free boundary update: maximum number of step-size decreases reached !!!')
+        END IF
+
+        dt = 0.9*dt
+        X1pert_b = 0.9*X1pert_b
+        X2pert_b = 0.9*X2pert_b
+        CALL free_b_minimizer%reset()
+        free_b_minimizer%dt = dt
+
+        JacCheck = 2
+        SWRITE(UNIT_stdOut,'(8X,I8,A,E11.4,A)')vars%iter,' ... during free boundary update: detJac<0, decrease stepsize to dt=',free_b_minimizer%dt
+      ELSE
+        perform_update = .FALSE.
+      END IF
+    END DO !while for stepsize reduction
+    xnorm_fb = SQRT(SUM((X1pert_b * mode_scale_X1)**2)+SUM((X2pert_b * mode_scale_X2)**2))
+    CALL vars%dofs(0)%set_to(vars%temp_dofs(1))
+    vars%dt = MIN(vars%dt*1.05, vars%max_dt)
+  END ASSOCIATE
+END SUBROUTINE update_boundary_MHD3D
+
 !===================================================================================================================================
 !> Compute Equilibrium, iteratively
 !!
 !===================================================================================================================================
 
-SUBROUTINE MinimizeMHD3D(sf, dt_in)
+SUBROUTINE MinimizeMHD3D(sf, dt_in, logfinaliter_in, maxIter_in, minimize_tol_in)
 ! MODULES
   USE MODgvec_MHD3D_vars, ONLY: maxIter, minimize_tol, MinimizerType
   USE MODgvec_MHD3D_minimize, ONLY: t_minimizer_mhd3d, new_minimizer
   IMPLICIT NONE
   REAL(wp), OPTIONAL, INTENT(IN) :: dt_in
+  LOGICAL, OPTIONAL, INTENT(IN)  :: logfinaliter_in
+  INTEGER, OPTIONAL, INTENT(IN)  :: maxIter_in
+  REAL(wp), OPTIONAL, INTENT(IN) :: minimize_tol_in
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+  INTEGER  :: maxIter_minimize
+  REAL(wp) :: minimize_tol_used
 !===================================================================================================================================
   __PERFON('minimizer')
   CALL enter_subregion("Minimization")
   IF (PRESENT(dt_in)) THEN
       sf%minimizer%vars%dt = dt_in
-  ENDIF
-  CALL sf%minimizer%minimize(minimize_tol, maxIter)
+  END IF
+
+  IF (PRESENT(minimize_tol_in)) THEN
+    minimize_tol_used = minimize_tol_in
+  ELSE
+    minimize_tol_used = minimize_tol
+  END IF
+
+
+  IF (PRESENT(maxIter_in)) THEN
+    maxIter_minimize = maxIter_in
+  ELSE
+    maxIter_minimize = maxIter
+  END IF
+
+  CALL sf%minimizer%minimize(minimize_tol_used, maxIter_minimize, logfinaliter_in = logfinaliter_in)
   CALL exit_subregion("Minimization")
   __PERFOFF('minimizer')
 END SUBROUTINE MinimizeMHD3D
@@ -1269,6 +1529,16 @@ SUBROUTINE FinalizeMHD3D(sf)
   SDEALLOCATE(X1_base)
   SDEALLOCATE(X2_base)
   SDEALLOCATE(LA_base)
+
+  SDEALLOCATE(Bext_squared)
+  SDEALLOCATE(Force_b_X1)
+  SDEALLOCATE(Force_b_X2)
+  SDEALLOCATE(Precond_b_X1)
+  SDEALLOCATE(Precond_b_X2)
+  SDEALLOCATE(mode_scale_X1)
+  SDEALLOCATE(mode_scale_X2)
+  SDEALLOCATE(free_b_minimizer)
+
   CALL exit_subregion("finalize-MHD3D")
 END SUBROUTINE FinalizeMHD3D
 
