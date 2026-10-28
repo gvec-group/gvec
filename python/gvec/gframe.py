@@ -80,7 +80,7 @@ def check_field_periodicity(xyz: np.ndarray, nfp: int, atol=1e-12):
 
 
 def surface_normal(xyz: np.ndarray, nzeta=0, ntheta=0):
-    """
+    r"""
     compute the non-normalized normal vector :math:`\mathbf{N}=\partial_\theta \mathbf{x} \times \partial_\zeta \mathbf{x}` of the surface.
 
     Parameters

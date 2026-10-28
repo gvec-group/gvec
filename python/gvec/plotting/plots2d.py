@@ -28,7 +28,7 @@ def plot_poloidal_plane(
     colorbar_scale: Literal["linear", "log"] = "linear",
     plot_kwargs: dict = dict(),
 ):
-    """
+    r"""
     Plot a poloidal plane with some equilibrium quantity on it. Defaults to plotting $|B|$
 
     Parameters
