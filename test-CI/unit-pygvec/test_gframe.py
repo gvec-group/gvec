@@ -419,3 +419,14 @@ def test_gframe_gvec_run_detects_negative_jacobian(errormsg, tmp_path):
         # now try to run GVEC with this gframe, and check that it fails in the hmap jacobian check:
         with pytest.raises(gvec.errors.InitializationError, match=errormsg[1]):
             gvec.run(params)
+
+
+def test_gframe_ncfile_generatedFrom(tmp_path):
+    """Test that the ``generatedFrom`` attribute of a G-Frame file is written and read correctly."""
+    filename = DATA / "brezellator-stellsym-scaled-Gframe.nc"
+    readin1 = gframe.read_Gframe_ncfile(filename)
+    assert readin1["generatedFrom"].startswith("Generated from xyz surface using")
+
+    gframe.write_Gframe_ncfile(tmp_path / "test_generatedFrom.nc", readin1)
+    readin2 = gframe.read_Gframe_ncfile(tmp_path / "test_generatedFrom.nc")
+    assert readin2["generatedFrom"] == readin1["generatedFrom"]

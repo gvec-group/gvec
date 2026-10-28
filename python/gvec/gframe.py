@@ -647,8 +647,8 @@ def read_Gframe_ncfile(ncfile: str | Path):
         ds.load()
     nfp = ds.NFP.data
     dict_out = {"nfp": nfp}
-    if "generatedFrom" in ds:
-        dict_out["generatedFrom"] = ds.generatedFrom
+    if "generatedFrom" in ds.attrs:
+        dict_out["generatedFrom"] = ds.attrs["generatedFrom"]
 
     if "axis" in ds:
         dict_out["axis"] = {}
