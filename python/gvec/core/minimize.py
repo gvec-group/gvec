@@ -128,7 +128,10 @@ class MinimizationState(State):
         self.rms_iota = None
         self.delta_iota = None
         self.dt_fixed_initial = self.dt_fixed
-        self._iota: BSpline | Polynomial = profile_from_parameters(self.parameters["iota"])
+        iota_default = dict(type="polynomial", coefs=[0.0])
+        self._iota: BSpline | Polynomial = profile_from_parameters(
+            self.parameters.get("iota", iota_default)
+        )
 
     def bind(self, force: bool = False):
         super().bind(force=force, init_for_minimize=True)

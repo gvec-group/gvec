@@ -106,6 +106,22 @@ def test_run_recover_from_error():
     run = gvec.run(parameters)
 
 
+def test_convert_wout():
+    """The converted statefile reproduces the VMEC boundary point at theta=zeta=0."""
+    wout = DATA / "wout_test-signgs-neg-asymT.nc"
+    proc = subprocess.run(["pygvec", "convert-wout", wout, "out"], capture_output=True)
+    assert proc.returncode == 0
+    state = gvec.load_state("out/parameter.ini", next(Path("out").glob("*State*.dat")))
+    with xr.open_dataset(wout) as ds:
+        rho = np.sqrt(ds.phi / ds.phi[-1]).values
+        R, Z = float(ds.rmnc[-1].sum()), float(ds.zmnc[-1].sum())
+        iota_wout = -ds.iotaf.values  # sign flip due to zeta flip
+    pos = state.evaluate("pos", rho=1.0, theta=0.0, zeta=0.0).pos.squeeze().values
+    np.testing.assert_allclose(pos, [R, 0.0, Z], rtol=1e-10, atol=1e-12)
+    iota = state.evaluate("iota", rho=rho).iota.values
+    np.testing.assert_allclose(iota, iota_wout, rtol=1e-10, atol=1e-6)
+
+
 @pytest.mark.parametrize("param", [("sgrid", "nElems"), "X1X2_deg", "LA_deg"])
 def test_run_missing_parameter(param):
     parameters = gvec.util.read_parameters("parameter.ini")
