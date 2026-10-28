@@ -48,6 +48,31 @@ def test_new(testfiles, tmp_path, util):
         assert (tmp_path / "parameter.ini").exists()
 
 
+def test_new_default_sin_cos_after_asymmetric_vmec(tmp_path):
+    """The default `_cos_`/`_sin_` bases must not be inherited from a previous asymmetric VMEC initialization."""
+    gvec.scripts.convert_wout.convert_vmec_wout(
+        Path(__file__).parent / "../data/wout_test-signgs-neg-asymT.nc"
+    )
+    parameters = {
+        "nfp": 1,
+        "PhiEdge": -1.0,
+        "iota": {"type": "polynomial", "coefs": [0.5]},
+        "pres": {"type": "polynomial", "coefs": [0.0]},
+        "X1_b_cos": {(0, 0): 3.0, (1, 0): 0.5},
+        "X2_b_sin": {(1, 0): 0.5},
+        "X1_a_cos": {(0, 0): 3.0},
+        "sgrid_nElems": 2,
+        "X1X2_deg": 3,
+        "LA_deg": 3,
+        "X1_mn_max": [2, 0],
+        "X2_mn_max": [2, 0],
+        "LA_mn_max": [2, 0],
+    }
+    state = State.new(parameters, tmp_path)
+    assert state._get_X1_n_modes() == 3  # cos: m=0,1,2 (sincos would give 5)
+    assert state._get_X2_n_modes() == 2  # sin: m=1,2
+
+
 def test_load_state(testfiles):
     state = load_state(*testfiles)
     assert isinstance(state, State)
