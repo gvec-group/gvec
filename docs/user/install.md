@@ -186,6 +186,15 @@ This allows you to change compilation options using [`scikit-build-core`](https:
   ```
 * clearing the *pip cache* can help: `pip cache purge`
 
+## Installing GVEC with `spack`
+
+GVEC is also available with [Spack](https://spack.readthedocs.io/en/latest/):
+```bash
+spack install py-gvec
+```
+
+Spack has the advantage that all dependencies, including netCDF and other non-python libraries can be installed through it.
+
 ## Getting GVEC with `git`
 
 1.  Clone the repository to a local directory:

@@ -17,12 +17,24 @@ pre-commit:
     - .before_script_modules
   variables:
     PRE_COMMIT_HOME: ${CI_PROJECT_DIR}/.cache/pre-commit
+    GIT_DEPTH: 0  # full history for the AI attribution check
   cache:
     paths:
       - ${PRE_COMMIT_HOME}
   script:
     - pip install pre-commit
-    - pre-commit run --all-files --show-diff-on-failure
+    - rc=0
+    - pre-commit run --all-files --show-diff-on-failure || rc=1
+    # AI attribution policy (README): no AI tool as author or Co-authored-by anywhere in the history
+    - |
+      bad=$( { git log -i -E --author="claude|gpt|codex" --format="%h %an <%ae> %s"
+               git log -i -E --grep="^co-authored-by:.*(claude|gpt|codex)" --format="%h %an <%ae> %s"; } | sort -u )
+      if [ -n "$bad" ]; then
+        echo "ERROR: commits with an AI tool as author or Co-authored-by (see README, use Assisted-by: instead):"
+        echo "$bad"
+        rc=1
+      fi
+    - exit $rc
   needs: []
   rules:
     - when: always

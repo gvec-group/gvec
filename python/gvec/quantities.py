@@ -1982,7 +1982,8 @@ def I_pol(ds: xr.Dataset, state: State):
     ),
 )
 def W_MHD(ds: xr.Dataset):
-    ds["W_MHD"] = volume_integral((0.5 * ds.mod_B**2 + (ds.gamma - 1) * ds.mu0 * ds.p) * ds.Jac)
+    # as EvalEnergy in mhd3d_evalfunc.F90
+    ds["W_MHD"] = volume_integral((0.5 * ds.mod_B**2 + ds.mu0 * ds.p / (ds.gamma - 1)) * ds.Jac)
 
 
 @register(

@@ -138,7 +138,7 @@ def convert_vmec_wout(
 
     with tempfile.TemporaryDirectory() as tmpdir:
         logger.info("Reading VMEC wout file...")
-        state = gvec.State.new(conversion_parameters, tmpdir)
+        state = gvec.MinimizationState.new(conversion_parameters, tmpdir)
         ev = state.evaluate(
             "p", "iota", rho=np.sqrt(np.linspace(0, 1, 101)), theta=None, zeta=None
         )
@@ -162,7 +162,10 @@ def convert_vmec_wout(
         )
 
         if rundir is not None:
-            shutil.copy(sorted(Path(tmpdir).glob("*State*.dat"))[-1], rundir)
+            logger.info("Writing statefile...")
+            with gvec.util.chdir(rundir):
+                state.save_statefile()
+            logger.info("Writing parameter files...")
             gvec.util.write_parameters(parameters, rundir / "parameter.ini")
             gvec.util.write_parameters(parameters, rundir / "parameter.toml")
     return parameters

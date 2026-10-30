@@ -88,7 +88,7 @@ def get_boozer(
 
     if sincos not in ["sin", "cos", "sincos"]:
         raise ValueError("sincos must be 'sin', 'cos', or 'sincos'.")
-    sincos = {"sin": " _sin_", "cos": " _cos_", "sincos": "_sin_cos_"}[sincos]
+    sincos = {"sin": " _sin_", "cos": " _cos_", "sincos": "_sincos_"}[sincos]
 
     recompute_lambda = bool(recompute_lambda)
 

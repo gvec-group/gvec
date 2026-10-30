@@ -234,11 +234,11 @@ def compute(
         func = registry[quantity]
         # --- handle special cases --- #
         # if dLA_dr is requested (and not already present), but LA is already present - this is currently only possible with the boozer transform
-        # ToDo: cleanup
-        if m := re.match(quantity, r"dLA_d([rtz]{1,2})"):
+        if m := re.match(r"dLA_d([rtz]{1,2})", quantity):
             if "r" in m.group(1) and "LA" in ev:
                 raise ValueError(
-                    f"Cannot compute `{quantity}` as it is a radial derivative of lambda, as lambda was recomputed on a surface with a boozer transform."
+                    f"Cannot compute `{quantity}` as it is a radial derivative of lambda, as lambda was recomputed on a surface with a boozer transform, "
+                    "without finite difference radial derivatives."
                 )
 
         # --- handle integration --- #

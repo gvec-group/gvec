@@ -80,7 +80,7 @@ def check_field_periodicity(xyz: np.ndarray, nfp: int, atol=1e-12):
 
 
 def surface_normal(xyz: np.ndarray, nzeta=0, ntheta=0):
-    """
+    r"""
     compute the non-normalized normal vector :math:`\mathbf{N}=\partial_\theta \mathbf{x} \times \partial_\zeta \mathbf{x}` of the surface.
 
     Parameters
@@ -647,8 +647,8 @@ def read_Gframe_ncfile(ncfile: str | Path):
         ds.load()
     nfp = ds.NFP.data
     dict_out = {"nfp": nfp}
-    if "generatedFrom" in ds:
-        dict_out["generatedFrom"] = ds.generatedFrom
+    if "generatedFrom" in ds.attrs:
+        dict_out["generatedFrom"] = ds.attrs["generatedFrom"]
 
     if "axis" in ds:
         dict_out["axis"] = {}

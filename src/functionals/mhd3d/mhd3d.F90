@@ -82,10 +82,10 @@ SUBROUTINE InitMHD3D(sf)
   INTEGER          :: degGP,mn_nyq(2),mn_nyq_min(2),fac_nyq
   INTEGER          :: nfp_loc
   INTEGER          :: X1X2_BCtype_axis(0:4),LA_BCtype_axis(0:4)
-  INTEGER          :: proposal_mn_max(1:2)=(/2,0/) !!default proposals, changed for VMEC input to automatically match input!
-  CHARACTER(LEN=8) :: proposal_X1_sin_cos="_cos_"  !!default proposals, changed for VMEC input to automatically match input!
-  CHARACTER(LEN=8) :: proposal_X2_sin_cos="_sin_"  !!default proposals, changed for VMEC input to automatically match input!
-  CHARACTER(LEN=8) :: proposal_LA_sin_cos="_sin_"  !!default proposals, changed for VMEC input to automatically match input!
+  INTEGER          :: proposal_mn_max(1:2) !!default proposals, changed for VMEC input to automatically match input!
+  CHARACTER(LEN=8) :: proposal_X1_sin_cos  !!default proposals, changed for VMEC input to automatically match input!
+  CHARACTER(LEN=8) :: proposal_X2_sin_cos  !!default proposals, changed for VMEC input to automatically match input!
+  CHARACTER(LEN=8) :: proposal_LA_sin_cos  !!default proposals, changed for VMEC input to automatically match input!
   REAL(wp)         :: scale_minor_radius
   CHARACTER(LEN=255) ::boundary_filename
   CHARACTER(LEN=8) :: boundary_perturb_type_str !! readin variable for boundary_perturb_type: legacy, cosm
@@ -93,6 +93,13 @@ SUBROUTINE InitMHD3D(sf)
 !===================================================================================================================================
   CALL enter_subregion("init-MHD3D")
   CALL par_Barrier(beforeScreenOut='INIT MHD3D ...')
+
+  ! set the default proposals on every call (an initializer in the declaration would imply SAVE,
+  ! keeping the proposals of a previous VMEC or boundary-file initialization)
+  proposal_mn_max=(/2,0/)
+  proposal_X1_sin_cos="_cos_"
+  proposal_X2_sin_cos="_sin_"
+  proposal_LA_sin_cos="_sin_"
 
   which_init = GETINT("whichInitEquilibrium",0)
   IF(which_init.EQ.1) CALL InitVMEC()
@@ -766,9 +773,9 @@ SUBROUTINE InitSolutionMHD3D(sf, RestartFile_in, do_WriteState_in)
       CALL par_Bcast(vars%dofs(0)%LA,0)
     END IF
 
-    CALL vars%dofs(-1)%set_to(vars%dofs(0))
-    CALL vars%dofs(-2)%set_to(vars%dofs(0))
-    CALL vars%dofs(-3)%set_to(vars%dofs(0))
+    CALL vars%dofs(-1)%set_to(vars%dofs(0)) ! last state
+    CALL vars%dofs(-2)%set_to(vars%dofs(0)) ! state at last logging interval
+    CALL vars%dofs(-3)%set_to(vars%dofs(0)) ! initial state
 
     JacCheck=2
     CALL InitProfilesGP() !evaluate profiles once at Gauss Points (on MPIroot + BCast)

@@ -334,6 +334,18 @@ def test_flip_parameters(func, transform):
         np.testing.assert_allclose(result, reference, err_msg=f"with variable X{i}")
 
 
+def test_compute_boundary_perturbation_removes_dropped_modes():
+    """A restart boundary mode left out of the new parameters is perturbed to zero."""
+    restart = {
+        "X1_b_cos": {(0, 0): 3.0, (1, 0): 0.5, (2, 1): 0.03},
+        "X1_b_sin": {(1, 1): 0.01},
+    }
+    new = {"X1_b_cos": {(0, 0): 3.0, (1, 0): 0.5}}
+    base, pert = util.compute_boundary_perturbation(restart, new)
+    assert dict(pert["X1pert_b_cos"]) == {(2, 1): -0.03}
+    assert dict(pert["X1pert_b_sin"]) == {(1, 1): -0.01}
+
+
 def test_boundary_direction():
     parameters = {
         "X1_b_cos": {
@@ -427,3 +439,20 @@ def test_linking_number_boundary(case, Lk_expected, endpoint):
         assert np.abs(Lk - phi_dir * Lk_expected * nfp) < 1e-8, (
             f"Linking number of the surface is not as expected! Got {Lk}, expected {phi_dir * Lk_expected * nfp}, for phi direction {-phi_dir}"
         )
+
+
+def test_compute_boundary_perturbation_keeps_restart_boundary():
+    """The base returned for a restart carries the restart boundary, the perturbation the difference."""
+    restart = {
+        "X1_b_cos": {(0, 0): 3.0, (1, 0): 0.5},
+        "X2_b_sin": {(1, 0): 0.5},
+    }
+    new = {
+        "X1_b_cos": {(0, 0): 3.1, (1, 0): 0.5},
+        "X2_b_sin": {(1, 0): 0.5},
+    }
+    base, pert = util.compute_boundary_perturbation(restart, new)
+    assert dict(base["X1_b_cos"]) == {(0, 0): 3.0, (1, 0): 0.5}
+    assert dict(base["X2_b_sin"]) == {(1, 0): 0.5}
+    assert dict(pert["X1pert_b_cos"]) == pytest.approx({(0, 0): 0.1})
+    assert dict(pert["X2pert_b_sin"]) == {}

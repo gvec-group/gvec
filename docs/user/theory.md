@@ -50,7 +50,7 @@ This allows us to write the MHD energy functional as
 \begin{equation}
     W_\text{MHD} = \rint\dblint \frac{1}{2\mu_0} (B^\alpha g_{\alpha\beta} B^\beta)\Jac + \frac{p}{(\gamma - 1)} \Jac\,\mathrm{d} \rho\,\mathrm{d}\thet\,\mathrm{d}\zeta.
 \end{equation}
-with the covariant components $B^\alpha=\vec{B}\cdot\grad\alpha$, and
+with the contravariant components $B^\alpha=\vec{B}\cdot\grad\alpha$, and
 using Einstein summation convention, summing over repeated indices.
 
 
@@ -186,8 +186,8 @@ with $i,j\in\{1,2,3\}$ and $(q^1,q^2,q^3)=(X^1,X^2,\zeta)$ as well as $\alpha, \
 
 The terms related to the variation in $\lambda$ are
 \begin{equation}
-    [\delta b^\thet]_\Lambda   = \Phi^\prime \pdv{\Lambda}{\zeta}, \qquad
-    [\delta b^\zeta]_\Lambda    = -\Phi^\prime \pdv{\Lambda}{\thet}.
+    [\delta b^\thet]_\Lambda   = -\Phi^\prime \pdv{\Lambda}{\zeta}, \qquad
+    [\delta b^\zeta]_\Lambda    = \Phi^\prime \pdv{\Lambda}{\thet}.
 \end{equation}
 
 We can collect the terms corresponding to the derivative of each component to obtain,
