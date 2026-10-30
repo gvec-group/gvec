@@ -10,7 +10,7 @@ from pathlib import Path
 from tabulate import tabulate
 import numpy as np
 
-from gvec import find_state, volume_integral
+from gvec import find_state, volume_integral, State
 from gvec.util import logging_setup
 from gvec.gframe import writhe
 
@@ -47,26 +47,7 @@ def get_info(ev, q: str, comment: str | None = None):
     return [q, ev[q].item(), ev[q].attrs["long_name"] + (f" ({comment})" if comment else "")]
 
 
-def main(args: Sequence[str] | argparse.Namespace | None = None):
-    if isinstance(args, argparse.Namespace):
-        pass
-    else:
-        args = parser.parse_args(args)
-
-    logging_setup()
-    logger = logging.getLogger("gvec")
-    if args.quiet:
-        logging.disable()
-    if args.verbose >= 2:
-        logger.setLevel(logging.DEBUG)
-    elif args.verbose == 1:
-        logger.setLevel(logging.INFO)
-    logger.debug(f"parsed args: {args}")
-
-    state = find_state(args.rundir)
-
-    logger.info("Evaluating State")
-
+def info(state: State):
     Q_geo = ["V", "L_axis", "A_surface", "r_major", "r_minor", "aspect_ratio", "elongation"]
     Q_other = ["beta_avg", "mod_F_rel_volavg", "W_MHD", "vacuum_magnetic_well_depth"]
     Q_vol = ["iota", "iota_avg", "shear_avg", "mod_B", "Phi_edge", "p"]
@@ -120,6 +101,29 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         ["frame_linking_number", Lk, "linking number of the coordinate frame"],
         ["frame_twist", Tw, "twist of the coordinate frame"],
     ]
+    return output
+
+
+def main(args: Sequence[str] | argparse.Namespace | None = None):
+    if isinstance(args, argparse.Namespace):
+        pass
+    else:
+        args = parser.parse_args(args)
+
+    logging_setup()
+    logger = logging.getLogger("gvec")
+    if args.quiet:
+        logging.disable()
+    if args.verbose >= 2:
+        logger.setLevel(logging.DEBUG)
+    elif args.verbose == 1:
+        logger.setLevel(logging.INFO)
+    logger.debug(f"parsed args: {args}")
+
+    state = find_state(args.rundir)
+
+    logger.info("Evaluating State")
+    output = info(state)
 
     if args.raw:
         print("\n".join(";".join(map(str, row)) for row in output))

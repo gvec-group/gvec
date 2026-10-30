@@ -161,6 +161,18 @@ mathjax3_config = {
             "bm": [r"\mathbf{#1}", 1],
             "Itor": r"I_{\text{tor}}",
             "Ipol": r"I_{\text{pol}}",
+            "tIpol": r"\tilde{I}_{\text{pol}}",
+            "iotageom": r"\iota_{\text{geom}}",
+            "iotacurr": r"\iota_{\text{curr}}",
+            "iotacurrz": r"\bar{\iota}_{\text{curr}}",
+            "grr": r"g_{\rho\rho}",
+            "gtt": r"g_{\thet\thet}",
+            "gzz": r"g_{\zeta\zeta}",
+            "grt": r"g_{\rho\thet}",
+            "grz": r"g_{\rho\zeta}",
+            "gtz": r"g_{\thet\zeta}",
+            "llangle": r"\left\langle",
+            "rrangle": r"\right\rangle",
         },
     },
 }
@@ -180,7 +192,6 @@ exclude_patterns = [
     "generators",
     "_downloads",
     "build",
-    "tutorials/requirements.txt",
     "tutorials/notebooks/ruff.toml",
 ]
 

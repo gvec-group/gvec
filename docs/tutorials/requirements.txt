@@ -1,9 +1,0 @@
-jupyter
-nbconvert
-ipykernel
-ipympl
-ipywidgets
-matplotlib
-plotly<6.0
-simsopt
-git+https://gitlab.mpcdf.mpg.de/nmpp-mhd-group/fhindenlang/fbtools.git

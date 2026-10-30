@@ -133,7 +133,9 @@ $$
  Due to the integration with respect to $\vartheta$ and periodicity the term with $\frac{\partial B_\rho}{\partial\vartheta}$ vanishes. Hence, we can express the toroidal current profile as
 
 $$
-  I_{\text{tor}}(\rho) = \frac{1}{\mu_0} \int_0^{2\pi} \left . B_\vartheta\right |_{\rho} \, \mathrm{d}\vartheta \frac{1}{2\pi\mu_0} \int_0^{2\pi}  \int_0^{2\pi}  \left . B_\vartheta\right |_{\rho} \, \mathrm{d}\vartheta \, \mathrm{d}\zeta= \frac{1}{2\pi\mu_0} {\left\langle B_\vartheta |_{\rho} \right\rangle}.
+  I_{\text{tor}}(\rho) = \frac{1}{\mu_0} \int_0^{2\pi} \left . B_\vartheta\right |_{\rho} \, \mathrm{d}\vartheta
+  = \frac{1}{2\pi\mu_0} \int_0^{2\pi}  \int_0^{2\pi}  \left . B_\vartheta\right |_{\rho} \, \mathrm{d}\vartheta \, \mathrm{d}\zeta
+  = \frac{1}{2\pi\mu_0} {\left\langle B_\vartheta |_{\rho} \right\rangle}.
 $$
 
 $B_\vartheta$ can be obtained via (see also magnetic field in  [theory](theory.md)):

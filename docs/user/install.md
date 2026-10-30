@@ -239,7 +239,7 @@ source .venv/bin/activate
 
 Then you can install the gvec python package manually with
 ```bash
-pip install .[dev,examples] -v
+pip install .[examples] -v
 ```
 
 To speed up repeated compilations you can disable *build-isolation*.

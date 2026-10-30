@@ -33,6 +33,7 @@ python:
       path: .
       extra_requirements:
         - examples
+        - free_boundary
 
 # Build documentation in the "docs/" directory with Sphinx
 sphinx:
